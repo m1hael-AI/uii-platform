@@ -52,9 +52,9 @@ async def sync_user_avatar_from_telegram(user: User, session: AsyncSession) -> s
     if not user.tg_id:
         return None
         
-    bot_token = os.getenv("BOT_TOKEN")
+    bot_token = settings.telegram_bot_token
     if not bot_token:
-        logger.error("❌ BOT_TOKEN not found in environment")
+        logger.error("❌ BOT_TOKEN not found in settings")
         return None
 
     async with httpx.AsyncClient() as client:

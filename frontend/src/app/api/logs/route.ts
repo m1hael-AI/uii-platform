@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
 
         // Log using server-side winston logger
         // This will write to files defined in lib/logger.ts
+        console.log(`[API/LOGS] Received log from client: ${level} - ${message}`);
         logger.log(level, message, meta);
 
         return NextResponse.json({ success: true });
