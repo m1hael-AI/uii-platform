@@ -13,9 +13,9 @@ export default function RightSidebar() {
     const sidebarRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
-    const [hasViewedMessages, setHasViewedMessages] = useState(true);
+    const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
-    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([
+    const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string, created_at?: string }[]>([
         { role: 'assistant', text: 'Здравствуйте! Я ваш AI-помощник. Чем могу помочь по учебной программе или платформе?' }
     ]);
     const [input, setInput] = useState("");
@@ -39,23 +39,24 @@ export default function RightSidebar() {
         scrollToBottom();
     }, [messages, isTyping, isOpen]);
 
-    // Helper to mark as read on Server
-    const markAsRead = async () => {
+    // Helper to mark as read on Server (returns Promise)
+    const markAsRead = async (): Promise<boolean> => {
         const token = Cookies.get("token");
-        if (!token) return;
+        if (!token) return false;
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
         try {
-            await fetch(`${API_URL}/chat/read?agent_id=main_assistant`, {
+            const res = await fetch(`${API_URL}/chat/read?agent_id=main_assistant`, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}` }
             });
-            setHasViewedMessages(true);
+            return res.ok;
         } catch (e) {
             console.error("Failed to mark as read", e);
+            return false;
         }
     };
 
-    // Load History Logic
+    // Load History Logic (only once on mount)
     useEffect(() => {
         const fetchHistory = async () => {
             const token = Cookies.get("token");
@@ -63,7 +64,6 @@ export default function RightSidebar() {
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
 
-            // GLOBAL ASSISTANT: Use main_assistant agent (separate from mentor)
             const url = new URL(`${API_URL}/chat/history`);
             url.searchParams.append("agent_id", "main_assistant");
 
@@ -74,7 +74,6 @@ export default function RightSidebar() {
                 if (res.ok) {
                     const data = await res.json();
 
-                    // Handle new API format { messages: [], last_read_at: "" }
                     const historyMessages = data.messages || [];
 
                     // Helper to safely parse UTC date
@@ -89,32 +88,27 @@ export default function RightSidebar() {
                         const uiMsgs = historyMessages.map((m: any) => ({
                             role: m.role,
                             text: m.content,
-                            created_at: m.created_at // Keep track of time
+                            created_at: m.created_at
                         }));
                         setMessages(uiMsgs);
 
                         // Sync tooltip index with loaded history to prevent firing
                         setLastTooltipMessageIndex(uiMsgs.length - 1);
 
-                        // Calculate unread status logic
-                        // Find the last message that is NOT from user (assistant)
-                        const lastAssistantMsg = uiMsgs[uiMsgs.length - 1]; // Assuming sorted
+                        // Calculate unread status
+                        const lastAssistantMsg = uiMsgs[uiMsgs.length - 1];
 
                         if (lastAssistantMsg.role === 'assistant') {
                             const msgTime = parseDate(lastAssistantMsg.created_at);
                             // If message is newer than last_read_at -> Unread
-                            if (msgTime > lastReadServer) {
-                                setHasViewedMessages(false);
-                            } else {
-                                setHasViewedMessages(true);
-                            }
+                            setHasUnreadMessages(msgTime > lastReadServer);
                         } else {
                             // User sent last message -> obviously viewed
-                            setHasViewedMessages(true);
+                            setHasUnreadMessages(false);
                         }
                     } else {
                         // No history -> nothing to read
-                        setHasViewedMessages(true);
+                        setHasUnreadMessages(false);
                     }
                 }
             } catch (e) {
@@ -123,16 +117,12 @@ export default function RightSidebar() {
                 // Mark initial load as done after processing history
                 setTimeout(() => {
                     isInitialLoad.current = false;
-                }, 1000); // Small delay to ensure effects have run
+                }, 1000);
             }
         };
 
-
         fetchHistory();
-    }, []); // FIXED: Only fetch history once on mount to avoid race conditions with markAsRead
-
-    // Load last tooltip message index from localStorage - REMOVED as valid history logic replaces it
-    // But we keep the effect that triggers showTooltip for LIVE messages logic:
+    }, []); // Only fetch history once on mount
 
     // Show tooltip when new message arrives (and sidebar is closed)
     useEffect(() => {
@@ -148,8 +138,8 @@ export default function RightSidebar() {
                 setShowTooltip(true);
                 setLastTooltipMessageIndex(currentIndex);
 
-                // Mark as unviewed since it's a new message
-                setHasViewedMessages(false);
+                // Mark as unread since it's a new message
+                setHasUnreadMessages(true);
 
                 // Hide after 5 seconds
                 const timer = setTimeout(() => {
@@ -160,13 +150,20 @@ export default function RightSidebar() {
         }
     }, [messages, isOpen, lastTooltipMessageIndex]);
 
-    // Mark messages as viewed when chat is opened
+    // Mark messages as read when chat is opened
     useEffect(() => {
-        if (isOpen && !hasViewedMessages) {
-            markAsRead();
-        }
-    }, [isOpen, hasViewedMessages]);
+        if (isOpen && hasUnreadMessages) {
+            // Immediately update UI (optimistic)
+            setHasUnreadMessages(false);
 
+            // Then sync with server
+            markAsRead().catch(err => {
+                // If failed, revert state
+                console.error("Failed to mark as read:", err);
+                setHasUnreadMessages(true);
+            });
+        }
+    }, [isOpen]); // Only depend on isOpen to avoid loops
 
     // Click Outside Logic
     useEffect(() => {
@@ -187,7 +184,7 @@ export default function RightSidebar() {
 
         const token = Cookies.get("token");
         if (!token) {
-            router.push("/login"); // Force login if no token
+            router.push("/login");
             return;
         }
 
@@ -275,8 +272,8 @@ export default function RightSidebar() {
                         </svg>
                     </div>
 
-                    {/* Red Badge (visible when there are unviewed messages) */}
-                    {!isOpen && !hasViewedMessages && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+                    {/* Red Badge (visible when there are unread messages) */}
+                    {!isOpen && hasUnreadMessages && (
                         <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white pointer-events-none"></div>
                     )}
 
