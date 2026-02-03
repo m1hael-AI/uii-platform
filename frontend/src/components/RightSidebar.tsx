@@ -348,7 +348,16 @@ export default function RightSidebar() {
                         );
                     })}
 
-                    {/* Typing indicator removed - streaming shows typing already */}
+                    {/* Typing Indicator */}
+                    {isTyping && messages[messages.length - 1].role === 'user' && (
+                        <div className="flex justify-start">
+                            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            </div>
+                        </div>
+                    )}
 
                     <div ref={messagesEndRef} />
                 </div>
