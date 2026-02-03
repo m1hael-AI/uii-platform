@@ -33,7 +33,7 @@ export default function ExpiredLinkPage() {
 
                 <div className="space-y-3">
                     <Link
-                        href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'UII_UniversityBot'}`}
+                        href={`https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'UII_UniversityBot'}?start=expired_link`}
                         target="_blank"
                         className="block w-full bg-[#FF6B35] text-white py-3 rounded-xl font-medium hover:bg-[#1a5bb0] transition-colors"
                     >
