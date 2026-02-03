@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import User
 from services.storage_service import upload_file
 from config import settings
+from loguru import logger
 
 # Fallback path for local storage if S3 fails or is disabled
 LOCAL_AVATAR_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../frontend/public/avatars'))
@@ -53,7 +54,7 @@ async def sync_user_avatar_from_telegram(user: User, session: AsyncSession) -> s
         
     bot_token = os.getenv("BOT_TOKEN")
     if not bot_token:
-        print("❌ BOT_TOKEN not found inside user_service")
+        logger.error("❌ BOT_TOKEN not found in environment")
         return None
 
     async with httpx.AsyncClient() as client:
@@ -64,6 +65,7 @@ async def sync_user_avatar_from_telegram(user: User, session: AsyncSession) -> s
             data = resp.json()
             
             if not data.get("ok") or data["result"]["total_count"] == 0:
+                logger.info(f"No avatar found for user {user.id} (tg_id={user.tg_id})")
                 return None
                 
             # Берем самое большое фото
@@ -89,10 +91,11 @@ async def sync_user_avatar_from_telegram(user: User, session: AsyncSession) -> s
                 await session.commit()
                 await session.refresh(user)
                 
+                logger.info(f"✅ Avatar synced for user {user.id}: {avatar_url}")
                 return avatar_url
                 
         except Exception as e:
-            print(f"❌ Error syncing avatar for user {user.id}: {e}")
+            logger.error(f"❌ Error syncing avatar for user {user.id}: {e}")
             return None
             
     return None

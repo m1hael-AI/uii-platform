@@ -11,7 +11,8 @@ class ClientSafeLogger {
         if (typeof window === 'undefined') {
             try {
                 // Dynamic import to avoid bundling on client
-                this.serverLogger = require('./logger').default;
+                const loggerModule = require('./logger');
+                this.serverLogger = loggerModule.default;
             } catch (e) {
                 console.error('Failed to load server logger:', e);
             }
