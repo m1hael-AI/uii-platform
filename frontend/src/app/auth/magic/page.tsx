@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
+import logger from "@/lib/logger";
 
 function AuthMagicContent() {
     const router = useRouter();
@@ -29,13 +30,15 @@ function AuthMagicContent() {
                     router.push("/platform");
                 } else {
                     const errorText = await res.text();
-                    console.warn("⚠️ Magic Link Failed:", {
+                    const errorData = {
                         status: res.status,
                         statusText: res.statusText,
                         response: errorText,
                         token: magicToken?.substring(0, 10) + "...",
                         timestamp: new Date().toISOString()
-                    });
+                    };
+                    logger.warn("⚠️ Magic Link Failed", errorData);
+                    console.warn("⚠️ Magic Link Failed:", errorData);
                     router.push("/expired-link");
                 }
             } catch (e) {

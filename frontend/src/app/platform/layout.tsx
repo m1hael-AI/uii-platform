@@ -7,6 +7,7 @@ import Image from "next/image";
 import Cookies from "js-cookie";
 // import AIWidget from "@/components/AIWidget"; // Removed
 import RightSidebar from "@/components/RightSidebar"; // Added
+import logger from "@/lib/logger";
 
 const MENU_ITEMS = [
     {
@@ -78,6 +79,7 @@ export default function PlatformLayout({
                     setAvatarError(false);
                     setIsCheckingAuth(false);
                 } else {
+                    logger.warn("u26a0ufe0f Platform auth failed", { status: res.status, url: `${API_URL}/users/me` });
                     router.replace("/login");
                 }
             } catch (e) {
