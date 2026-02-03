@@ -41,33 +41,33 @@ async def reset_database():
         
         # 1. Delete dependent data (Leaf nodes)
         print("Deleting Messages...")
-        await session.exec(delete(Message))
+        await session.execute(delete(Message))
         
         print("Deleting PasswordResetTokens...")
-        await session.exec(delete(PasswordResetToken))
+        await session.execute(delete(PasswordResetToken))
         
         print("Deleting MagicLinkTokens...")
-        await session.exec(delete(MagicLinkToken))
+        await session.execute(delete(MagicLinkToken))
         
         print("Deleting PendingActions...")
-        await session.exec(delete(PendingAction))
+        await session.execute(delete(PendingAction))
         
         print("Deleting WebinarSignups...")
-        await session.exec(delete(WebinarSignup))
+        await session.execute(delete(WebinarSignup))
         
         print("Deleting UserActions...")
-        await session.exec(delete(UserAction))
+        await session.execute(delete(UserAction))
         
         print("Deleting UserMemories...")
-        await session.exec(delete(UserMemory))
+        await session.execute(delete(UserMemory))
         
         # 2. Delete ChatSessions (depends on Users, Agents, Webinars)
         print("Deleting ChatSessions...")
-        await session.exec(delete(ChatSession))
+        await session.execute(delete(ChatSession))
         
         # 3. Delete Users (Parents for many)
         print("Deleting Users...")
-        await session.exec(delete(User))
+        await session.execute(delete(User))
         
         # We generally keep Agents, SystemConfig, ProactivitySettings as they are configuration
         # But if the user said "Clean DB, keep ONLY webinars", maybe we should ask?
@@ -75,13 +75,13 @@ async def reset_database():
         # If the user wants to clear agents too, they can uncomment below.
         
         # print("Deleting Agents...")
-        # await session.exec(delete(Agent))
+        # await session.execute(delete(Agent))
         
         # print("Deleting SystemConfig...")
-        # await session.exec(delete(SystemConfig))
+        # await session.execute(delete(SystemConfig))
         
         # print("Deleting ProactivitySettings...")
-        # await session.exec(delete(ProactivitySettings))
+        # await session.execute(delete(ProactivitySettings))
 
         await session.commit()
         print("Database cleared successfully (Webinars, Agents, Configs preserved).")
