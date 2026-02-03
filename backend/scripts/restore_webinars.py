@@ -46,21 +46,35 @@ async def restore_webinars():
             data = json.load(f)
             
         count = 0
+        now = datetime.utcnow()
+        import re
+
         for item in data:
             # Parse dates
             for key in ['created_at', 'updated_at', 'scheduled_at']:
                 if item.get(key):
                     item[key] = datetime.fromisoformat(item[key])
             
+            # Clean Video URL
+            if item.get('video_url'):
+                iframe_match = re.search(r'src="([^"]+)"', item['video_url'])
+                if iframe_match:
+                    item['video_url'] = iframe_match.group(1)
+
+            # Fix is_upcoming
+            if item.get('scheduled_at'):
+                # Force recalculate status based on current time
+                item['is_upcoming'] = item['scheduled_at'] > now
+            
             # Create object
-            # Filter out keys not in model if any?
-            # Assuming dump is 1:1 consistent with current model
+            # Filter out keys not in model if necessary
+            # For now simply unpacking
             webinar = Webinar(**item)
             db.add(webinar)
             count += 1
             
         await db.commit()
-        print(f"✅ Restored {count} webinars.")
+        print(f"✅ Restored {count} webinars with cleaned data.")
 
 if __name__ == "__main__":
     if sys.platform == "win32":
