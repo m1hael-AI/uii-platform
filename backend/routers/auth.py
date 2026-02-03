@@ -13,6 +13,7 @@ from models import User, UserRole
 from dependencies import get_db
 from services.auth import create_access_token, verify_password, get_password_hash, verify_magic_link
 from config import settings
+from loguru import logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,6 +40,7 @@ async def magic_link_login(
     """
     user_id = await verify_magic_link(db, token)
     if not user_id:
+        logger.warning(f"⚠️ Magic Link verification failed: token={token[:10]}...")
         raise HTTPException(
             status_code=400, 
             detail="Ссылка недействительна или устарела. Запросите новую в боте."

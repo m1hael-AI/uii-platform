@@ -28,7 +28,14 @@ function AuthMagicContent() {
                     Cookies.set("token", data.access_token, { expires: 7 });
                     router.push("/platform");
                 } else {
-                    console.error("Link invalid", res.status);
+                    const errorText = await res.text();
+                    console.warn("⚠️ Magic Link Failed:", {
+                        status: res.status,
+                        statusText: res.statusText,
+                        response: errorText,
+                        token: magicToken?.substring(0, 10) + "...",
+                        timestamp: new Date().toISOString()
+                    });
                     router.push("/expired-link");
                 }
             } catch (e) {
