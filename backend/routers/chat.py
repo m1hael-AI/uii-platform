@@ -1,0 +1,243 @@
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from datetime import datetime
+
+from services.openai_service import generate_chat_response, stream_chat_response
+from services.context_manager import is_context_overflow, compress_context_task
+from dependencies import get_db, get_current_user
+from models import Webinar, User, ChatSession, Message, MessageRole, Agent, PendingAction
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+# Request Models
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage] 
+    agent_id: Optional[str] = "mentor"
+    webinar_id: Optional[int] = None
+
+# History Response Model
+class HistoryMessage(BaseModel):
+    role: str
+    content: str
+    created_at: str
+
+class HistoryResponse(BaseModel):
+    messages: List[HistoryMessage]
+    last_read_at: Optional[str] = None
+
+@router.get("/history", response_model=HistoryResponse)
+async def get_chat_history(
+    webinar_id: Optional[int] = None,
+    agent_id: Optional[str] = "mentor",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get chat history for current user and context"""
+    q = select(ChatSession).where(
+        ChatSession.user_id == current_user.id
+    )
+    
+    if webinar_id is not None:
+        q = q.where(ChatSession.webinar_id == webinar_id)
+    else:
+        # If no webinar, stick to agent slug AND ensure it's not a webinar session
+        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.webinar_id == None)
+        
+    result = await db.execute(q)
+    session = result.scalar_one_or_none()
+    
+    if not session:
+        return HistoryResponse(messages=[])
+        
+    # Get messages
+    msgs_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at)
+    res = await db.execute(msgs_q)
+    messages = res.scalars().all()
+    
+    return HistoryResponse(
+        messages=[
+            HistoryMessage(
+                role=m.role.value, 
+                content=m.content, 
+                created_at=m.created_at.isoformat()
+            ) for m in messages
+        ],
+        last_read_at=session.last_read_at.isoformat() if session.last_read_at else None
+    )
+
+@router.post("/completions")
+async def chat_completions(
+    request: ChatRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Get Webinar Context
+    webinar_context = ""
+    if request.webinar_id:
+        res = await db.execute(select(Webinar).where(Webinar.id == request.webinar_id))
+        w = res.scalar_one_or_none()
+        if w and w.transcript_context:
+            webinar_context = w.transcript_context
+
+    # 2. Get or Create Session
+    q = select(ChatSession).where(ChatSession.user_id == current_user.id)
+    if request.webinar_id is not None:
+        q = q.where(ChatSession.webinar_id == request.webinar_id)
+    else:
+        slug = request.agent_id or "mentor"
+        q = q.where(ChatSession.agent_slug == slug).where(ChatSession.webinar_id == None)
+        
+    result = await db.execute(q)
+    chat_session = result.scalar_one_or_none()
+    
+    if not chat_session:
+        # Create new session
+        slug = request.agent_id or "mentor"
+        chat_session = ChatSession(
+            user_id=current_user.id,
+            agent_slug=slug,
+            webinar_id=request.webinar_id,
+            is_active=True
+        )
+        db.add(chat_session)
+        await db.commit()
+        await db.refresh(chat_session)
+
+    # 3. Save User Message
+    # We take the LAST message from the client as the new one
+    if request.messages:
+        last_user_msg_content = request.messages[-1].content
+        user_db_msg = Message(
+            session_id=chat_session.id,
+            role=MessageRole.USER,
+            content=last_user_msg_content
+        )
+        db.add(user_db_msg)
+        
+        # ⏰ Update last_message_at for proactivity timer
+        chat_session.last_message_at = datetime.utcnow()
+        
+        # 🔪 Kill Switch: Delete pending proactive tasks for this agent
+        # If user initiates conversation, we don't need to send proactive message
+        agent_slug = request.agent_id or "mentor"
+        await db.execute(
+            delete(PendingAction)
+            .where(PendingAction.user_id == current_user.id)
+            .where(PendingAction.agent_slug == agent_slug)
+            .where(PendingAction.status == "pending")
+        )
+        
+        await db.commit()
+
+    # 4. Prepare Prompt
+    system_prompt = "You are a helpful AI Assistant."
+
+    if webinar_context:
+        system_prompt = (
+            f"Ты — виртуальный ассистент по вебинару.\n"
+            f"Используй ТОЛЬКО следующий текст для ответа на вопросы:\n"
+            f"--- НАЧАЛО ТЕКСТА ---\n"
+            f"{webinar_context[:150000]}\n" # Safety truncation
+            f"--- КОНЕЦ ТЕКСТА ---\n"
+            f"Если ответа нет в тексте, скажи об этом вежливо."
+        )
+    else:
+        # Load agent from DB
+        agent_slug = request.agent_id or "mentor"
+        agent_res = await db.execute(select(Agent).where(Agent.slug == agent_slug))
+        agent_obj = agent_res.scalar_one_or_none()
+        if agent_obj and agent_obj.system_prompt:
+            system_prompt = agent_obj.system_prompt
+
+    conversation = [{"role": "system", "content": system_prompt}]
+    for m in request.messages:
+        conversation.append({"role": m.role, "content": m.content})
+        
+    # --- Context Management Check ---
+    # Получаем настройки из БД
+    from services.settings_service import get_proactivity_settings
+    settings = await get_proactivity_settings(db)
+    
+    current_model = settings.model # Используем модель из настроек!
+    
+    # Проверяем переполнение
+    if is_context_overflow(
+        conversation, 
+        max_tokens=settings.context_soft_limit, 
+        threshold=settings.context_threshold, 
+        model=current_model
+    ):
+        background_tasks.add_task(
+            compress_context_task, 
+            session_id=chat_session.id, 
+            keep_last_n=settings.context_compression_keep_last,
+            model=current_model
+        )
+        
+    # 5. Stream & Save
+    async def response_generator():
+        full_response = ""
+        try:
+            async for chunk in stream_chat_response(conversation, max_tokens=1500):
+                full_response += chunk
+                yield chunk
+        except Exception as e:
+            print(f"Stream error: {e}")
+            yield f"[Error: {str(e)}]"
+        finally:
+             if full_response:
+                 try:
+                     # Create a new local saving logic because 'db' might be closed or detached
+                     # Actually asyncpg connection might be closed by FastAPI.
+                     # We reuse 'db' and try. If it fails, we ignore log.
+                     ai_msg = Message(
+                         session_id=chat_session.id,
+                         role=MessageRole.ASSISTANT,
+                         content=full_response
+                     )
+                     db.add(ai_msg)
+                     
+                     # ⏰ Update last_message_at for proactivity timer
+                     chat_session.last_message_at = datetime.utcnow()
+                     
+                     await db.commit()
+                 except Exception as ex:
+                     print(f"Failed to save AI history: {ex}")
+
+    return StreamingResponse(response_generator(), media_type="text/plain")
+
+@router.post("/read")
+async def mark_chat_read(
+    webinar_id: Optional[int] = None,
+    agent_id: Optional[str] = "mentor",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mark chat session as read (update last_read_at)"""
+    q = select(ChatSession).where(ChatSession.user_id == current_user.id)
+    
+    if webinar_id is not None:
+        q = q.where(ChatSession.webinar_id == webinar_id)
+    else:
+        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.webinar_id == None)
+        
+    result = await db.execute(q)
+    session = result.scalar_one_or_none()
+    
+    if not session:
+        # Session not found - nothing to mark read yet
+        return {"status": "ok", "message": "No session found"}
+        
+    session.last_read_at = datetime.utcnow()
+    await db.commit()
+    
+    return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
