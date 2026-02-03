@@ -142,6 +142,7 @@ export default function OnboardingPage() {
                     setLoading(false);
                 }
             } else {
+                Cookies.remove("token"); // Clear invalid token to avoid bounce
                 router.push("/login");
             }
         } catch (e) {

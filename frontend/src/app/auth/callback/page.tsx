@@ -30,6 +30,14 @@ function AuthCallbackContent() {
                     Cookies.set("token", data.access_token, { expires: 7 });
                     router.push("/platform");
                 } else {
+                    // Improved UX: If link is expired but user is already logged in, 
+                    // just redirect to platform instead of showing error.
+                    if (Cookies.get("token")) {
+                        console.log("Magic link invalid/expired, but active session found. Redirecting to platform.");
+                        router.push("/platform");
+                        return;
+                    }
+
                     console.error("Link invalid", res.status);
                     router.push("/expired-link");
                 }
