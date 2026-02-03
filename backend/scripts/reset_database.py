@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import delete, text
-from database import engine, AsyncSession
+from database import async_engine, AsyncSession
 from models import (
     User, UserAction, UserMemory, Agent, SystemConfig, 
     PendingAction, ProactivitySettings, Webinar, WebinarSignup, 
@@ -33,7 +33,7 @@ async def reset_database():
             print("Non-interactive mode detected. Use --force to proceed without confirmation.")
             return
 
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(async_engine) as session:
         print("Starting cleanup...")
         
         # Disable foreign key checks temporarily to allow truncation/deletion in any order
