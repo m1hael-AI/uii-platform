@@ -7,7 +7,7 @@
 from datetime import datetime
 from typing import Optional, List, Any, Dict
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import JSON, Column, BigInteger
+from sqlalchemy import JSON, Column, BigInteger, BigInteger
 from enum import Enum
 
 
@@ -39,8 +39,6 @@ class User(SQLModel, table=True):
     # tg_id теперь опционален, так как вход может быть через email
     tg_id: Optional[int] = Field(
         default=None, 
-        unique=True, 
-        index=True, 
         sa_column=Column(BigInteger, unique=True, index=True),
         description="Уникальный Telegram ID пользователя"
     )

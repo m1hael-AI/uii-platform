@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from utils.logger import logger
 from config import settings
-from bot.loader import bot
+from bot.loader import bot, dp
 from routers import users, chat, auth, password_reset, admin, webinars
 
 
