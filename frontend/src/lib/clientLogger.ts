@@ -36,6 +36,7 @@ class ClientSafeLogger {
             // We don't await this to avoid blocking UI
             // Only send info/warn/error to avoid spamming debug logs over network
             if (level !== 'debug') {
+                console.log(`[ClientLogger] Attempting to send ${level} log to server...`);
                 try {
                     fetch('/api/logs', {
                         method: 'POST',
@@ -51,7 +52,12 @@ class ClientSafeLogger {
                                 userAgent: navigator.userAgent
                             }
                         }),
-                    }).catch(err => console.error('Failed to send log to server:', err));
+                    })
+                        .then(res => {
+                            if (!res.ok) console.error(`[ClientLogger] Server responded with status: ${res.status}`);
+                            else console.log('[ClientLogger] Log sent successfully');
+                        })
+                        .catch(err => console.error('[ClientLogger] Failed to send log to server:', err));
                 } catch (e) {
                     // Ignore errors in logging to prevent loops
                 }
