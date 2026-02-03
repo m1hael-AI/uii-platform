@@ -127,10 +127,6 @@ export default function RightSidebar() {
             }
         };
 
-        if (isOpen) {
-            // If opened immediately, mark as read
-            markAsRead();
-        }
 
         fetchHistory();
     }, []); // FIXED: Only fetch history once on mount to avoid race conditions with markAsRead
