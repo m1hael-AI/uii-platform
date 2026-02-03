@@ -101,40 +101,40 @@ app.include_router(webinars.router)
 
 
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """
-    Middleware для логирования всех запросов:
-    - Log request method and URL
-    - Execute request
-    - Log response status and process time
-    - Catch and log unhandled exceptions
-    """
-    import time
-    start_time = time.time()
+# @app.middleware("http")
+# async def log_requests(request: Request, call_next):
+#     """
+#     Middleware для логирования всех запросов:
+#     - Log request method and URL
+#     - Execute request
+#     - Log response status and process time
+#     - Catch and log unhandled exceptions
+#     """
+#     import time
+#     start_time = time.time()
     
-    # Log request start
-    logger.info(f"Incoming request: {request.method} {request.url.path}")
+#     # Log request start
+#     logger.info(f"Incoming request: {request.method} {request.url.path}")
     
-    try:
-        response = await call_next(request)
-        process_time = (time.time() - start_time) * 1000
+#     try:
+#         response = await call_next(request)
+#         process_time = (time.time() - start_time) * 1000
         
-        # Log response
-        logger.info(
-            f"Request completed: {request.method} {request.url.path} "
-            f"- Status: {response.status_code} - Time: {process_time:.2f}ms"
-        )
-        return response
-    except Exception as e:
-        # Log unhandled exception
-        process_time = (time.time() - start_time) * 1000
-        logger.error(
-            f"Request failed: {request.method} {request.url.path} "
-            f"- Error: {str(e)} - Time: {process_time:.2f}ms"
-        )
-        # Re-raise to let FastAPI handle it (or return 500 custom response)
-        raise e
+#         # Log response
+#         logger.info(
+#             f"Request completed: {request.method} {request.url.path} "
+#             f"- Status: {response.status_code} - Time: {process_time:.2f}ms"
+#         )
+#         return response
+#     except Exception as e:
+#         # Log unhandled exception
+#         process_time = (time.time() - start_time) * 1000
+#         logger.error(
+#             f"Request failed: {request.method} {request.url.path} "
+#             f"- Error: {str(e)} - Time: {process_time:.2f}ms"
+#         )
+#         # Re-raise to let FastAPI handle it (or return 500 custom response)
+#         raise e
 
 
 @app.post("/webhook")
