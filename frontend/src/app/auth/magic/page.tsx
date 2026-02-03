@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
-import logger from "@/lib/logger";
+import logger from "@/lib/clientLogger";
 
 function AuthMagicContent() {
     const router = useRouter();

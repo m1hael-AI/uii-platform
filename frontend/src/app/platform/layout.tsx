@@ -7,7 +7,7 @@ import Image from "next/image";
 import Cookies from "js-cookie";
 // import AIWidget from "@/components/AIWidget"; // Removed
 import RightSidebar from "@/components/RightSidebar"; // Added
-import logger from "@/lib/logger";
+import logger from "@/lib/clientLogger";
 
 const MENU_ITEMS = [
     {
