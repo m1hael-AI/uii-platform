@@ -13,6 +13,7 @@ interface Question {
     type: "choice" | "input" | "phone";
     placeholder?: string;
     validation?: (value: string) => boolean;
+    maxLength?: number;
 }
 
 const QUESTIONS: Question[] = [
@@ -78,7 +79,8 @@ const QUESTIONS: Question[] = [
         text: "Придумайте пароль",
         type: "input",
         placeholder: "Минимум 8 символов",
-        validation: (val) => val.length >= 8,
+        validation: (val) => val.length >= 8 && val.length <= 128,
+        maxLength: 128,
     },
 ];
 
@@ -243,7 +245,9 @@ export default function OnboardingPage() {
 
     const currentQ = QUESTIONS[step];
     const progress = ((step + 1) / QUESTIONS.length) * 100;
-    const canProceed = !!currentValue && currentValue.length > 0;
+
+    // Check if current value satisfies validation (if exists) or just isn't empty
+    const canProceed = !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
 
     return (
         <div className="min-h-screen bg-white text-black flex flex-col items-center justify-center p-6">
@@ -296,6 +300,7 @@ export default function OnboardingPage() {
                                     onChange={(e) => handleSelect(e.target.value)}
                                     // Removed inline onKeyDown as global listener handles it
                                     placeholder={currentQ.placeholder}
+                                    maxLength={currentQ.maxLength}
                                     className="w-full px-6 py-4 border border-gray-200 rounded-xl focus:border-[#FF6B35] focus:ring-1 focus:ring-[#FF6B35]/20 outline-none transition-all text-lg"
                                     autoFocus
                                 />
