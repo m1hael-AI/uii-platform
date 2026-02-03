@@ -101,40 +101,50 @@ app.include_router(webinars.router)
 
 
 
-# @app.middleware("http")
-# async def log_requests(request: Request, call_next):
-#     """
-#     Middleware для логирования всех запросов:
-#     - Log request method and URL
-#     - Execute request
-#     - Log response status and process time
-#     - Catch and log unhandled exceptions
-#     """
-#     import time
-#     start_time = time.time()
-    
-#     # Log request start
-#     logger.info(f"Incoming request: {request.method} {request.url.path}")
-    
-#     try:
-#         response = await call_next(request)
-#         process_time = (time.time() - start_time) * 1000
+# Pure ASGI Middleware for logging (Stream-safe)
+class LogRequestsMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        import time
+        start_time = time.time()
         
-#         # Log response
-#         logger.info(
-#             f"Request completed: {request.method} {request.url.path} "
-#             f"- Status: {response.status_code} - Time: {process_time:.2f}ms"
-#         )
-#         return response
-#     except Exception as e:
-#         # Log unhandled exception
-#         process_time = (time.time() - start_time) * 1000
-#         logger.error(
-#             f"Request failed: {request.method} {request.url.path} "
-#             f"- Error: {str(e)} - Time: {process_time:.2f}ms"
-#         )
-#         # Re-raise to let FastAPI handle it (or return 500 custom response)
-#         raise e
+        # Log request start
+        path = scope.get("path", "")
+        method = scope.get("method", "")
+        logger.info(f"Incoming request: {method} {path}")
+
+        status_code = [200] # Default to 200
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status_code[0] = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+            
+            process_time = (time.time() - start_time) * 1000
+            logger.info(
+                f"Request completed: {method} {path} "
+                f"- Status: {status_code[0]} - Time: {process_time:.2f}ms"
+            )
+        except Exception as e:
+            process_time = (time.time() - start_time) * 1000
+            logger.error(
+                f"Request failed: {method} {path} "
+                f"- Error: {str(e)} - Time: {process_time:.2f}ms"
+            )
+            # Exception will be propagated
+            raise e
+
+# Register Pure ASGI Middleware
+app.add_middleware(LogRequestsMiddleware)
 
 
 @app.post("/webhook")
