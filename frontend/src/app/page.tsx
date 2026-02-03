@@ -1,4 +1,5 @@
 "use client";
+import { APP_CONFIG } from "@/lib/config";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -8,7 +9,7 @@ export default function Home() {
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center">
         <Image
-          src="/logo.jpg"
+          src={APP_CONFIG.LOGO_PATH}
           alt="UII Logo"
           width={80}
           height={80}

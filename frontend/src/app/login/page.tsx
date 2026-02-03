@@ -1,4 +1,5 @@
 "use client";
+import { APP_CONFIG } from "@/lib/config";
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -75,7 +76,7 @@ export default function LoginPage() {
       <header className="px-8 py-6">
         <Link href="/" className="flex items-center gap-3 w-fit">
           <Image
-            src="/logo.jpg"
+            src={APP_CONFIG.LOGO_PATH}
             alt="UII"
             width={32}
             height={32}

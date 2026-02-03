@@ -1,4 +1,5 @@
 "use client";
+import { APP_CONFIG } from "@/lib/config";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -131,7 +132,7 @@ export default function NewPasswordPage() {
             <header className="px-8 py-6">
                 <Link href="/login" className="flex items-center gap-3 w-fit">
                     <Image
-                        src="/logo.jpg"
+                        src={APP_CONFIG.LOGO_PATH}
                         alt="UII"
                         width={32}
                         height={32}

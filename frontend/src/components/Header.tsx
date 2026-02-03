@@ -1,4 +1,5 @@
 "use client";
+import { APP_CONFIG } from "@/lib/config";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -17,7 +18,7 @@ export default function Header({ isLoggedIn = false }: HeaderProps) {
         <div className="flex items-center justify-between">
           <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3">
             <Image
-              src="/logo.jpg"
+              src={APP_CONFIG.LOGO_PATH}
               alt="UII Logo"
               width={40}
               height={40}
