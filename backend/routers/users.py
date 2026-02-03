@@ -77,6 +77,12 @@ async def set_password(
 ):
     """Set or change user password"""
     
+    # 1. Validation for length
+    if len(pwd_data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Пароль слишком короткий (минимум 8 символов)")
+    if len(pwd_data.new_password) > 128:
+        raise HTTPException(status_code=400, detail="Пароль слишком длинный (максимум 128 символов)")
+
     # Security check: if user already has a password, they MUST provide old_password
     if current_user.hashed_password:
         if not pwd_data.old_password:
