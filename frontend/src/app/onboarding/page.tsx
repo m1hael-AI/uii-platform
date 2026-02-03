@@ -301,9 +301,11 @@ export default function OnboardingPage() {
                                     // Removed inline onKeyDown as global listener handles it
                                     placeholder={currentQ.placeholder}
                                     maxLength={currentQ.maxLength}
-                                    className="w-full px-6 py-4 border border-gray-200 rounded-xl focus:border-[#FF6B35] focus:ring-1 focus:ring-[#FF6B35]/20 outline-none transition-all text-lg"
                                     autoFocus
                                 />
+                                {currentQ.id === "password" && currentValue.length > 0 && currentValue.length < 8 && (
+                                    <p className="text-xs text-red-500 mt-1 ml-2">Нужно еще {8 - currentValue.length} симв.</p>
+                                )}
                             </div>
                         )}
 
