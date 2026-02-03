@@ -21,9 +21,7 @@ function AuthMagicContent() {
         const exchangeToken = async () => {
             try {
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-                const res = await fetch(`${API_URL}/auth/magic?token=${magicToken}`, {
-                    method: "POST"
-                });
+                const res = await fetch(`${API_URL}/auth/magic?token=${magicToken}`);
 
                 if (res.ok) {
                     const data = await res.json();
