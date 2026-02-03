@@ -77,8 +77,8 @@ const QUESTIONS: Question[] = [
         id: "password",
         text: "Придумайте пароль",
         type: "input",
-        placeholder: "Минимум 6 символов",
-        validation: (val) => val.length >= 6,
+        placeholder: "Минимум 8 символов",
+        validation: (val) => val.length >= 8,
     },
 ];
 
