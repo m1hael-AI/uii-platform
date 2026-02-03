@@ -29,7 +29,7 @@ class Token(BaseModel):
     token_type: str
 
 
-
+@router.get("/magic", response_model=Token)
 async def magic_link_login(
     token: str,
     db: AsyncSession = Depends(get_db)
