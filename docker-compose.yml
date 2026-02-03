@@ -93,6 +93,7 @@ services:
       # Настройки приложения
       APP_ENV: ${APP_ENV:-production}
       DEBUG: ${DEBUG:-false}
+      FRONTEND_URL: ${FRONTEND_URL}
     ports:
       - "8010:8000"
     volumes:
@@ -122,6 +123,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-ai_university}
       REDIS_URL: redis://redis:6379/0
+      FRONTEND_URL: ${FRONTEND_URL}
     volumes:
       - ./backend:/app
     command: python run_polling.py
