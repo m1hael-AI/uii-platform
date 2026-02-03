@@ -15,9 +15,13 @@ export default function RightSidebar() {
 
     const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
+    // Committed history (Server + Completed Local)
     const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string, created_at?: string }[]>([
         { role: 'assistant', text: 'Здравствуйте! Я ваш AI-помощник. Чем могу помочь по учебной программе или платформе?' }
     ]);
+
+    // Active Streaming State (separate from messages array for performance)
+    const [streamingMessage, setStreamingMessage] = useState("");
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -26,7 +30,7 @@ export default function RightSidebar() {
     const [showTooltip, setShowTooltip] = useState(false);
     const [lastTooltipMessageIndex, setLastTooltipMessageIndex] = useState<number>(-1);
 
-    // Ref to track initial history load to prevent tooltip spam on refresh
+    // Ref to track initial history load
     const isInitialLoad = useRef(true);
 
     const toggle = () => setIsOpen(!isOpen);
@@ -37,9 +41,9 @@ export default function RightSidebar() {
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isTyping, isOpen]);
+    }, [messages, streamingMessage, isTyping, isOpen]);
 
-    // Helper to mark as read on Server (returns Promise)
+    // Helper to mark as read on Server
     const markAsRead = async (): Promise<boolean> => {
         const token = Cookies.get("token");
         if (!token) return false;
@@ -56,14 +60,13 @@ export default function RightSidebar() {
         }
     };
 
-    // Load History Logic (only once on mount)
+    // Load History Logic
     useEffect(() => {
         const fetchHistory = async () => {
             const token = Cookies.get("token");
             if (!token) return;
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-
             const url = new URL(`${API_URL}/chat/history`);
             url.searchParams.append("agent_id", "main_assistant");
 
@@ -73,15 +76,12 @@ export default function RightSidebar() {
                 });
                 if (res.ok) {
                     const data = await res.json();
-
                     const historyMessages = data.messages || [];
 
-                    // Helper to safely parse UTC date
                     const parseDate = (dateStr: string) => {
                         if (!dateStr) return new Date(0);
                         return new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
                     };
-
                     const lastReadServer = parseDate(data.last_read_at);
 
                     if (historyMessages.length > 0) {
@@ -91,30 +91,22 @@ export default function RightSidebar() {
                             created_at: m.created_at
                         }));
                         setMessages(uiMsgs);
-
-                        // Sync tooltip index with loaded history to prevent firing
                         setLastTooltipMessageIndex(uiMsgs.length - 1);
 
-                        // Calculate unread status
                         const lastAssistantMsg = uiMsgs[uiMsgs.length - 1];
-
                         if (lastAssistantMsg.role === 'assistant') {
                             const msgTime = parseDate(lastAssistantMsg.created_at);
-                            // If message is newer than last_read_at -> Unread
                             setHasUnreadMessages(msgTime > lastReadServer);
                         } else {
-                            // User sent last message -> obviously viewed
                             setHasUnreadMessages(false);
                         }
                     } else {
-                        // No history -> nothing to read
                         setHasUnreadMessages(false);
                     }
                 }
             } catch (e) {
                 console.error("Failed to load history", e);
             } finally {
-                // Mark initial load as done after processing history
                 setTimeout(() => {
                     isInitialLoad.current = false;
                 }, 1000);
@@ -122,66 +114,62 @@ export default function RightSidebar() {
         };
 
         fetchHistory();
-    }, []); // Only fetch history once on mount
+    }, []);
 
-    // Unified Notification & Tracker Logic
+    // 🔔 UNIFIED NOTIFICATION LOGIC
+    // Only notifies on COMPLETED messages
     useEffect(() => {
-        if (messages.length === 0) return;
-        const currentIndex = messages.length - 1;
-
         if (isOpen) {
             // SCENARIO 1: Sidebar is OPEN. 
-            // We are viewing the chat. Update "last seen" pointer immediately.
-            // This prevents the "Close -> Notify" bug because we confirm we've seen this index.
-            // Even if message is default/old, we mark it as seen.
-            setLastTooltipMessageIndex(currentIndex);
+            // We see everything. Clear alerts.
+            if (hasUnreadMessages) setHasUnreadMessages(false);
 
-            // Also ensure UI is clean
-            if (hasUnreadMessages) {
-                setHasUnreadMessages(false);
+            // Mark all current COMMITTED messages as seen
+            if (messages.length > 0) {
+                setLastTooltipMessageIndex(messages.length - 1);
             }
         } else {
             // SCENARIO 2: Sidebar is CLOSED.
-            // Check for NEW messages to notify about.
             if (isInitialLoad.current) return;
 
+            // Trigger: New COMMITTED message (finished)
+            const currentIndex = messages.length - 1;
             const lastMessage = messages[currentIndex];
 
-            // Only notify if it's Assistant AND (it's actually new)
-            if (lastMessage.role === 'assistant' && currentIndex > lastTooltipMessageIndex) {
-                setShowTooltip(true);
-                setLastTooltipMessageIndex(currentIndex);
-                setHasUnreadMessages(true);
+            // Allow notification ONLY if it's a new, untracked message
+            // AND it's not a temporary user optimistic message (wait for assistant)
+            const isNewCommitted = lastMessage && lastMessage.role === 'assistant' && currentIndex > lastTooltipMessageIndex;
 
-                // Auto-hide tooltip
-                const timer = setTimeout(() => {
-                    setShowTooltip(false);
-                }, 5000);
-                return () => clearTimeout(timer);
+            if (isNewCommitted) {
+                if (!hasUnreadMessages) {
+                    setShowTooltip(true);
+                    setLastTooltipMessageIndex(currentIndex);
+                    setHasUnreadMessages(true);
+
+                    // Auto-hide tooltip
+                    const timer = setTimeout(() => setShowTooltip(false), 5000);
+                    return () => clearTimeout(timer);
+                }
             }
         }
     }, [messages, isOpen, lastTooltipMessageIndex, hasUnreadMessages]);
 
-    // Server Sync Logic (Mark as Read)
+    // Sync Read Status with Server when Open
     useEffect(() => {
         if (isOpen) {
-            // When opened, always try to mark as read on server (idempotent)
             markAsRead().catch(console.error);
         }
     }, [isOpen]);
 
-    // Click Outside Logic
+    // Click Outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (isOpen && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
         };
-
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isOpen]);
 
     const handleSend = async () => {
@@ -196,15 +184,17 @@ export default function RightSidebar() {
         const userText = input;
         setInput("");
 
-        // Add User Message (Optimistic)
-        setMessages(prev => [...prev, { role: 'user', text: userText }]);
+        // 1. Add User Message Immediately
+        const tempUserMsg = { role: 'user' as const, text: userText };
+        setMessages(prev => [...prev, tempUserMsg]);
         setIsTyping(true);
-
-        // Add Placeholder for Assistant Message
-        setMessages(prev => [...prev, { role: 'assistant', text: "" }]);
+        setStreamingMessage(""); // Reset stream
 
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+            // Prepare context (include user's new message)
+            const contextMessages = [...messages, tempUserMsg].map(m => ({ role: m.role, content: m.text }));
 
             const res = await fetch(`${API_URL}/chat/completions`, {
                 method: "POST",
@@ -213,7 +203,7 @@ export default function RightSidebar() {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    messages: [...messages, { role: 'user', text: userText }].map(m => ({ role: m.role, content: m.text })),
+                    messages: contextMessages,
                     agent_id: "main_assistant",
                     webinar_id: null
                 })
@@ -233,26 +223,22 @@ export default function RightSidebar() {
                 const chunk = decoder.decode(value, { stream: true });
                 accumulatedText += chunk;
 
-                // Update the last message (assistant's placeholder)
-                setMessages(prev => {
-                    const newMsgs = [...prev];
-                    const lastMsg = newMsgs[newMsgs.length - 1];
-                    if (lastMsg.role === 'assistant') {
-                        lastMsg.text = accumulatedText;
-                    }
-                    return newMsgs;
-                });
+                // 2. Update STREAMING state (cheap render)
+                setStreamingMessage(accumulatedText);
             }
+
+            // 3. DONE: Commit to history
+            // Order important: Add to history -> Clear stream
+            // This ensures no flickering (or minimal)
+            setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText }]);
+            setStreamingMessage("");
 
         } catch (e: any) {
             console.error("Chat Error:", e);
-            setMessages(prev => {
-                const newMsgs = [...prev];
-                if (newMsgs[newMsgs.length - 1].text === "") {
-                    newMsgs[newMsgs.length - 1].text = `Прошу прощения, произошла ошибка соединения. (${e.message || "Unknown error"})`;
-                }
-                return newMsgs;
-            });
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                text: `Прошу прощения, произошла ошибка соединения. (${e.message || "Unknown error"})`
+            }]);
         } finally {
             setIsTyping(false);
         }
@@ -260,11 +246,11 @@ export default function RightSidebar() {
 
     return (
         <div ref={sidebarRef}>
-            {/* Collapsed Tab (Always Visible when closed) */}
+            {/* Collapsed Tab */}
             <button
                 onClick={() => {
                     toggle();
-                    setShowTooltip(false); // Hide tooltip when opening
+                    setShowTooltip(false);
                 }}
                 className={`fixed top-1/2 right-0 -translate-y-1/2 z-50 bg-white border border-gray-200 border-r-0 rounded-l-xl shadow-md p-2 flex flex-col items-center gap-2 transition-transform duration-300 hover:bg-gray-50 group hover:pr-3 ${isOpen ? "translate-x-full" : "translate-x-0"
                     }`}
@@ -277,12 +263,12 @@ export default function RightSidebar() {
                         </svg>
                     </div>
 
-                    {/* Red Badge (visible when there are unread messages) */}
+                    {/* Red Badge */}
                     {!isOpen && hasUnreadMessages && (
                         <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white pointer-events-none"></div>
                     )}
 
-                    {/* Tooltip Animation (shows only for NEW messages) */}
+                    {/* Tooltip Animation */}
                     {FEATURE_TOOLTIP_ANIMATION && showTooltip && !isOpen && (
                         <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-[#206ecf] text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap animate-fade-in-right">
                             У вас новое сообщение! 💬
@@ -296,7 +282,7 @@ export default function RightSidebar() {
             </button>
 
 
-            {/* Expanded Sidebar (Drawer) */}
+            {/* Expanded Sidebar */}
             <div
                 className={`fixed inset-y-0 right-0 z-50 w-full md:w-[400px] bg-white border-l border-gray-200 shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"
                     }`}
@@ -326,39 +312,43 @@ export default function RightSidebar() {
 
                 {/* Chat Area */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
-                    {messages.map((msg, idx) => {
-                        // Skip rendering empty assistant bubbles (ghost bubbles)
-                        if (msg.role === 'assistant' && !msg.text) return null;
+                    {/* 1. Committed Messages history */}
+                    {messages.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
+                                ? 'bg-[#206ecf] text-white rounded-tr-none'
+                                : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
+                                }`}>
+                                {msg.role === 'user' ? (
+                                    msg.text
+                                ) : (
+                                    <div className="prose prose-sm max-w-none text-inherit dark:prose-invert">
+                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
 
-                        return (
-                            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user'
-                                    ? 'bg-[#206ecf] text-white rounded-tr-none'
-                                    : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
-                                    }`}>
-                                    {msg.role === 'user' ? (
-                                        msg.text
-                                    ) : (
-                                        <div className="prose prose-sm max-w-none text-inherit dark:prose-invert">
-                                            <ReactMarkdown>{msg.text}</ReactMarkdown>
-                                        </div>
-                                    )}
+                    {/* 2. Active Streaming Message (Assistant) */}
+                    {isTyping && streamingMessage && (
+                        <div className="flex justify-start">
+                            <div className="max-w-[85%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm leading-relaxed shadow-sm text-gray-800">
+                                <div className="prose prose-sm max-w-none text-inherit dark:prose-invert">
+                                    <ReactMarkdown>{streamingMessage}</ReactMarkdown>
                                 </div>
                             </div>
-                        );
-                    })}
+                        </div>
+                    )}
 
-                    {/* Typing Indicator */}
-                    {isTyping && (
+                    {/* 3. Typing Indicator (Only if thinking and no text yet) */}
+                    {isTyping && !streamingMessage && (
                         <div className="flex justify-start">
-                            {/* Show dots only if the latest assistant message is still empty (thinking phase) */}
-                            {messages[messages.length - 1].role === 'assistant' && !messages[messages.length - 1].text && (
-                                <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                </div>
-                            )}
+                            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            </div>
                         </div>
                     )}
 
