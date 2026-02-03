@@ -124,49 +124,51 @@ export default function RightSidebar() {
         fetchHistory();
     }, []); // Only fetch history once on mount
 
-    // Show tooltip when new message arrives (and sidebar is closed)
+    // Unified Notification & Tracker Logic
     useEffect(() => {
-        if (!isOpen && messages.length > 0) {
-            // BLOCKER: Don't show tooltip on initial load
+        if (messages.length === 0) return;
+        const currentIndex = messages.length - 1;
+
+        if (isOpen) {
+            // SCENARIO 1: Sidebar is OPEN. 
+            // We are viewing the chat. Update "last seen" pointer immediately.
+            // This prevents the "Close -> Notify" bug because we confirm we've seen this index.
+            // Even if message is default/old, we mark it as seen.
+            setLastTooltipMessageIndex(currentIndex);
+
+            // Also ensure UI is clean
+            if (hasUnreadMessages) {
+                setHasUnreadMessages(false);
+            }
+        } else {
+            // SCENARIO 2: Sidebar is CLOSED.
+            // Check for NEW messages to notify about.
             if (isInitialLoad.current) return;
 
-            const currentIndex = messages.length - 1;
             const lastMessage = messages[currentIndex];
 
-            // Only show if it's an assistant message AND it's a new index
+            // Only notify if it's Assistant AND (it's actually new)
             if (lastMessage.role === 'assistant' && currentIndex > lastTooltipMessageIndex) {
                 setShowTooltip(true);
                 setLastTooltipMessageIndex(currentIndex);
-
-                // Mark as unread since it's a new message
                 setHasUnreadMessages(true);
 
-                // Hide after 5 seconds
+                // Auto-hide tooltip
                 const timer = setTimeout(() => {
                     setShowTooltip(false);
                 }, 5000);
                 return () => clearTimeout(timer);
             }
         }
-    }, [messages, isOpen, lastTooltipMessageIndex]);
+    }, [messages, isOpen, lastTooltipMessageIndex, hasUnreadMessages]);
 
-    // Mark messages as read when chat is opened
+    // Server Sync Logic (Mark as Read)
     useEffect(() => {
-        if (isOpen && hasUnreadMessages) {
-            // Immediately update UI (optimistic)
-            setHasUnreadMessages(false);
-
-            // Sync tooltip index so we don't trigger "new message" when closing
-            setLastTooltipMessageIndex(messages.length - 1);
-
-            // Then sync with server
-            markAsRead().catch(err => {
-                // If failed, revert state
-                console.error("Failed to mark as read:", err);
-                setHasUnreadMessages(true);
-            });
+        if (isOpen) {
+            // When opened, always try to mark as read on server (idempotent)
+            markAsRead().catch(console.error);
         }
-    }, [isOpen]); // Only depend on isOpen to avoid loops
+    }, [isOpen]);
 
     // Click Outside Logic
     useEffect(() => {
