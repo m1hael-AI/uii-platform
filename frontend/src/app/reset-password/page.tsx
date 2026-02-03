@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
             <header className="px-8 py-6">
                 <Link href="/login" className="flex items-center gap-3 w-fit">
                     <Image
-                        src="/logo-uii.jpg"
+                        src="/logo.jpg"
                         alt="UII"
                         width={32}
                         height={32}

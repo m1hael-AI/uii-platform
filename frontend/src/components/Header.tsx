@@ -17,7 +17,7 @@ export default function Header({ isLoggedIn = false }: HeaderProps) {
         <div className="flex items-center justify-between">
           <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3">
             <Image
-              src="/logo-uii.jpg"
+              src="/logo.jpg"
               alt="UII Logo"
               width={40}
               height={40}

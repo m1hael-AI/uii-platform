@@ -8,7 +8,7 @@ export default function Home() {
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center">
         <Image
-          src="/logo-uii.jpg"
+          src="/logo.jpg"
           alt="UII Logo"
           width={80}
           height={80}
