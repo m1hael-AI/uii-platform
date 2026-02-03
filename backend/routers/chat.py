@@ -213,7 +213,15 @@ async def chat_completions(
                  except Exception as ex:
                      print(f"Failed to save AI history: {ex}")
 
-    return StreamingResponse(response_generator(), media_type="text/plain")
+    return StreamingResponse(
+        response_generator(), 
+        media_type="text/event-stream", 
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no" # Prevent Nginx/Proxy buffering
+        }
+    )
 
 @router.post("/read")
 async def mark_chat_read(

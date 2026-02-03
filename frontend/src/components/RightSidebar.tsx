@@ -157,9 +157,10 @@ export default function RightSidebar() {
     // Sync Read Status with Server when Open
     useEffect(() => {
         if (isOpen) {
+            // When opened OR when new messages arrive while open -> Mark as read
             markAsRead().catch(console.error);
         }
-    }, [isOpen]);
+    }, [isOpen, messages.length]);
 
     // Click Outside
     useEffect(() => {
