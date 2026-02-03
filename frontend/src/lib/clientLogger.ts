@@ -24,12 +24,37 @@ class ClientSafeLogger {
             // Server-side: use winston
             this.serverLogger[level](message, meta);
         } else {
-            // Client-side: use console
+            // Client-side: use console AND send to server
             const logFn = console[level] || console.log;
             if (meta) {
                 logFn(`[${level.toUpperCase()}] ${message}`, meta);
             } else {
                 logFn(`[${level.toUpperCase()}] ${message}`);
+            }
+
+            // Send to server for file storage (fire and forget)
+            // We don't await this to avoid blocking UI
+            // Only send info/warn/error to avoid spamming debug logs over network
+            if (level !== 'debug') {
+                try {
+                    fetch('/api/logs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            level,
+                            message,
+                            meta: {
+                                ...meta,
+                                url: window.location.href,
+                                userAgent: navigator.userAgent
+                            }
+                        }),
+                    }).catch(err => console.error('Failed to send log to server:', err));
+                } catch (e) {
+                    // Ignore errors in logging to prevent loops
+                }
             }
         }
     }

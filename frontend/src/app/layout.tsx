@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   },
 };
 
+import PageLogger from "@/components/PageLogger";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,6 +23,7 @@ export default function RootLayout({
       <body
         className={`antialiased bg-white font-sans`}
       >
+        <PageLogger />
         {children}
       </body>
     </html>
