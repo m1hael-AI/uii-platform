@@ -80,6 +80,7 @@ export default function PlatformLayout({
                     setIsCheckingAuth(false);
                 } else {
                     logger.warn("u26a0ufe0f Platform auth failed", { status: res.status, url: `${API_URL}/users/me` });
+                    Cookies.remove("token"); // Clear invalid token to prevent loop
                     router.replace("/login");
                 }
             } catch (e) {
