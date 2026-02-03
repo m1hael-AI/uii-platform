@@ -156,6 +156,9 @@ export default function RightSidebar() {
             // Immediately update UI (optimistic)
             setHasUnreadMessages(false);
 
+            // Sync tooltip index so we don't trigger "new message" when closing
+            setLastTooltipMessageIndex(messages.length - 1);
+
             // Then sync with server
             markAsRead().catch(err => {
                 // If failed, revert state
