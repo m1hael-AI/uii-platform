@@ -109,10 +109,10 @@ export default function OnboardingPage() {
     // Global Enter key handler for all question types
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Calculate canProceed here to avoid using it before declaration
-            const hasValue = !!currentValue && currentValue.length > 0;
+            const currentQ = QUESTIONS[step];
+            const isValid = !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
 
-            if (e.key === 'Enter' && hasValue && !submitting) {
+            if (e.key === 'Enter' && isValid && !submitting) {
                 e.preventDefault();
                 handleNext();
             }
@@ -301,6 +301,7 @@ export default function OnboardingPage() {
                                     // Removed inline onKeyDown as global listener handles it
                                     placeholder={currentQ.placeholder}
                                     maxLength={currentQ.maxLength}
+                                    className="w-full px-6 py-4 border border-gray-200 rounded-xl focus:border-[#FF6B35] focus:ring-1 focus:ring-[#FF6B35]/20 outline-none transition-all text-lg"
                                     autoFocus
                                 />
                                 {currentQ.id === "password" && currentValue.length > 0 && currentValue.length < 8 && (
