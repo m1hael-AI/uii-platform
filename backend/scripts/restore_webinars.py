@@ -39,7 +39,7 @@ async def restore_webinars():
             
         count = 0
         from datetime import timezone
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         import re
 
         for item in data:
@@ -47,9 +47,9 @@ async def restore_webinars():
             for key in ['created_at', 'updated_at', 'scheduled_at']:
                 if item.get(key):
                     dt = datetime.fromisoformat(item[key])
-                    # Ensure timezone awareness
-                    if dt.tzinfo is None:
-                        dt = dt.replace(tzinfo=timezone.utc)
+                    # Ensure we work with UTC and then strip timezone to make it "naive"
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
                     item[key] = dt
             
             # Clean Video URL
@@ -60,7 +60,7 @@ async def restore_webinars():
 
             # Fix is_upcoming
             if item.get('scheduled_at'):
-                # Force recalculate status based on current time
+                # Force recalculate status based on current time (both naive UTC)
                 item['is_upcoming'] = item['scheduled_at'] > now
             
             # Upsert logic: Check if exists by ID
