@@ -88,7 +88,7 @@ async def check_webinar_reminders(db: AsyncSession):
     finally:
         await bot.session.close()
 
-async def send_notifications(db: AsyncSession, bot: Bot, webinar: Webinar, template: str, type: str):
+async def send_notifications(db: AsyncSession, bot: Bot, webinar: WebinarSchedule, template: str, type: str):
     """
     Отправляет уведомления подписчикам
     type: "1h" or "start"

@@ -9,7 +9,7 @@ from sqlalchemy import delete, text
 from database import async_engine, AsyncSession
 from models import (
     User, UserAction, UserMemory, Agent, SystemConfig, 
-    PendingAction, ProactivitySettings, Webinar, WebinarSignup, 
+    PendingAction, ProactivitySettings, WebinarSignup, 
     ChatSession, Message, MagicLinkToken, PasswordResetToken
 )
 

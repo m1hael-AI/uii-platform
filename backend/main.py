@@ -30,11 +30,12 @@ async def lifespan(app: FastAPI):
     logger.info("Запуск AI University Backend...")
     
     # Инициализация БД (создание таблиц)
-    try:
-        await init_db()
-        logger.info("Таблицы базы данных проверены/созданы")
-    except Exception as e:
-        logger.error(f"Ошибка инициализации БД: {e}")
+    # Инициализация БД (создание таблиц)
+    # try:
+    #     await init_db()
+    #     logger.info("Таблицы базы данных проверены/созданы")
+    # except Exception as e:
+    #     logger.error(f"Ошибка инициализации БД: {e}")
     
     # Telegram webhook setup DISABLED (Using Polling in separate service)
     # if settings.telegram_bot_token and settings.telegram_webhook_url:
