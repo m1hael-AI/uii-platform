@@ -330,9 +330,9 @@ async def mark_chat_read(
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
     
     if webinar_id is not None:
-        q = q.where(ChatSession.webinar_id == webinar_id)
+        q = q.where(ChatSession.library_id == webinar_id)
     else:
-        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.webinar_id == None)
+        q = q.where(ChatSession.agent_slug == agent_id, ChatSession.library_id == None, ChatSession.schedule_id == None)
         
     result = await db.execute(q)
     session = result.scalar_one_or_none()

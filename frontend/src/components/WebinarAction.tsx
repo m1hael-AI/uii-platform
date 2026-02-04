@@ -112,7 +112,7 @@ export default function WebinarAction({ webinar }: { webinar: Webinar }) {
                 onClick={toggle}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
-                className={`h-10 w-full rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2
+                className={`h-10 w-full md:w-40 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2
           ${isHovered
                         ? "bg-red-50 text-red-600 border border-red-100"
                         : "bg-green-50 text-green-700 border border-green-100"
@@ -140,7 +140,7 @@ export default function WebinarAction({ webinar }: { webinar: Webinar }) {
     return (
         <button
             onClick={toggle}
-            className={`h-10 w-full rounded-lg text-sm font-medium transition-all duration-200 bg-[#ff8a35] text-white hover:bg-[#e67a2e] shadow-sm hover:shadow-md flex items-center justify-center ${isLive ? 'ring-2 ring-red-400 ring-offset-1' : ''}`}
+            className={`h-10 w-full md:w-40 rounded-lg text-sm font-medium transition-all duration-200 bg-[#ff8a35] text-white hover:bg-[#e67a2e] shadow-sm hover:shadow-md flex items-center justify-center ${isLive ? 'ring-2 ring-red-400 ring-offset-1' : ''}`}
         >
             Записаться{isLive ? " (Live)" : ""}
         </button>

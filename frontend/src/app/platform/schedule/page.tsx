@@ -136,7 +136,7 @@ export default function SchedulePage() {
 
             {/* Content */}
             <div className="flex-1 w-full">
-              <Link href={`/platform/webinars/upcoming/${webinar.id}`} className="group block">
+              <Link href={`/platform/schedule/${webinar.id}`} className="group block">
                 <h3 className="text-lg font-medium text-[#231f20] group-hover:text-[#206ecf] transition-colors mb-2">
                   {webinar.title}
                 </h3>
