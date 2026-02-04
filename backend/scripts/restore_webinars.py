@@ -33,27 +33,24 @@ async def restore_webinars():
         result = await db.execute(select(Webinar))
         existing = result.scalars().first()
         
-        if existing:
-            print("Webinars already exist in DB. Skipping restore to avoid duplicates.")
-            # return 
-            # Uncomment return to strictly prevent overwrite. 
-            # For now, let's insert only missing IDs? Or just stop.
-            print("Use --force to overwrite (not implemented). Stopping.")
-            return
-
         print(f"Loading data from {file_path}...")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             
         count = 0
-        now = datetime.utcnow()
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         import re
 
         for item in data:
             # Parse dates
             for key in ['created_at', 'updated_at', 'scheduled_at']:
                 if item.get(key):
-                    item[key] = datetime.fromisoformat(item[key])
+                    dt = datetime.fromisoformat(item[key])
+                    # Ensure timezone awareness
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    item[key] = dt
             
             # Clean Video URL
             if item.get('video_url'):
@@ -66,11 +63,22 @@ async def restore_webinars():
                 # Force recalculate status based on current time
                 item['is_upcoming'] = item['scheduled_at'] > now
             
-            # Create object
-            # Filter out keys not in model if necessary
-            # For now simply unpacking
-            webinar = Webinar(**item)
-            db.add(webinar)
+            # Upsert logic: Check if exists by ID
+            webinar_id = item.get('id')
+            existing_webinar = None
+            if webinar_id:
+               existing_webinar = await db.get(Webinar, webinar_id)
+            
+            if existing_webinar:
+                # Update existing
+                for k, v in item.items():
+                    setattr(existing_webinar, k, v)
+                db.add(existing_webinar)
+            else:
+                # Create new
+                webinar = Webinar(**item)
+                db.add(webinar)
+            
             count += 1
             
         await db.commit()
