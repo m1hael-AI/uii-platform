@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import select, desc
@@ -138,28 +138,32 @@ async def get_library_webinar(
         raise HTTPException(status_code=404, detail="Webinar not found")
     return webinar
 
-@router.get("/{webinar_id}", response_model=WebinarResponse)
+@router.get("/{webinar_id}", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def get_webinar(
     webinar_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Получить один вебинар по ID"""
-    query = select(Webinar).where(Webinar.id == webinar_id)
-    if current_user.role != UserRole.ADMIN:
-        query = query.where(Webinar.is_published == True)
-        
-    result = await db.execute(query)
-    webinar = result.scalar_one_or_none()
-    
-    if not webinar:
-        raise HTTPException(status_code=404, detail="Webinar not found")
-        
-    return webinar
+    """Получить один вебинар по ID (ищет в обоих таблицах)"""
+    # 1. Try Schedule
+    schedule = await db.get(WebinarSchedule, webinar_id)
+    if schedule:
+        if current_user.role != UserRole.ADMIN and not schedule.is_published:
+             raise HTTPException(status_code=404, detail="Webinar not found")
+        return schedule
 
-@router.post("", response_model=WebinarResponse)
+    # 2. Try Library
+    library = await db.get(WebinarLibrary, webinar_id)
+    if library:
+        if current_user.role != UserRole.ADMIN and not library.is_published:
+             raise HTTPException(status_code=404, detail="Webinar not found")
+        return library
+
+    raise HTTPException(status_code=404, detail="Webinar not found")
+
+@router.post("", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def create_webinar(
-    webinar_data: WebinarCreate,
+    webinar_data: WebinarUpdate, # Use loose schema to accept all fields
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -167,18 +171,32 @@ async def create_webinar(
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    new_webinar = Webinar.model_validate(webinar_data)
+    data = webinar_data.model_dump(exclude_unset=True)
+    is_upcoming = data.get("is_upcoming", False)
     
-    # Если это архивный вебинар, ставим дату создания сейчас (или можно передавать)
-    if not new_webinar.scheduled_at:
-        new_webinar.scheduled_at = datetime.utcnow()
+    if is_upcoming:
+        # Create Schedule
+        new_item = WebinarSchedule(**data)
+        if not new_item.scheduled_at:
+             new_item.scheduled_at = datetime.utcnow()
+        db.add(new_item)
+        await db.commit()
+        await db.refresh(new_item)
+        return new_item
+    else:
+        # Create Library
+        new_item = WebinarLibrary(**data)
+        if "video_url" not in data:
+            new_item.video_url = ""
+        if not new_item.conducted_at:
+             new_item.conducted_at = datetime.utcnow()
+        
+        db.add(new_item)
+        await db.commit()
+        await db.refresh(new_item)
+        return new_item
 
-    db.add(new_webinar)
-    await db.commit()
-    await db.refresh(new_webinar)
-    return new_webinar
-
-@router.patch("/{webinar_id}", response_model=WebinarResponse)
+@router.patch("/{webinar_id}", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def update_webinar(
     webinar_id: int,
     update_data: WebinarUpdate,
@@ -188,22 +206,34 @@ async def update_webinar(
     """[ADMIN] Обновить вебинар"""
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
-        
-    webinar = await db.get(Webinar, webinar_id)
-    if not webinar:
-        raise HTTPException(status_code=404, detail="Webinar not found")
-        
-    # Partial update
-    data = update_data.model_dump(exclude_unset=True)
-    for key, value in data.items():
-        setattr(webinar, key, value)
-        
-    webinar.updated_at = datetime.utcnow()
-    
-    db.add(webinar)
-    await db.commit()
-    await db.refresh(webinar)
-    return webinar
+
+    # Try Schedule
+    schedule = await db.get(WebinarSchedule, webinar_id)
+    if schedule:
+        data = update_data.model_dump(exclude_unset=True)
+        for key, value in data.items():
+            if hasattr(schedule, key):
+                setattr(schedule, key, value)
+        schedule.updated_at = datetime.utcnow()
+        db.add(schedule)
+        await db.commit()
+        await db.refresh(schedule)
+        return schedule
+
+    # Try Library
+    library = await db.get(WebinarLibrary, webinar_id)
+    if library:
+        data = update_data.model_dump(exclude_unset=True)
+        for key, value in data.items():
+             if hasattr(library, key):
+                setattr(library, key, value)
+        library.updated_at = datetime.utcnow()
+        db.add(library)
+        await db.commit()
+        await db.refresh(library)
+        return library
+
+    raise HTTPException(status_code=404, detail="Webinar not found")
 
 @router.delete("/{webinar_id}")
 async def delete_webinar(
@@ -215,13 +245,21 @@ async def delete_webinar(
     if current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
         
-    webinar = await db.get(Webinar, webinar_id)
-    if not webinar:
-        raise HTTPException(status_code=404, detail="Webinar not found")
-        
-    await db.delete(webinar)
-    await db.commit()
-    return {"status": "deleted", "id": webinar_id}
+    # Try Schedule
+    schedule = await db.get(WebinarSchedule, webinar_id)
+    if schedule:
+        await db.delete(schedule)
+        await db.commit()
+        return {"status": "deleted", "id": webinar_id, "type": "schedule"}
+
+    # Try Library
+    library = await db.get(WebinarLibrary, webinar_id)
+    if library:
+        await db.delete(library)
+        await db.commit()
+        return {"status": "deleted", "id": webinar_id, "type": "library"}
+
+    raise HTTPException(status_code=404, detail="Webinar not found")
 
 
 # === Signup Endpoints (Dual Write: UserAction + WebinarSignup) ===
