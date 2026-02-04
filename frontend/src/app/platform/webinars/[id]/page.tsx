@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, memo } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Cookies from "js-cookie";
 import ReactMarkdown from "react-markdown";
 
@@ -73,7 +73,9 @@ VideoPlayer.displayName = "VideoPlayer";
 export default function WebinarPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const id = params.id as string;
+    const type = searchParams.get("type"); // 'library' or 'upcoming'
 
     const [webinar, setWebinar] = useState<Webinar | null>(null);
     const [loading, setLoading] = useState(true);
@@ -95,7 +97,15 @@ export default function WebinarPage() {
             }
 
             try {
-                const res = await fetch(`${API_URL}/webinars/${id}`, {
+                // EXPLICIT ROUTING: Use specific endpoints based on type to avoid ID collisions
+                let endpoint = `${API_URL}/webinars/${id}`;
+                if (type === 'library') {
+                    endpoint = `${API_URL}/webinars/library/${id}`;
+                } else if (type === 'upcoming') {
+                    endpoint = `${API_URL}/webinars/upcoming/${id}`;
+                }
+
+                const res = await fetch(endpoint, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -131,7 +141,7 @@ export default function WebinarPage() {
         };
 
         fetchWebinar();
-    }, [id, router]);
+    }, [id, router, type]);
 
     const startResizing = () => setIsDragging(true);
     const stopResizing = () => setIsDragging(false);
@@ -393,8 +403,37 @@ export default function WebinarPage() {
             <div ref={containerRef} className="hidden lg:flex flex-1 overflow-hidden bg-white rounded-2xl shadow-sm border border-gray-100 relative w-full">
                 {/* Left: Video & Content */}
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
+                    {/* Desktop: Logic to show Cover for Upcoming, Video for Library */}
+                    {webinar.is_upcoming ? (
+                        <div className="w-full aspect-video bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                            {webinar.thumbnail_url ? (
+                                <img
+                                    src={webinar.thumbnail_url}
+                                    alt={webinar.title}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center gap-3 text-gray-400">
+                                    <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                    </div>
+                                    <span className="font-medium">Вебинар скоро начнется</span>
+                                </div>
+                            )}
+                            {/* Overlay Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-6">
+                                <div className="text-white">
+                                    <p className="font-bold text-lg mb-1">Запланировано на {webinar.date}</p>
+                                    <p className="text-sm opacity-90">Подключитесь по кнопке ниже перед началом</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
                         <VideoPlayer iframe={webinar.iframe} />
+                    )}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar w-full">
                         {infoContent}
                     </div>
                 </div>
@@ -418,7 +457,23 @@ export default function WebinarPage() {
             <div className="lg:hidden flex flex-col flex-1 bg-white overflow-hidden w-full">
                 {/* Video Player (Sticky Top) */}
                 <div className="shrink-0 bg-black w-full">
-                    <VideoPlayer iframe={webinar.iframe} />
+                    {webinar.is_upcoming ? (
+                        <div className="w-full aspect-video bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                            {webinar.thumbnail_url ? (
+                                <img
+                                    src={webinar.thumbnail_url}
+                                    alt={webinar.title}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 text-gray-500 text-sm">
+                                    <span>📅 Вебинар скоро начнется</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <VideoPlayer iframe={webinar.iframe} />
+                    )}
                 </div>
 
                 {/* Tabs */}
