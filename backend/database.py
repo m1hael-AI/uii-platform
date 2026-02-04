@@ -7,8 +7,6 @@ from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from config import settings
-# Import models so SQLModel.metadata.create_all discovers them
-from models import * 
 
 
 # === СИНХРОННЫЙ ENGINE (для миграций и простых операций) ===

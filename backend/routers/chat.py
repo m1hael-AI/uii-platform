@@ -9,7 +9,7 @@ from datetime import datetime
 from services.openai_service import generate_chat_response, stream_chat_response
 from services.context_manager import is_context_overflow, compress_context_task
 from dependencies import get_db, get_current_user
-from models import Webinar, User, ChatSession, Message, MessageRole, Agent, PendingAction
+from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -83,10 +83,17 @@ async def chat_completions(
     # 1. Get Webinar Context
     webinar_context = ""
     if request.webinar_id:
-        res = await db.execute(select(Webinar).where(Webinar.id == request.webinar_id))
+        # Try retrieving context from WebinarLibrary (most likely source of transcripts)
+        res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
         w = res.scalar_one_or_none()
         if w and w.transcript_context:
             webinar_context = w.transcript_context
+        else:
+            # Fallback (rare): try Schedule, though likely no transcript yet
+            res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
+            w_sch = res_sch.scalar_one_or_none()
+            if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
+                 webinar_context = w_sch.transcript_context
 
     # 2. Get or Create Session
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
