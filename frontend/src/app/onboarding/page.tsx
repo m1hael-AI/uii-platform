@@ -361,7 +361,7 @@ export default function OnboardingPage() {
                     <button
                         onClick={handleNext}
                         disabled={!canProceed || submitting}
-                        className="bg-[#FF6B35] text-white px-8 py-3 rounded-xl font-medium shadow-md shadow-orange-200 hover:bg-[#1a5bb0] hover:shadow-lg transition-all disabled:opacity-50 disabled:shadow-none min-w-[140px]"
+                        className="bg-[#FF6B35] text-white px-8 py-3 rounded-xl font-medium shadow-md shadow-orange-200 hover:bg-[#e55a2b] hover:shadow-lg transition-all disabled:opacity-50 disabled:shadow-none min-w-[140px]"
                     >
                         {submitting ? "Сохранение..." : "Далее"}
                     </button>

@@ -17,6 +17,41 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
     // Search
     const [search, setSearch] = useState("");
+    const [sessions, setSessions] = useState<Record<string, any>>({});
+
+    // Fetch sessions to get real last messages
+    useState(() => {
+        const fetchSessions = async () => {
+            try {
+                // Determine API_URL
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+                // Need token
+                // We can import Cookies
+                const { default: Cookies } = await import("js-cookie");
+                const token = Cookies.get("token");
+                if (!token) return;
+
+                const res = await fetch(`${API_URL}/chat/sessions`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    // Map by agent_id for easy lookup
+                    const sessionMap: Record<string, any> = {};
+                    data.forEach((s: any) => {
+                        sessionMap[s.agent_id] = s;
+                    });
+                    setSessions(sessionMap);
+                }
+            } catch (e) {
+                console.error("Failed to fetch sessions", e);
+            }
+        };
+        fetchSessions();
+    });
+
     const filteredAgents = AGENTS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
     return (
@@ -49,6 +84,12 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                 <div className="flex-1 overflow-y-auto">
                     {filteredAgents.map(agent => {
                         const isActive = pathname.includes(`/chat/${agent.id}`);
+                        const session = sessions[agent.id];
+                        // If session exists and has a message, use it. Otherwise default.
+                        // Also format time if available? For now just message.
+                        const displayMsg = session?.last_message || agent.lastMsg;
+                        const hasUnread = session?.has_unread || false;
+
                         return (
                             <Link
                                 key={agent.id}
@@ -56,15 +97,21 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                                 className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
                                     }`}
                             >
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color}`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color} relative`}>
                                     {agent.avatar}
+                                    {hasUnread && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
                                         <h4 className="font-medium text-gray-900 truncate">{agent.name}</h4>
+                                        {session?.last_message_at && (
+                                            <span className="text-[10px] text-gray-400">
+                                                {new Date(session.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-500 truncate">
-                                        {agent.lastMsg}
+                                    <p className={`text-xs truncate ${isActive || hasUnread ? "text-gray-700 font-medium" : "text-gray-500"}`}>
+                                        {displayMsg}
                                     </p>
                                 </div>
                             </Link>

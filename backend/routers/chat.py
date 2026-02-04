@@ -33,6 +33,69 @@ class HistoryResponse(BaseModel):
     messages: List[HistoryMessage]
     last_read_at: Optional[str] = None
 
+class ChatSessionDTO(BaseModel):
+    id: int
+    agent_id: str
+    agent_name: str
+    agent_avatar: Optional[str]
+    last_message: str
+    last_message_at: Optional[str]
+    has_unread: bool = False
+
+@router.get("/sessions", response_model=List[ChatSessionDTO])
+async def get_user_sessions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all active chat sessions for the user with last message preview"""
+    # 1. Get all sessions for user (excluding specific webinar chats if any, or including?)
+    # Usually sidebar shows Agent chats. Webinar chats might be separate or same.
+    # Let's include everything that is NOT bound to a specific webinar (general agent chats)
+    # OR all valid sessions. The frontend list seems to be Agents.
+    
+    q = select(ChatSession, Agent).join(Agent, ChatSession.agent_slug == Agent.slug).where(
+        ChatSession.user_id == current_user.id,
+        ChatSession.is_active == True,
+        ChatSession.webinar_id == None # Only general agent chats for now
+    ).order_by(ChatSession.last_message_at.desc())
+    
+    result = await db.execute(q)
+    rows = result.all() # [(ChatSession, Agent), ...]
+    
+    sessions_dto = []
+    
+    for session, agent in rows:
+        # Get last message content
+        # Optimization: storing last_message_content in ChatSession would be better for perf,
+        # but for now we query.
+        msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)
+        msg_res = await db.execute(msg_q)
+        last_msg = msg_res.scalar_one_or_none()
+        
+        last_content = last_msg.content if last_msg else "Начните диалог"
+        if len(last_content) > 60:
+            last_content = last_content[:60] + "..."
+            
+        # Red dot logic
+        has_unread = False
+        if session.last_message_at:
+            if not session.last_read_at:
+                has_unread = True
+            elif session.last_message_at > session.last_read_at:
+                has_unread = True
+
+        sessions_dto.append(ChatSessionDTO(
+            id=session.id,
+            agent_id=agent.slug,
+            agent_name=agent.name,
+            agent_avatar=agent.avatar_url,
+            last_message=last_content,
+            last_message_at=session.last_message_at.isoformat() if session.last_message_at else None,
+            has_unread=has_unread
+        ))
+        
+    return sessions_dto
+
 @router.get("/history", response_model=HistoryResponse)
 async def get_chat_history(
     webinar_id: Optional[int] = None,
@@ -118,6 +181,32 @@ async def chat_completions(
         db.add(chat_session)
         await db.commit()
         await db.refresh(chat_session)
+        
+        # --- AUTO GREETING ---
+        # Fetch agent name for greeting
+        agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
+        agent_obj = agent_res.scalar_one_or_none()
+        agent_name = agent_obj.name if agent_obj else "AI Assistant"
+        
+        greeting_text = f"Привет! Я {agent_name}. Чем могу помочь?"
+        if slug == "mentor":
+            greeting_text = "Привет! Я твой персональный куратор. Готов ответить на вопросы по обучению."
+        elif slug == "python":
+            greeting_text = "Привет! Я помогу с кодом, архитектурой и Python."
+        elif slug == "analyst":
+            greeting_text = "Привет! Давай проанализируем данные. Спрашивай про Pandas, SQL или статистику."
+            
+        greeting_msg = Message(
+            session_id=chat_session.id,
+            role=MessageRole.ASSISTANT,
+            content=greeting_text
+        )
+        db.add(greeting_msg)
+        
+        # Set last_message_at so it appears at top
+        chat_session.last_message_at = datetime.utcnow()
+        await db.commit()
+        # ---------------------
 
     # 3. Save User Message
     # We take the LAST message from the client as the new one

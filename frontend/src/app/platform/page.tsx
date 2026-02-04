@@ -52,7 +52,7 @@ export default function PlatformPage() {
             return {
               ...w,
               category: "AI Education",
-              speaker: "AI Speaker",
+              speaker: w.speaker_name || "М. Овсянников",
               date: d.toLocaleDateString("ru-RU", { day: 'numeric', month: 'long' }),
               time: d.toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' })
             };
@@ -221,9 +221,10 @@ export default function PlatformPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {upcomingData.length > 0 ? upcomingData.map((webinar) => (
-              <div
+              <Link
                 key={webinar.id}
-                className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl hover:border-blue-100 hover:shadow-sm transition-all"
+                href={`/platform/schedule/${webinar.id}`}
+                className="flex items-center justify-between p-5 bg-white border border-gray-100 rounded-2xl hover:border-blue-100 hover:shadow-sm transition-all group"
               >
                 <div className="flex items-center gap-5">
                   <div className="w-14 h-14 bg-blue-50 rounded-xl flex flex-col items-center justify-center text-[#206ecf]">
@@ -251,12 +252,12 @@ export default function PlatformPage() {
                   </div>
                 </div>
 
-                <Link href="/platform/schedule" className="p-2 text-gray-300 hover:text-[#ff8a35] hover:bg-orange-50 rounded-lg transition-all">
+                <div className="p-2 text-gray-300 group-hover:text-[#ff8a35] group-hover:bg-orange-50 rounded-lg transition-all">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </Link>
-              </div>
+                </div>
+              </Link>
             )) : (
               <div className="col-span-2 py-8 text-center text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                 На ближайшее время вебинары не запланированы

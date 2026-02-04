@@ -49,7 +49,7 @@ export default function SchedulePage() {
         const data = await res.json();
         const enhancedData = data.map((w: any) => ({
           ...w,
-          speaker: w.speaker_name || "AI Speaker",
+          speaker: w.speaker_name || "М. Овсянников",
           duration: w.duration_minutes ? `${w.duration_minutes} мин` : "1:30:00",
           date: new Date(w.scheduled_at || w.created_at).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })
         }));
