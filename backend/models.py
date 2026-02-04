@@ -333,20 +333,55 @@ class ProactivitySettings(SQLModel, table=True):
 
 
 
-class Webinar(SQLModel, table=True):
+class WebinarSchedule(SQLModel, table=True):
     """
-    Вебинар/урок в системе.
-    Может быть записью (video_url) или живым событием (scheduled_at).
+    Расписание предстоящих вебинаров.
     """
-    __tablename__ = "webinars"
+    __tablename__ = "webinar_schedules"
     
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(description="Название вебинара")
     description: Optional[str] = Field(default=None, description="Описание вебинара")
     
-    # URL видео/трансляции (делаем опциональным, т.к. может быть просто анонс)
-    video_url: Optional[str] = Field(default=None, description="URL видео или трансляции (плеер)")
-    connection_link: Optional[str] = Field(default=None, description="Ссылка для подключения (Zoom/Meet) - для кнопки входа")
+    # Ссылка для подключения (Zoom/Meet) - для кнопки входа
+    connection_link: Optional[str] = Field(default=None, description="Ссылка для подключения (Zoom/Meet)")
+    
+    # Превью
+    thumbnail_url: Optional[str] = Field(default=None, description="URL превью вебинара")
+    speaker_name: Optional[str] = Field(default=None, description="Имя спикера")
+    
+    # Статус
+    is_published: bool = Field(default=True, description="Опубликован ли вебинар")
+    
+    # Расписание
+    scheduled_at: datetime = Field(description="Дата и время начала (UTC)")
+    duration_minutes: int = Field(default=60, description="Длительность (мин)")
+    
+    # Напоминания
+    reminder_1h_sent: bool = Field(default=False, description="Отправлено уведомление за 1 час (глобально)")
+    reminder_15m_sent: bool = Field(default=False, description="Отправлено уведомление за 15 минут (глобально)")
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    signups: List["WebinarSignup"] = Relationship(back_populates="schedule")
+    chat_sessions: List["ChatSession"] = Relationship(back_populates="schedule")
+
+
+class WebinarLibrary(SQLModel, table=True):
+    """
+    Библиотека прошедших вебинаров (записи).
+    """
+    __tablename__ = "webinar_libraries"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(description="Название вебинара")
+    description: Optional[str] = Field(default=None, description="Описание вебинара")
+    
+    # URL видео (iframe src)
+    video_url: str = Field(description="URL видео/трансляции (плеер)")
     
     # Превью
     thumbnail_url: Optional[str] = Field(default=None, description="URL превью вебинара")
@@ -356,24 +391,17 @@ class Webinar(SQLModel, table=True):
     transcript_context: str = Field(default="", description="Текстовый транскрипт вебинара для RAG")
     
     # Статус
-    is_upcoming: bool = Field(default=False, description="Предстоящий вебинар (ещё не прошёл)")
     is_published: bool = Field(default=True, description="Опубликован ли вебинар")
     
-    # Расписание
-    scheduled_at: Optional[datetime] = Field(default=None, description="Дата и время начала (UTC)")
-    duration_minutes: int = Field(default=60, description="Длительность (мин)")
-    
-    # Напоминания (Глобальные флаги - отправлена ли массовая рассылка)
-    reminder_1h_sent: bool = Field(default=False, description="Отправлено уведомление за 1 час (глобально)")
-    reminder_15m_sent: bool = Field(default=False, description="Отправлено уведомление за 15 минут (глобально)")
+    # Когда был проведен (для сортировки в библиотеке)
+    conducted_at: datetime = Field(default_factory=datetime.utcnow, description="Дата проведения (UTC)")
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    chat_sessions: List["ChatSession"] = Relationship(back_populates="webinar")
-    signups: List["WebinarSignup"] = Relationship(back_populates="webinar")
+    chat_sessions: List["ChatSession"] = Relationship(back_populates="library")
 
 
 class WebinarSignup(SQLModel, table=True):
@@ -384,7 +412,7 @@ class WebinarSignup(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    webinar_id: int = Field(foreign_key="webinars.id", index=True)
+    schedule_id: int = Field(foreign_key="webinar_schedules.id", index=True)
     
     # Статус доставки уведомлений персонально этому пользователю
     reminder_1h_sent: bool = Field(default=False, description="Отправлено ли личное напоминание за 1 час")
@@ -394,13 +422,13 @@ class WebinarSignup(SQLModel, table=True):
     
     # Relationships
     user: Optional[User] = Relationship(back_populates="webinar_signups")
-    webinar: Optional[Webinar] = Relationship(back_populates="signups")
+    schedule: Optional[WebinarSchedule] = Relationship(back_populates="signups")
 
 
 class ChatSession(SQLModel, table=True):
     """
     Сессия чата между пользователем и агентом.
-    Может быть привязана к вебинару (для RAG-чата).
+    Может быть привязана к предстоящему вебинару или записи в библиотеке.
     """
     __tablename__ = "chat_sessions"
     
@@ -408,8 +436,9 @@ class ChatSession(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True)
     agent_slug: str = Field(foreign_key="agents.slug", index=True)
     
-    # Опциональная привязка к вебинару (для RAG)
-    webinar_id: Optional[int] = Field(default=None, foreign_key="webinars.id", index=True)
+    # Опциональная привязка к расписанию или библиотеке (для RAG)
+    schedule_id: Optional[int] = Field(default=None, foreign_key="webinar_schedules.id", index=True)
+    library_id: Optional[int] = Field(default=None, foreign_key="webinar_libraries.id", index=True)
     
     # Активна ли сессия
     is_active: bool = Field(default=True)
@@ -429,7 +458,8 @@ class ChatSession(SQLModel, table=True):
     # Relationships
     user: Optional[User] = Relationship(back_populates="chat_sessions")
     agent: Optional[Agent] = Relationship(back_populates="chat_sessions")
-    webinar: Optional[Webinar] = Relationship(back_populates="chat_sessions")
+    schedule: Optional[WebinarSchedule] = Relationship(back_populates="chat_sessions")
+    library: Optional[WebinarLibrary] = Relationship(back_populates="chat_sessions")
     messages: List["Message"] = Relationship(back_populates="session")
 
 

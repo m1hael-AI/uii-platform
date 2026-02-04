@@ -5,7 +5,7 @@ from sqlmodel import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
-from models import User, UserRole, Webinar, UserAction, WebinarSignup
+from models import User, UserRole, UserAction, WebinarSignup, WebinarSchedule, WebinarLibrary
 from dependencies import get_current_user, get_db
 
 router = APIRouter(prefix="/webinars", tags=["webinars"])
@@ -15,15 +15,36 @@ router = APIRouter(prefix="/webinars", tags=["webinars"])
 class WebinarBase(BaseModel):
     title: str
     description: Optional[str] = None
-    video_url: Optional[str] = None
-    connection_link: Optional[str] = None
     thumbnail_url: Optional[str] = None
-    transcript_context: Optional[str] = ""
-    is_upcoming: bool = False
-    is_published: bool = True
-    scheduled_at: Optional[datetime] = None
     speaker_name: Optional[str] = None
+
+class WebinarScheduleBase(WebinarBase):
+    connection_link: Optional[str] = None
+    scheduled_at: datetime
     duration_minutes: int = 60
+
+class WebinarLibraryBase(WebinarBase):
+    video_url: str
+    transcript_context: Optional[str] = ""
+    conducted_at: datetime
+
+class WebinarScheduleResponse(WebinarScheduleBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    is_upcoming: bool = True
+
+    class Config:
+        from_attributes = True
+
+class WebinarLibraryResponse(WebinarLibraryBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    is_upcoming: bool = False
+
+    class Config:
+        from_attributes = True
 
 class WebinarCreate(WebinarBase):
     pass
@@ -51,7 +72,7 @@ class WebinarResponse(WebinarBase):
 
 # === Endpoints ===
 
-@router.get("", response_model=List[WebinarResponse])
+@router.get("", response_model=List[dict])
 async def list_webinars(
     filter_type: str = Query("all", enum=["all", "library", "upcoming"]),
     db: AsyncSession = Depends(get_db),
@@ -60,26 +81,62 @@ async def list_webinars(
     """
     Получить список вебинаров.
     filter_type:
-      - 'library': только прошедшие (is_upcoming=False, is_published=True)
-      - 'upcoming': только будущие (is_upcoming=True, is_published=True)
-      - 'all': все опубликованные
-      - Админ видит всё.
+      - 'library': только из библиотеки (WebinarLibrary)
+      - 'upcoming': только из расписания (WebinarSchedule)
+      - 'all': и те и другие (для админки или общих списков)
     """
-    query = select(Webinar).order_by(desc(Webinar.created_at))
-
-    # Если не админ, показываем только опубликованные
-    if current_user.role != UserRole.ADMIN:
-        query = query.where(Webinar.is_published == True)
-
-    if filter_type == "library":
-        query = query.where(Webinar.is_upcoming == False)
-    elif filter_type == "upcoming":
-        query = query.where(Webinar.is_upcoming == True)
-
+    webinars = []
     
-    result = await db.execute(query)
-    webinars = result.scalars().all()
+    if filter_type in ["all", "upcoming"]:
+        query_schedule = select(WebinarSchedule).order_by(WebinarSchedule.scheduled_at)
+        if current_user.role != UserRole.ADMIN:
+            query_schedule = query_schedule.where(WebinarSchedule.is_published == True)
+        
+        res_schedule = await db.execute(query_schedule)
+        schedules = res_schedule.scalars().all()
+        # Add a flag for frontend differentiation
+        for s in schedules:
+            d = WebinarScheduleResponse.model_validate(s).model_dump()
+            d["is_upcoming"] = True
+            webinars.append(d)
+
+    if filter_type in ["all", "library"]:
+        query_library = select(WebinarLibrary).order_by(desc(WebinarLibrary.conducted_at))
+        if current_user.role != UserRole.ADMIN:
+            query_library = query_library.where(WebinarLibrary.is_published == True)
+        
+        res_library = await db.execute(query_library)
+        libraries = res_library.scalars().all()
+        for l in libraries:
+            d = WebinarLibraryResponse.model_validate(l).model_dump()
+            d["is_upcoming"] = False
+            webinars.append(d)
+
     return webinars
+
+@router.get("/upcoming/{webinar_id}", response_model=WebinarScheduleResponse)
+async def get_upcoming_webinar(
+    webinar_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить вебинар из расписания по ID"""
+    webinar = await db.get(WebinarSchedule, webinar_id)
+    if not webinar or (current_user.role != UserRole.ADMIN and not webinar.is_published):
+        raise HTTPException(status_code=404, detail="Webinar not found")
+    return webinar
+
+@router.get("/library/{webinar_id}", response_model=WebinarLibraryResponse)
+async def get_library_webinar(
+    webinar_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить вебинар из библиотеки по ID"""
+    webinar = await db.get(WebinarLibrary, webinar_id)
+    if not webinar or (current_user.role != UserRole.ADMIN and not webinar.is_published):
+        raise HTTPException(status_code=404, detail="Webinar not found")
+    return webinar
 
 @router.get("/{webinar_id}", response_model=WebinarResponse)
 async def get_webinar(
@@ -176,15 +233,15 @@ async def signup_webinar(
     current_user: User = Depends(get_current_user)
 ):
     """Записаться на вебинар (Dual Write: History + Notification Queue)"""
-    # 1. Check if webinar exists
-    webinar = await db.get(Webinar, webinar_id)
+    # 1. Check if webinar exists in schedule
+    webinar = await db.get(WebinarSchedule, webinar_id)
     if not webinar:
-        raise HTTPException(status_code=404, detail="Webinar not found")
+        raise HTTPException(status_code=404, detail="Upcoming webinar not found")
 
-    # 2. Check if already signed up (Optimized check via WebinarSignup)
+    # 2. Check if already signed up
     query_signup = select(WebinarSignup).where(
         WebinarSignup.user_id == current_user.id,
-        WebinarSignup.webinar_id == webinar_id
+        WebinarSignup.schedule_id == webinar_id
     )
     result_signup = await db.execute(query_signup)
     existing_signup = result_signup.scalar_one_or_none()
@@ -195,20 +252,20 @@ async def signup_webinar(
     # 3. Create Notification Entry (WebinarSignup)
     new_signup = WebinarSignup(
         user_id=current_user.id,
-        webinar_id=webinar_id
+        schedule_id=webinar_id
     )
     db.add(new_signup)
     
-    # 4. Create Audit Log (UserAction) - for history
+    # 4. Create Audit Log (UserAction)
     new_action = UserAction(
         user_id=current_user.id,
         action="webinar_signup",
-        payload={"webinar_id": webinar_id}
+        payload={"schedule_id": webinar_id}
     )
     db.add(new_action)
     
     await db.commit()
-    return {"status": "signed_up", "webinar_id": webinar_id}
+    return {"status": "signed_up", "schedule_id": webinar_id}
 
 @router.delete("/{webinar_id}/signup")
 async def cancel_signup_webinar(
@@ -216,11 +273,11 @@ async def cancel_signup_webinar(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Отменить запись (Dual Deletion)"""
+    """Отменить запись"""
     # 1. Delete from Notification Queue
     query_signup = select(WebinarSignup).where(
         WebinarSignup.user_id == current_user.id,
-        WebinarSignup.webinar_id == webinar_id
+        WebinarSignup.schedule_id == webinar_id
     )
     result_signup = await db.execute(query_signup)
     signup = result_signup.scalar_one_or_none()
@@ -232,7 +289,7 @@ async def cancel_signup_webinar(
     unsignup_action = UserAction(
         user_id=current_user.id,
         action="webinar_unsignup",
-        payload={"webinar_id": webinar_id}
+        payload={"schedule_id": webinar_id}
     )
     db.add(unsignup_action)
             
@@ -246,10 +303,10 @@ async def check_signup_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Проверить, записан ли пользователь (fast check)"""
+    """Проверить, записан ли пользователь"""
     query = select(WebinarSignup).where(
         WebinarSignup.user_id == current_user.id,
-        WebinarSignup.webinar_id == webinar_id
+        WebinarSignup.schedule_id == webinar_id
     )
     result = await db.execute(query)
     signup = result.scalar_one_or_none()
@@ -257,8 +314,7 @@ async def check_signup_status(
     if signup:
         return {"is_signed_up": True}
         
-    # Fallback: Check UserAction (in case of legacy data before migration)
-    # Logic: Signed Up if there is a 'webinar_signup' event AND no newer 'webinar_unsignup' event.
+    # Fallback: Check UserAction
     query_actions = select(UserAction).where(
         UserAction.user_id == current_user.id,
         UserAction.action.in_(["webinar_signup", "webinar_unsignup"])
@@ -267,27 +323,25 @@ async def check_signup_status(
     result_actions = await db.execute(query_actions)
     actions = result_actions.scalars().all()
     
-    last_status = "none" # none, signed_up, unsigned_up
+    last_status = "none"
     
     for action in actions:
-        # Check if action relates to this webinar
-        if action.payload and str(action.payload.get("webinar_id")) == str(webinar_id):
+        if action.payload and str(action.payload.get("schedule_id")) == str(webinar_id):
             if action.action == "webinar_signup":
                 last_status = "signed_up"
             elif action.action == "webinar_unsignup":
                 last_status = "unsigned_up"
                 
     if last_status == "signed_up":
-        # Sync it! (Autofix lazy migration)
         try:
             new_signup = WebinarSignup(
                 user_id=current_user.id,
-                webinar_id=webinar_id
+                schedule_id=webinar_id
             )
             db.add(new_signup)
             await db.commit()
         except:
-            pass # Ignore race conditions
+            pass
         return {"is_signed_up": True}
 
     return {"is_signed_up": False}

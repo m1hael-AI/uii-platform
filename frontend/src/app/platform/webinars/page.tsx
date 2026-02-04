@@ -59,14 +59,14 @@ export default function WebinarsPage() {
             if (res.ok) {
                 const data = await res.json();
 
-                // Transform API data to UI data (fill missing fields)
+                // Transform API data to UI data
                 const enhancedData = data.map((w: any) => ({
                     ...w,
                     category: "AI Education",
-                    speaker: "Дмитрий Романов",
+                    speaker: w.speaker_name || "Дмитрий Романов",
                     duration: "1:00:00",
                     video_url: w.video_url || "",
-                    date: new Date(w.scheduled_at || w.created_at).toLocaleDateString("ru-RU", {
+                    date: new Date(w.conducted_at || w.created_at).toLocaleDateString("ru-RU", {
                         day: 'numeric', month: 'long', year: 'numeric'
                     })
                 }));

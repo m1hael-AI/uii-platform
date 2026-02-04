@@ -83,6 +83,11 @@ export default function WebinarAction({ webinar }: { webinar: Webinar }) {
         return <div className="h-10 w-full md:w-40 rounded-lg bg-gray-100 animate-pulse"></div>;
     }
 
+    // --- HIDE BUTTON IF NOT UPCOMING (Library recordings don't need signup) ---
+    if (!webinar.is_upcoming) {
+        return null;
+    }
+
     // --- SHOW CONNECT BUTTON IF LIVE AND REGISTERED ---
     if (isRegistered && isLive && webinar.connection_link) {
         return (

@@ -5,7 +5,7 @@ from sqlmodel import select
 from loguru import logger
 from aiogram import Bot
 
-from models import Webinar, WebinarSignup, SystemConfig
+from models import WebinarSchedule, WebinarSignup, SystemConfig
 from config import settings
 
 # Default Templates
@@ -48,8 +48,8 @@ async def check_webinar_reminders(db: AsyncSession):
     conf_start = res_start.scalar_one_or_none()
     template_start = conf_start.value if conf_start else DEFAULT_TEMPLATE_START
 
-    # 2. Get Upcoming Webinars
-    query = select(Webinar).where(Webinar.is_upcoming == True)
+    # 2. Get Upcoming Webinars from Schedule
+    query = select(WebinarSchedule).where(WebinarSchedule.is_published == True)
     result = await db.execute(query)
     webinars = result.scalars().all()
     
@@ -113,7 +113,7 @@ async def send_notifications(db: AsyncSession, bot: Bot, webinar: Webinar, templ
 
     # 2. Get Targets
     query = select(WebinarSignup).where(
-        WebinarSignup.webinar_id == webinar.id
+        WebinarSignup.schedule_id == webinar.id
     ).join(WebinarSignup.user) # Ensure user exists
     
     result = await db.execute(query)
