@@ -230,7 +230,7 @@ export default function WebinarsPage() {
                                 key={webinar.id}
                             >
                                 <Link
-                                    href={`/platform/webinars/${webinar.id}?type=library`}
+                                    href={`/platform/webinars/${webinar.id}`}
                                     className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg hover:border-blue-100 transition-all duration-300 flex flex-col h-full relative"
                                 >
                                     {/* Thumbnail: Real Iframe behind a glass layer or Image */}
