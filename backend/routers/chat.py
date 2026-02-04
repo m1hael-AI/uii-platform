@@ -15,17 +15,12 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 # --- BACKGROUND TASK: Welcome Sequence ---
 import asyncio
-from sqlalchemy.orm import sessionmaker
-from database import engine
+from database import async_session_factory
 
 async def run_welcome_sequence(user_id: int):
     """
     Rapid-fire welcome: Mentor -> 3s -> Python -> 6s -> HR -> 9s -> Analyst
     """
-    # Create a new session specifically for this background task
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
     
     agents_sequence = [
         {"slug": "python", "delay": 3, "text": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?"},
@@ -34,7 +29,7 @@ async def run_welcome_sequence(user_id: int):
     ]
     
     try:
-        async with async_session() as db:
+        async with async_session_factory() as db:
              for item in agents_sequence:
                 await asyncio.sleep(item["delay"])
                 
