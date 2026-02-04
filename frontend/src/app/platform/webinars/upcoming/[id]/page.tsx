@@ -80,49 +80,85 @@ export default function UpcomingWebinarPage() {
     if (!webinar) return <div className="p-8 text-center text-gray-500">Вебинар не найден</div>;
 
     return (
-        <div className="flex flex-col w-full min-h-[calc(100vh-6rem)] bg-white lg:bg-transparent overflow-y-auto">
+        <div className="flex flex-col w-full h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] bg-white lg:bg-transparent overflow-hidden">
             {/* Breadcrumbs */}
-            <div className="hidden lg:flex mb-3 items-center gap-2 text-sm text-gray-500 px-1 w-full min-w-0 shrink-0 max-w-4xl mx-auto">
+            <div className="hidden lg:flex mb-3 items-center gap-2 text-sm text-gray-500 px-1 w-full min-w-0 shrink-0">
                 <Link href="/platform/schedule" className="hover:text-[#206ecf] transition-colors shrink-0">Расписание</Link>
                 <span className="shrink-0">/</span>
                 <span className="text-gray-900 font-medium truncate min-w-0">{webinar.title}</span>
             </div>
 
-            {/* Content Card */}
-            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-4xl mx-auto overflow-hidden">
-                <div className="p-6 lg:p-10">
-                    <div className="flex items-start justify-between gap-6 mb-8 w-full flex-col md:flex-row">
-                        <div className="w-full min-w-0 flex-1">
+            {/* Main Card (Full Width) */}
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 w-full overflow-y-auto custom-scrollbar">
+
+                {/* Hero / Cover Image */}
+                {webinar.thumbnail_url ? (
+                    <div className="w-full h-48 md:h-64 lg:h-96 relative shrink-0">
+                        <img
+                            src={webinar.thumbnail_url}
+                            alt={webinar.title}
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
+                            <div className="p-6 lg:p-10 w-full max-w-7xl mx-auto">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="bg-[#FF6B35] text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">Предстоящий</span>
+                                </div>
+                                <h1 className="text-2xl lg:text-4xl font-bold text-white mb-2 break-words leading-tight shadow-sm">{webinar.title}</h1>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    /* If no image, show header in content area */
+                    null
+                )}
+
+                <div className="p-6 lg:p-10 w-full max-w-7xl mx-auto">
+                    {!webinar.thumbnail_url && (
+                        <div className="mb-8 border-b border-gray-100 pb-8">
                             <div className="flex items-center gap-3 mb-4">
                                 <span className="bg-blue-50 text-[#206ecf] text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">Предстоящий</span>
-                                <span className="text-gray-400 text-sm">{webinar.date}</span>
                             </div>
                             <h1 className="text-2xl lg:text-4xl font-bold text-[#474648] mb-4 break-words leading-tight">{webinar.title}</h1>
+                        </div>
+                    )}
 
-                            <div className="flex flex-wrap gap-4 mb-2">
-                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                                    <span className="text-gray-400">🎤</span>
-                                    <span className="font-medium">{webinar.speaker}</span>
+                    <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-start">
+                        {/* Left: Description */}
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">О вебинаре</h2>
+                            <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap text-base lg:text-lg">
+                                {webinar.description}
+                            </div>
+                        </div>
+
+                        {/* Right: Sidebar / Meta Info */}
+                        <div className="w-full lg:w-96 shrink-0 bg-gray-50 rounded-2xl p-6 border border-gray-100 sticky top-6">
+                            <div className="flex flex-col gap-6">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Дата и время</span>
+                                    <span className="text-lg font-medium text-gray-900">{webinar.date}</span>
+                                    {webinar.scheduled_at && <span className="text-sm text-gray-500">{new Date(webinar.scheduled_at).toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' })} МСК</span>}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                                    <span className="text-gray-400">⏱</span>
-                                    <span className="font-medium">{webinar.duration}</span>
+
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Спикер</span>
+                                    <span className="text-lg font-medium text-gray-900">{webinar.speaker}</span>
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs font-bold text-gray-400 uppercase">Длительность</span>
+                                    <span className="text-lg font-medium text-gray-900">{webinar.duration}</span>
+                                </div>
+
+                                <div className="pt-6 border-t border-gray-200">
+                                    <WebinarAction webinar={webinar} />
+                                    <p className="text-xs text-center text-gray-400 mt-3">
+                                        Напоминание придет за 1 час до начала
+                                    </p>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div className="mb-10 p-6 bg-gray-50 rounded-xl border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="text-sm text-gray-500 max-w-md">
-                            <p>Запишитесь, чтобы получить напоминание за час до начала и ссылку на подключение.</p>
-                        </div>
-                        <div className="shrink-0 w-full md:w-auto flex justify-center">
-                            <WebinarAction webinar={webinar} />
-                        </div>
-                    </div>
-
-                    <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap text-base lg:text-lg">
-                        {webinar.description}
                     </div>
                 </div>
             </div>
