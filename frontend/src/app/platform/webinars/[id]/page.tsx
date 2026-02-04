@@ -95,7 +95,8 @@ export default function WebinarPage() {
             }
 
             try {
-                const res = await fetch(`${API_URL}/webinars/${id}`, {
+                // Use explicit library endpoint to avoid collision with schedule IDs
+                const res = await fetch(`${API_URL}/webinars/library/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
