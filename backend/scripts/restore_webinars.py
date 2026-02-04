@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import WebinarSchedule, WebinarLibrary
+from database import init_db
 from config import settings
 
 async def restore_webinars():
@@ -27,6 +28,10 @@ async def restore_webinars():
     async_db_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
     engine = create_async_engine(async_db_url, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    # Ensure tables exist!
+    print("Ensuring database tables exist...")
+    await init_db()
 
     async with async_session() as db:
         print(f"Loading data from {file_path}...")
