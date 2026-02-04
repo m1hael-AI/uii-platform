@@ -10,12 +10,12 @@ from sqlalchemy.orm import sessionmaker
 # Add parent dir to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models import Webinar
+from models import WebinarSchedule, WebinarLibrary
 from config import settings
 
 async def restore_webinars():
-    # File is in backend/webinars_dump.json, this script is in backend/scripts/
-    file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "webinars_dump.json")
+    # File is in secrets/webinars_dump.json
+    file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "secrets", "webinars_dump.json")
     
     if not os.path.exists(file_path):
         print(f"File {file_path} not found.")
@@ -29,15 +29,12 @@ async def restore_webinars():
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as db:
-        print("Checking existing webinars...")
-        result = await db.execute(select(Webinar))
-        existing = result.scalars().first()
-        
         print(f"Loading data from {file_path}...")
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             
-        count = 0
+        schedule_count = 0
+        library_count = 0
         from datetime import timezone
         now = datetime.utcnow()
         import re
@@ -58,31 +55,55 @@ async def restore_webinars():
                 if iframe_match:
                     item['video_url'] = iframe_match.group(1)
 
-            # Fix is_upcoming
+            # Determine destination based on scheduled_at
+            is_upcoming = False
             if item.get('scheduled_at'):
-                # Force recalculate status based on current time (both naive UTC)
-                item['is_upcoming'] = item['scheduled_at'] > now
+                is_upcoming = item['scheduled_at'] > now
             
-            # Upsert logic: Check if exists by ID
-            webinar_id = item.get('id')
-            existing_webinar = None
-            if webinar_id:
-               existing_webinar = await db.get(Webinar, webinar_id)
-            
-            if existing_webinar:
-                # Update existing
-                for k, v in item.items():
-                    setattr(existing_webinar, k, v)
-                db.add(existing_webinar)
+            # Common fields
+            base_data = {
+                "title": item.get('title'),
+                "description": item.get('description'),
+                "thumbnail_url": item.get('thumbnail_url'),
+                "speaker_name": item.get('speaker_name'),
+                "is_published": item.get('is_published', True),
+                "created_at": item.get('created_at', now),
+                "updated_at": item.get('updated_at', now)
+            }
+
+            if is_upcoming:
+                # Check exist
+                stmt = select(WebinarSchedule).where(WebinarSchedule.title == base_data['title'])
+                res = await db.execute(stmt)
+                existing = res.scalar_one_or_none()
+                
+                if not existing:
+                    new_item = WebinarSchedule(
+                        **base_data,
+                        connection_link=item.get('connection_link'),
+                        scheduled_at=item.get('scheduled_at') or now,
+                        duration_minutes=item.get('duration_minutes', 60)
+                    )
+                    db.add(new_item)
+                    schedule_count += 1
             else:
-                # Create new
-                webinar = Webinar(**item)
-                db.add(webinar)
-            
-            count += 1
+                # Check exist
+                stmt = select(WebinarLibrary).where(WebinarLibrary.title == base_data['title'])
+                res = await db.execute(stmt)
+                existing = res.scalar_one_or_none()
+                
+                if not existing:
+                    new_item = WebinarLibrary(
+                        **base_data,
+                        video_url=item.get('video_url', ""),
+                        transcript_context=item.get('transcript_context', ""),
+                        conducted_at=item.get('scheduled_at') or item.get('created_at', now)
+                    )
+                    db.add(new_item)
+                    library_count += 1
             
         await db.commit()
-        print(f"✅ Restored {count} webinars with cleaned data.")
+        print(f"✅ Restored: {schedule_count} to Schedule, {library_count} to Library.")
 
 if __name__ == "__main__":
     if sys.platform == "win32":
