@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
 from datetime import datetime
 
 from services.openai_service import generate_chat_response, stream_chat_response
@@ -56,7 +56,8 @@ async def get_user_sessions(
     q = select(ChatSession, Agent).join(Agent, ChatSession.agent_slug == Agent.slug).where(
         ChatSession.user_id == current_user.id,
         ChatSession.is_active == True,
-        ChatSession.webinar_id == None # Only general agent chats for now
+        ChatSession.schedule_id == None,
+        ChatSession.library_id == None # Only general agent chats
     ).order_by(ChatSession.last_message_at.desc())
     
     result = await db.execute(q)
@@ -109,10 +110,11 @@ async def get_chat_history(
     )
     
     if webinar_id is not None:
-        q = q.where(ChatSession.webinar_id == webinar_id)
+        # Check both tables as ID might refer to either (assuming ID collision risk is handled or acceptable for now)
+        q = q.where(or_(ChatSession.library_id == webinar_id, ChatSession.schedule_id == webinar_id))
     else:
         # If no webinar, stick to agent slug AND ensure it's not a webinar session
-        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.webinar_id == None)
+        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
         
     result = await db.execute(q)
     session = result.scalar_one_or_none()
@@ -161,10 +163,11 @@ async def chat_completions(
     # 2. Get or Create Session
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
     if request.webinar_id is not None:
-        q = q.where(ChatSession.webinar_id == request.webinar_id)
+        # Try to match either
+        q = q.where(or_(ChatSession.library_id == request.webinar_id, ChatSession.schedule_id == request.webinar_id))
     else:
         slug = request.agent_id or "mentor"
-        q = q.where(ChatSession.agent_slug == slug).where(ChatSession.webinar_id == None)
+        q = q.where(ChatSession.agent_slug == slug).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
         
     result = await db.execute(q)
     chat_session = result.scalar_one_or_none()
@@ -172,10 +175,33 @@ async def chat_completions(
     if not chat_session:
         # Create new session
         slug = request.agent_id or "mentor"
+        
+        # Determine strict type for creation
+        schedule_id = None
+        library_id = None
+        
+        if request.webinar_id:
+            # We already did lookup in step 1. Check which context was found.
+            # However, step 1 var 'webinar_context' doesn't tell us WHICH one was found.
+            # Let's re-verify to be safe for foreign keys.
+            
+            # Check Library first (as per Step 1 precedence)
+            res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
+            lib = res.scalar_one_or_none()
+            if lib:
+                library_id = lib.id
+            else:
+                # Check Schedule
+                res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
+                sch = res_sch.scalar_one_or_none()
+                if sch:
+                    schedule_id = sch.id
+        
         chat_session = ChatSession(
             user_id=current_user.id,
             agent_slug=slug,
-            webinar_id=request.webinar_id,
+            schedule_id=schedule_id,
+            library_id=library_id,
             is_active=True
         )
         db.add(chat_session)
@@ -330,7 +356,7 @@ async def mark_chat_read(
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
     
     if webinar_id is not None:
-        q = q.where(ChatSession.library_id == webinar_id)
+        q = q.where(or_(ChatSession.library_id == webinar_id, ChatSession.schedule_id == webinar_id))
     else:
         q = q.where(ChatSession.agent_slug == agent_id, ChatSession.library_id == None, ChatSession.schedule_id == None)
         
