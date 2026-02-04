@@ -195,22 +195,25 @@ async def generate_proactive_message(
     return response.choices[0].message.content.strip()
 
 
-async def send_to_telegram(user: User, agent_name: str, message_text: str) -> None:
+async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
     """
     Отправить проактивное сообщение в Telegram.
-    
-    TODO: Реализовать отправку через Telegram Bot API
     """
-    if not user.telegram_id:
-        logger.warning(f"⚠️ Пользователь {user.id} не подключён к Telegram")
+    if not user.tg_id:
+        logger.warning(f"⚠️ Пользователь {user.id} не подключён к Telegram (нет tg_id)")
         return
     
     try:
         from bot.loader import bot
         
-        text = f"💬 *{agent_name}*\n\n{message_text}"
+        # Deep Link to specific agent chat
+        chat_url = f"https://platform.ai-university.ru/platform/chat?agent={agent.slug}"
+        
+        # Markdown Link
+        text = f"💬 *{agent.name}*\n\n{message_text}\n\n👉 [Перейти в диалог]({chat_url})"
+        
         await bot.send_message(
-            chat_id=user.telegram_id,
+            chat_id=user.tg_id,
             text=text,
             parse_mode="Markdown"
         )
@@ -311,7 +314,7 @@ async def execute_proactive_message(
         logger.info(f"✅ Проактивное сообщение сохранено в БД")
         
         # Отправляем в Telegram
-        await send_to_telegram(user, agent.name, proactive_text)
+        await send_to_telegram(user, agent, proactive_text)
         
         logger.info(f"🎉 Проактивное сообщение успешно отправлено!")
         

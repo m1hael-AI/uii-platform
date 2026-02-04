@@ -13,6 +13,70 @@ from models import User, ChatSession, Message, MessageRole, Agent, PendingAction
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+# --- BACKGROUND TASK: Welcome Sequence ---
+import asyncio
+from sqlalchemy.orm import sessionmaker
+from database import engine
+
+async def run_welcome_sequence(user_id: int):
+    """
+    Rapid-fire welcome: Mentor -> 3s -> Python -> 6s -> HR -> 9s -> Analyst
+    """
+    # Create a new session specifically for this background task
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    agents_sequence = [
+        {"slug": "python", "delay": 3, "text": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?"},
+        {"slug": "hr", "delay": 3, "text": "Привет! Я помогу подготовиться к собеседованию и составить резюме."},
+        {"slug": "analyst", "delay": 3, "text": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь."}
+    ]
+    
+    try:
+        async with async_session() as db:
+             for item in agents_sequence:
+                await asyncio.sleep(item["delay"])
+                
+                # Check agent exist
+                agent_res = await db.execute(select(Agent).where(Agent.slug == item["slug"]))
+                agent = agent_res.scalar_one_or_none()
+                if not agent:
+                    continue
+                    
+                # Create Session
+                # Duplicate check needed to be safe
+                existing = await db.execute(select(ChatSession).where(
+                    ChatSession.user_id == user_id, 
+                    ChatSession.agent_slug == item["slug"]
+                ))
+                if existing.scalar_one_or_none():
+                    continue
+
+                new_session = ChatSession(
+                    user_id=user_id,
+                    agent_slug=item["slug"],
+                    is_active=True,
+                    last_message_at=datetime.utcnow()
+                )
+                db.add(new_session)
+                await db.commit()
+                await db.refresh(new_session)
+                
+                # Message
+                msg = Message(
+                    session_id=new_session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=item["text"],
+                    created_at=datetime.utcnow()
+                )
+                db.add(msg)
+                await db.commit()
+                
+    except Exception as e:
+        print(f"Error in welcome sequence: {e}")
+
+
 # Request Models
 class ChatMessage(BaseModel):
     role: str
@@ -45,7 +109,8 @@ class ChatSessionDTO(BaseModel):
 @router.get("/sessions", response_model=List[ChatSessionDTO])
 async def get_user_sessions(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks() # Add BackgoundTasks
 ):
     """Get all active chat sessions for the user with last message preview"""
     # 1. Get all sessions for user (excluding specific webinar chats if any, or including?)
@@ -95,6 +160,55 @@ async def get_user_sessions(
             has_unread=has_unread
         ))
         
+    
+    if not rows:
+        # --- COLD START LOGIC ---
+        # If user has NO sessions, create a Welcome Session with Mentor
+        # This ensures the user sees something immediately.
+        
+        # 1. Check if 'mentor' agent exists
+        mentor_slug = "mentor"
+        agent_res = await db.execute(select(Agent).where(Agent.slug == mentor_slug))
+        mentor_agent = agent_res.scalar_one_or_none()
+        
+        if mentor_agent:
+            # Create Session
+            new_session = ChatSession(
+                user_id=current_user.id,
+                agent_slug=mentor_slug,
+                is_active=True,
+                last_message_at=datetime.utcnow()
+            )
+            db.add(new_session)
+            await db.commit()
+            await db.refresh(new_session)
+            
+            # Create Welcome Message
+            welcome_text = "Привет! Я твой персональный куратор. Я здесь, чтобы помочь тебе освоиться на платформе, ответить на вопросы по обучению и поддержать тебя на пути к новой профессии. С чего начнем?"
+            
+            welcome_msg = Message(
+                session_id=new_session.id,
+                role=MessageRole.ASSISTANT,
+                content=welcome_text,
+                created_at=datetime.utcnow()
+            )
+            db.add(welcome_msg)
+            await db.commit()
+            
+            # TRIGGER RAPID FIRE SEQUENCE
+            background_tasks.add_task(run_welcome_sequence, current_user.id)
+            
+            # Return this new session directly as DTO
+            return [ChatSessionDTO(
+                id=new_session.id,
+                agent_id=mentor_agent.slug,
+                agent_name=mentor_agent.name,
+                agent_avatar=mentor_agent.avatar_url,
+                last_message=welcome_text[:60] + "..." if len(welcome_text) > 60 else welcome_text,
+                last_message_at=new_session.last_message_at.isoformat(),
+                has_unread=True # It is definitely unread
+            )]
+            
     return sessions_dto
 
 @router.get("/history", response_model=HistoryResponse)
@@ -371,3 +485,36 @@ async def mark_chat_read(
     await db.commit()
     
     return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
+
+
+@router.post("/test/reset")
+async def reset_user_chats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    DEV TOOLS: Reset all chat history for the current user.
+    Used to test 'Cold Start' user experience.
+    """
+    # 1. Find all active sessions for this user
+    q = select(ChatSession.id).where(ChatSession.user_id == current_user.id)
+    result = await db.execute(q)
+    session_ids = result.scalars().all()
+    
+    if not session_ids:
+        return {"status": "ok", "message": "Nothing to reset"}
+        
+    # 2. Delete Messages first (FK constraint)
+    # Using delete() statement for bulk deletion
+    await db.execute(delete(Message).where(Message.session_id.in_(session_ids)))
+    
+    # 3. Delete Sessions
+    await db.execute(delete(ChatSession).where(ChatSession.id.in_(session_ids)))
+    
+    # 4. Clear Pending Actions (Proactivity)
+    await db.execute(delete(PendingAction).where(PendingAction.user_id == current_user.id))
+    
+    await db.commit()
+    
+    return {"status": "ok", "message": f"Reset complete. Deleted {len(session_ids)} sessions."}
+

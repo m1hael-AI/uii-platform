@@ -271,9 +271,10 @@ export default function RightSidebar() {
 
                     {/* Tooltip Animation */}
                     {FEATURE_TOOLTIP_ANIMATION && showTooltip && !isOpen && (
-                        <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-[#206ecf] text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap animate-fade-in-right">
-                            У вас новое сообщение! 💬
-                            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-[#206ecf]"></div>
+                        <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-white text-gray-800 border border-gray-200 text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap animate-fade-in-right flex items-center gap-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            Новое сообщение
+                            <div className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-white drop-shadow-sm"></div>
                         </div>
                     )}
                 </div>
