@@ -37,7 +37,11 @@ async_session_factory = sessionmaker(
 )
 
 
-
+async def init_db():
+    """Создаёт таблицы, если их нет"""
+    async with async_engine.begin() as conn:
+        # await conn.run_sync(SQLModel.metadata.drop_all) # DEBUG ONLY
+        await conn.run_sync(SQLModel.metadata.create_all)
 
 
 def get_sync_session():

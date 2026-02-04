@@ -17,6 +17,7 @@ from utils.logger import logger
 from config import settings
 from bot.loader import bot, dp
 from routers import users, chat, auth, password_reset, admin, webinars
+from database import init_db
 
 
 @asynccontextmanager
@@ -27,6 +28,13 @@ async def lifespan(app: FastAPI):
     Shutdown: удаляем webhook, останавливаем scheduler
     """
     logger.info("Запуск AI University Backend...")
+    
+    # Инициализация БД (создание таблиц)
+    try:
+        await init_db()
+        logger.info("Таблицы базы данных проверены/созданы")
+    except Exception as e:
+        logger.error(f"Ошибка инициализации БД: {e}")
     
     # Telegram webhook setup DISABLED (Using Polling in separate service)
     # if settings.telegram_bot_token and settings.telegram_webhook_url:
