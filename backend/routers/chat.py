@@ -613,18 +613,37 @@ async def get_unread_status(
     await ensure_initial_sessions(db, current_user.id)
 
     # 1. Check Agent sessions
+    # We need detailed info for the frontend to decide where to route (agent vs assistant)
     q = select(ChatSession).where(
         ChatSession.user_id == current_user.id,
-        ChatSession.is_active == True,
-        or_(
-            ChatSession.last_read_at == None,
-            ChatSession.last_message_at > ChatSession.last_read_at
-        )
+        ChatSession.is_active == True
     )
     res = await db.execute(q)
-    any_unread = res.first() is not None
+    sessions = res.scalars().all()
     
-    return {"has_unread": any_unread}
+    sessions_data = []
+    has_global_unread = False
+    
+    for session in sessions:
+        has_unread = False
+        if session.last_message_at:
+            if not session.last_read_at:
+                has_unread = True
+            elif session.last_message_at > session.last_read_at:
+                has_unread = True
+        
+        if has_unread:
+            has_global_unread = True
+            
+        sessions_data.append({
+            "agent_slug": session.agent_slug,
+            "unread_count": 1 if has_unread else 0
+        })
+    
+    return {
+        "has_unread": has_global_unread,
+        "sessions": sessions_data
+    }
 
 
 
