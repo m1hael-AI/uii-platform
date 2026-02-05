@@ -222,17 +222,22 @@ export default function PlatformLayout({
                                         });
                                         if (res.ok) {
                                             const data = await res.json();
+                                            console.log("🔔 Unread Check Data:", data); // DEBUG LOG
+
                                             const sessions = data.sessions || [];
 
                                             // Priority 1: Check for unread from agents (not main_assistant)
+                                            // Exclude ANY reserved assistant slugs
                                             const hasUnreadFromAgents = sessions.some(
-                                                (s: any) => s.agent_slug !== "main_assistant" && s.unread_count > 0
+                                                (s: any) => s.agent_slug !== "main_assistant" && s.agent_slug !== "assistant" && s.unread_count > 0
                                             );
 
                                             // Priority 2: Check for unread from AI assistant
                                             const hasUnreadFromAssistant = sessions.some(
-                                                (s: any) => s.agent_slug === "main_assistant" && s.unread_count > 0
+                                                (s: any) => (s.agent_slug === "main_assistant" || s.agent_slug === "assistant") && s.unread_count > 0
                                             );
+
+                                            console.log("🔔 Logic:", { hasUnreadFromAgents, hasUnreadFromAssistant });
 
                                             if (hasUnreadFromAgents) {
                                                 // Navigate to agents page
