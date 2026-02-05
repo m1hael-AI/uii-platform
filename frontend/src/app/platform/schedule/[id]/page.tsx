@@ -151,7 +151,7 @@ export default function UpcomingWebinarPage() {
                                     <span className="text-lg font-medium text-gray-900">{webinar.duration}</span>
                                 </div>
 
-                                <div className="pt-6 border-t border-gray-200">
+                                <div className="pt-6 border-t border-gray-200 flex flex-col items-center">
                                     <WebinarAction webinar={webinar} />
                                     <p className="text-xs text-center text-gray-400 mt-3">
                                         Напоминание придет за 1 час до начала

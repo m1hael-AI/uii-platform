@@ -18,6 +18,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     // Search
     const [search, setSearch] = useState("");
     const [sessions, setSessions] = useState<Record<string, any>>({});
+    const [typingAgents, setTypingAgents] = useState<Record<string, boolean>>({});
 
     // Fetch sessions to get real last messages
     // Fetch sessions logic
@@ -52,9 +53,21 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         fetchSessions();
 
         const handleUpdate = () => fetchSessions();
-        window.addEventListener("chatStatusUpdate", handleUpdate);
+        const handleTyping = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            setTypingAgents(prev => ({
+                ...prev,
+                [detail.agentId]: detail.isTyping
+            }));
+        };
 
-        return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
+        window.addEventListener("chatStatusUpdate", handleUpdate);
+        window.addEventListener("chatTypingStatus", handleTyping);
+
+        return () => {
+            window.removeEventListener("chatStatusUpdate", handleUpdate);
+            window.removeEventListener("chatTypingStatus", handleTyping);
+        };
     }, []);
 
     const filteredAgents = AGENTS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
@@ -90,9 +103,13 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                     {filteredAgents.map(agent => {
                         const isActive = pathname.includes(`/chat/${agent.id}`);
                         const session = sessions[agent.id];
-                        // If session exists and has a message, use it. Otherwise default.
-                        // Also format time if available? For now just message.
-                        const displayMsg = session?.last_message || agent.lastMsg;
+                        const isTyping = typingAgents[agent.id];
+
+                        // Display Logic: Typing > Last Message > Default
+                        const displayMsg = isTyping
+                            ? <span className="text-[#206ecf] animate-pulse">Печатает...</span>
+                            : (session?.last_message || agent.lastMsg);
+
                         const hasUnread = session?.has_unread || false;
 
                         return (

@@ -101,6 +101,13 @@ export default function AgentChatPage() {
 
       if (!res.ok) throw new Error("API Error");
 
+      if (!res.ok) throw new Error("API Error");
+
+      // 🔔 Dispatch Typing event ON (start)
+      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
+        detail: { agentId, isTyping: true }
+      }));
+
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
@@ -127,6 +134,10 @@ export default function AgentChatPage() {
       setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу." }]);
     } finally {
       setIsTyping(false);
+      // 🔔 Dispatch Typing event OFF (end)
+      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
+        detail: { agentId, isTyping: false }
+      }));
     }
   };
 
