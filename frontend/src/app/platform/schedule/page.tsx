@@ -50,7 +50,6 @@ export default function SchedulePage() {
         const enhancedData = data.map((w: any) => ({
           ...w,
           speaker: w.speaker_name || "М. Овсянников",
-          duration: w.duration_minutes ? `${w.duration_minutes} мин` : "1:30:00",
           date: new Date(w.scheduled_at || w.created_at).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })
         }));
 
@@ -151,12 +150,6 @@ export default function SchedulePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   {webinar.speaker}
-                </div>
-                <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {webinar.duration}
                 </div>
               </div>
             </div>

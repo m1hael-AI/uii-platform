@@ -86,8 +86,7 @@ async def restore_webinars():
                     new_item = WebinarSchedule(
                         **base_data,
                         connection_link=item.get('connection_link'),
-                        scheduled_at=item.get('scheduled_at') or now,
-                        duration_minutes=item.get('duration_minutes', 60)
+                        scheduled_at=item.get('scheduled_at') or now
                     )
                     db.add(new_item)
                     schedule_count += 1

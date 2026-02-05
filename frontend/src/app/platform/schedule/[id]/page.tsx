@@ -57,7 +57,6 @@ export default function UpcomingWebinarPage() {
                         description: cleanDesc,
                         category: "AI Education",
                         speaker: data.speaker_name || "Дмитрий Романов",
-                        duration: data.duration_minutes ? `${data.duration_minutes} мин` : "1:00:00",
                         date: new Date(data.scheduled_at || data.created_at).toLocaleDateString("ru-RU", {
                             day: 'numeric', month: 'long', year: 'numeric'
                         }),
@@ -144,11 +143,6 @@ export default function UpcomingWebinarPage() {
                                 <div className="flex flex-col gap-1">
                                     <span className="text-xs font-bold text-gray-400 uppercase">Спикер</span>
                                     <span className="text-lg font-medium text-gray-900">{webinar.speaker}</span>
-                                </div>
-
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-xs font-bold text-gray-400 uppercase">Длительность</span>
-                                    <span className="text-lg font-medium text-gray-900">{webinar.duration}</span>
                                 </div>
 
                                 <div className="pt-6 border-t border-gray-200 flex flex-col items-center">

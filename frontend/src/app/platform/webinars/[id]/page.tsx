@@ -113,7 +113,6 @@ export default function WebinarPage() {
                         // Use API data (NO hardcoded defaults)
                         category: data.category || "Общее",
                         speaker: data.speaker_name || "Не указан",
-                        duration: data.duration || "Не указано",
                         date: new Date(data.created_at).toLocaleDateString("ru-RU", {
                             day: 'numeric', month: 'long', year: 'numeric'
                         }),
