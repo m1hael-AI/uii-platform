@@ -43,6 +43,9 @@ export default function RightSidebar() {
             // Optional: clean up URL after opening
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
+
+            // 🔔 Instant Update
+            window.dispatchEvent(new Event("chatStatusUpdate"));
         }
     }, []);
 

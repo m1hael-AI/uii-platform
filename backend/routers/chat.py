@@ -47,9 +47,57 @@ class ChatSessionDTO(BaseModel):
     agent_id: str
     agent_name: str
     agent_avatar: Optional[str]
-    last_message: str
     last_message_at: Optional[str]
     has_unread: bool = False
+
+async def ensure_initial_sessions(db: AsyncSession, user_id: int):
+    """
+    Ensures that a new user has all necessary initial sessions (Mentor, Python, etc. + Assistant)
+    Created here to be called from both /sessions and /unread-status for instant cold start.
+    """
+    # 1. Check if user already has sessions
+    q = select(ChatSession).where(ChatSession.user_id == user_id)
+    res = await db.execute(q)
+    if res.first():
+        return False # Already has sessions
+        
+    # 2. Setup initial sessions
+    initial_slugs = ["mentor", "python", "hr", "analyst", "main_assistant"]
+    
+    for slug in initial_slugs:
+        # For agents, check existence. Assistant is a special slug.
+        if slug != "main_assistant":
+            agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
+            agent_obj = agent_res.scalar_one_or_none()
+            if not agent_obj: continue
+        
+        # Create Session
+        new_session = ChatSession(
+            user_id=user_id,
+            agent_slug=slug,
+            is_active=True,
+            last_message_at=datetime.utcnow(),
+            last_read_at=datetime(2000, 1, 1) # Force unread
+        )
+        db.add(new_session)
+        await db.commit()
+        await db.refresh(new_session)
+        
+        # Create Welcome Message
+        welcome_text = GREETINGS.get(slug, "Здравствуйте! Я ваш AI-помощник. Чем могу помочь?")
+        if slug == "main_assistant":
+             welcome_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
+        
+        msg = Message(
+            session_id=new_session.id,
+            role=MessageRole.ASSISTANT,
+            content=welcome_text,
+            created_at=datetime.utcnow()
+        )
+        db.add(msg)
+        await db.commit()
+    
+    return True
 
 @router.get("/sessions", response_model=List[ChatSessionDTO])
 async def get_user_sessions(
@@ -106,51 +154,17 @@ async def get_user_sessions(
         ))
         
     
+    result = await db.execute(q)
+    rows = result.all()
+    
     if not rows:
         # --- COLD START LOGIC ---
-        # If user has NO sessions, create ALL initial sessions immediately + Assistant
-        initial_slugs = ["mentor", "python", "hr", "analyst", "main_assistant"]
-        
-        for slug in initial_slugs:
-            # For agents, check existence. Assistant is a special slug.
-            if slug != "main_assistant":
-                agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
-                agent_obj = agent_res.scalar_one_or_none()
-                if not agent_obj: continue
-            
-            # Create Session
-            new_session = ChatSession(
-                user_id=current_user.id,
-                agent_slug=slug,
-                is_active=True,
-                last_message_at=datetime.utcnow(),
-                last_read_at=datetime(2000, 1, 1) # Force unread
-            )
-            db.add(new_session)
-            await db.commit()
-            await db.refresh(new_session)
-            
-            # Create Message
-            welcome_text = GREETINGS.get(slug, "Здравствуйте! Я ваш AI-помощник. Чем могу помочь?")
-            if slug == "main_assistant":
-                 welcome_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
-            
-            msg = Message(
-                session_id=new_session.id,
-                role=MessageRole.ASSISTANT,
-                content=welcome_text,
-                created_at=datetime.utcnow()
-            )
-            db.add(msg)
-            await db.commit()
-
-        # Re-fetch rows (excluding assistant which is for sidebar)
-        q_agents = q.where(ChatSession.agent_slug != "main_assistant")
-        result = await db.execute(q_agents)
+        await ensure_initial_sessions(db, current_user.id)
+        # Re-fetch rows
+        result = await db.execute(q.where(ChatSession.agent_slug != "main_assistant"))
         rows = result.all()
         
-        # Build sessions_dto again
-        sessions_dto = []
+    sessions_dto = []
         for session, agent in rows:
             msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)
             msg_res = await db.execute(msg_q)
@@ -486,6 +500,9 @@ async def get_unread_status(
     Check if there are ANY unread messages across all user sessions.
     Used for the global header bell icon.
     """
+    # 0. Trigger Cold Start if needed (Ensures notifications work on first layout load)
+    await ensure_initial_sessions(db, current_user.id)
+
     # 1. Check Agent sessions
     q = select(ChatSession).where(
         ChatSession.user_id == current_user.id,
