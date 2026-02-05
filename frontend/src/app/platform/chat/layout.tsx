@@ -109,52 +109,67 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto">
-                    {filteredAgents.map(agent => {
-                        const isActive = pathname.includes(`/chat/${agent.id}`);
-                        const session = sessions[agent.id];
-                        const isTyping = typingAgents[agent.id];
-
-                        // Display Logic: Typing > Last Message > Default
-                        const displayMsg = isTyping
-                            ? <span className="text-[#206ecf] animate-pulse">Печатает...</span>
-                            : (session?.last_message || agent.lastMsg);
-
-                        const hasUnread = session?.has_unread || false;
-
-                        return (
-                            <Link
-                                key={agent.id}
-                                href={`/platform/chat/${agent.id}`}
-                                onClick={() => {
-                                    // 💨 INSTANT LOCAL UPDATE
-                                    setSessions(prev => ({
-                                        ...prev,
-                                        [agent.id]: { ...prev[agent.id], has_unread: false }
-                                    }));
-                                }}
-                                className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
-                                    }`}
-                            >
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color} relative`}>
-                                    {agent.avatar}
-                                    {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="font-medium text-gray-900 truncate">{agent.name}</h4>
-                                        {session?.last_message_at && (
-                                            <span className="text-[10px] text-gray-400">
-                                                {new Date(session.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        )}
+                    {isLoading ? (
+                        // SKELETON LOADER
+                        <div className="animate-pulse space-y-2 p-2">
+                            {[1, 2, 3, 4].map(i => (
+                                <div key={i} className="flex items-center gap-3 p-3 rounded-xl">
+                                    <div className="w-12 h-12 rounded-full bg-gray-200 shrink-0"></div>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
                                     </div>
-                                    <p className={`text-xs truncate ${isActive || hasUnread ? "text-gray-700 font-medium" : "text-gray-500"}`}>
-                                        {displayMsg}
-                                    </p>
                                 </div>
-                            </Link>
-                        );
-                    })}
+                            ))}
+                        </div>
+                    ) : (
+                        filteredAgents.map(agent => {
+                            const isActive = pathname.includes(`/chat/${agent.id}`);
+                            const session = sessions[agent.id];
+                            const isTyping = typingAgents[agent.id];
+
+                            // Display Logic: Typing > Last Message > Default
+                            const displayMsg = isTyping
+                                ? <span className="text-[#206ecf] animate-pulse">Печатает...</span>
+                                : (session?.last_message || "");
+
+                            const hasUnread = session?.has_unread || false;
+
+                            return (
+                                <Link
+                                    key={agent.id}
+                                    href={`/platform/chat/${agent.id}`}
+                                    onClick={() => {
+                                        // 💨 INSTANT LOCAL UPDATE
+                                        setSessions(prev => ({
+                                            ...prev,
+                                            [agent.id]: { ...prev[agent.id], has_unread: false }
+                                        }));
+                                    }}
+                                    className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
+                                        }`}
+                                >
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color} relative`}>
+                                        {agent.avatar}
+                                        {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <h4 className="font-medium text-gray-900 truncate">{agent.name}</h4>
+                                            {session?.last_message_at && (
+                                                <span className="text-[10px] text-gray-400">
+                                                    {new Date(session.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className={`text-xs truncate ${isActive || hasUnread ? "text-gray-700 font-medium" : "text-gray-500"}`}>
+                                            {displayMsg}
+                                        </p>
+                                    </div>
+                                </Link>
+                            );
+                        })
+                    )}
                 </div>
             </div>
 
