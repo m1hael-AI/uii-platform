@@ -5,11 +5,11 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import Cookies from "js-cookie";
 
-const AGENTS_DATA: Record<string, { name: string; role: string; status: string }> = {
-  mentor: { name: "AI Ментор", role: "Куратор", status: "Онлайн" },
-  python: { name: "Python Эксперт", role: "Tutor", status: "Онлайн" },
-  analyst: { name: "Data Analyst", role: "Expert", status: "Онлайн" },
-  hr: { name: "HR Консультант", role: "Assistant", status: "Онлайн" },
+const AGENTS_DATA: Record<string, { name: string; role: string; status: string; color: string; bg: string }> = {
+  mentor: { name: "AI Ментор", role: "Куратор", status: "Онлайн", color: "text-orange-600", bg: "bg-orange-50" },
+  python: { name: "Python Эксперт", role: "Tutor", status: "Онлайн", color: "text-yellow-600", bg: "bg-yellow-50" },
+  analyst: { name: "Аналитик Данных", role: "Expert", status: "Онлайн", color: "text-green-600", bg: "bg-green-50" },
+  hr: { name: "HR Консультант", role: "Assistant", status: "Онлайн", color: "text-purple-600", bg: "bg-purple-50" },
 };
 
 export default function AgentChatPage() {
@@ -37,13 +37,12 @@ export default function AgentChatPage() {
 
         if (res.ok) {
           const history = await res.json();
-          if (history.length > 0) {
-            setMessages(history.map((h: any) => ({
+          // The backend returns an object with a 'messages' array: { messages: [], last_read_at: ... }
+          if (history.messages && history.messages.length > 0) {
+            setMessages(history.messages.map((h: any) => ({
               role: h.role,
               text: h.content
             })));
-          } else {
-            setMessages([{ role: 'assistant', text: `Привет! Я ${agent.name}. Чем могу помочь?` }]);
           }
 
           // Mark as read
@@ -54,7 +53,6 @@ export default function AgentChatPage() {
         }
       } catch (e) {
         console.error("Failed to load history", e);
-        setMessages([{ role: 'assistant', text: `Привет! Я ${agent.name}. Чем могу помочь?` }]);
       }
     };
 
@@ -132,10 +130,24 @@ export default function AgentChatPage() {
   return (
     <div className="flex flex-col h-full relative">
       {/* Header */}
-      <div className="h-16 px-4 md:px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur md:static">
-        <div>
-          <h2 className="font-bold text-gray-900">{agent.name}</h2>
-          <div className="text-xs text-[#206ecf]">
+      <div className="h-16 px-4 md:px-6 border-b border-gray-100 flex items-center gap-3 shrink-0 bg-white/80 backdrop-blur md:static">
+        {/* Mobile Back Button */}
+        <button
+          onClick={() => router.push("/platform/chat")}
+          className="lg:hidden p-2 -ml-2 text-gray-400 hover:text-gray-900 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
+          {agent.name[0]}
+        </div>
+
+        <div className="flex-1">
+          <h2 className="font-bold text-gray-900 leading-tight">{agent.name}</h2>
+          <div className="text-[10px] md:text-xs text-[#206ecf]">
             {isTyping ? "Печатает..." : agent.status}
           </div>
         </div>
@@ -146,7 +158,7 @@ export default function AgentChatPage() {
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#206ecf] to-[#60a5fa] flex items-center justify-center text-white font-bold text-xs mr-2 shrink-0 shadow-sm">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
                 {agent.name[0]}
               </div>
             )}

@@ -13,19 +13,27 @@ from models import User, ChatSession, Message, MessageRole, Agent, PendingAction
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# --- BACKGROUND TASK: Welcome Sequence ---
-import asyncio
-from database import async_session_factory
+# --- GREETINGS MAPPING ---
+GREETINGS = {
+    "mentor": "Привет! Я твой персональный куратор. Я здесь, чтобы помочь тебе освоиться на платформе, ответить на вопросы по обучению и поддержать тебя на пути к новой профессии. С чего начнем?",
+    "python": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?",
+    "hr": "Привет! Я помогу подготовиться к собеседованию и составить резюме. Расскажи о своем опыте?",
+    "analyst": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь. Посмотрим на твои цифры?"
+}
 
 async def run_welcome_sequence(user_id: int):
     """
     Rapid-fire welcome: Mentor -> 3s -> Python -> 6s -> HR -> 9s -> Analyst
     """
+    # Create a new session specifically for this background task
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
     
     agents_sequence = [
-        {"slug": "python", "delay": 3, "text": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?"},
-        {"slug": "hr", "delay": 3, "text": "Привет! Я помогу подготовиться к собеседованию и составить резюме."},
-        {"slug": "analyst", "delay": 3, "text": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь."}
+        {"slug": "python", "delay": 3, "text": GREETINGS["python"]},
+        {"slug": "hr", "delay": 3, "text": GREETINGS["hr"]},
+        {"slug": "analyst", "delay": 3, "text": GREETINGS["analyst"]}
     ]
     
     try:
@@ -52,7 +60,8 @@ async def run_welcome_sequence(user_id: int):
                     user_id=user_id,
                     agent_slug=item["slug"],
                     is_active=True,
-                    last_message_at=datetime.utcnow()
+                    last_message_at=datetime.utcnow(),
+                    last_read_at=datetime(2000, 1, 1) # Force unread for new user
                 )
                 db.add(new_session)
                 await db.commit()
@@ -172,14 +181,15 @@ async def get_user_sessions(
                 user_id=current_user.id,
                 agent_slug=mentor_slug,
                 is_active=True,
-                last_message_at=datetime.utcnow()
+                last_message_at=datetime.utcnow(),
+                last_read_at=datetime(2000, 1, 1) # Force unread
             )
             db.add(new_session)
             await db.commit()
             await db.refresh(new_session)
             
             # Create Welcome Message
-            welcome_text = "Привет! Я твой персональный куратор. Я здесь, чтобы помочь тебе освоиться на платформе, ответить на вопросы по обучению и поддержать тебя на пути к новой профессии. С чего начнем?"
+            welcome_text = GREETINGS["mentor"]
             
             welcome_msg = Message(
                 session_id=new_session.id,
@@ -323,13 +333,7 @@ async def chat_completions(
         agent_obj = agent_res.scalar_one_or_none()
         agent_name = agent_obj.name if agent_obj else "AI Assistant"
         
-        greeting_text = f"Привет! Я {agent_name}. Чем могу помочь?"
-        if slug == "mentor":
-            greeting_text = "Привет! Я твой персональный куратор. Готов ответить на вопросы по обучению."
-        elif slug == "python":
-            greeting_text = "Привет! Я помогу с кодом, архитектурой и Python."
-        elif slug == "analyst":
-            greeting_text = "Привет! Давай проанализируем данные. Спрашивай про Pandas, SQL или статистику."
+        greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
             
         greeting_msg = Message(
             session_id=chat_session.id,
@@ -340,6 +344,9 @@ async def chat_completions(
         
         # Set last_message_at so it appears at top
         chat_session.last_message_at = datetime.utcnow()
+        # Set last_read_at in the past so it's unread
+        chat_session.last_read_at = datetime(2000, 1, 1)
+        
         await db.commit()
         # ---------------------
 

@@ -35,6 +35,17 @@ export default function RightSidebar() {
 
     const toggle = () => setIsOpen(!isOpen);
 
+    // 🔗 DEEP LINK: ?assistant=open
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    useEffect(() => {
+        if (searchParams?.get("assistant") === "open") {
+            setIsOpen(true);
+            // Optional: clean up URL after opening
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
