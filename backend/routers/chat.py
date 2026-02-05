@@ -240,6 +240,51 @@ async def get_chat_history(
     res = await db.execute(msgs_q)
     messages = res.scalars().all()
     
+    # If session exists but has NO messages, trigger delayed greeting
+    if len(messages) == 0 and agent_id:
+        # Trigger delayed greeting (1 second) for notification UX
+        async def send_delayed_greeting():
+            await asyncio.sleep(1)  # Wait 1 second
+            
+            # Create new DB session for background task
+            async with AsyncSessionLocal() as bg_db:
+                # Fetch agent name for greeting
+                if agent_id != "main_assistant":
+                    agent_res = await bg_db.execute(select(Agent).where(Agent.slug == agent_id))
+                    agent_obj = agent_res.scalar_one_or_none()
+                    agent_name = agent_obj.name if agent_obj else "AI Assistant"
+                else:
+                    agent_name = "AI Помощник"
+                
+                # Get greeting text
+                if agent_id == "main_assistant":
+                    greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
+                else:
+                    greeting_text = GREETINGS.get(agent_id, f"Привет! Я {agent_name}. Чем могу помочь?")
+                    
+                greeting_msg = Message(
+                    session_id=session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=greeting_text
+                )
+                bg_db.add(greeting_msg)
+                
+                # Update session timestamps
+                session_stmt = select(ChatSession).where(ChatSession.id == session.id)
+                session_result = await bg_db.execute(session_stmt)
+                sess = session_result.scalar_one_or_none()
+                if sess:
+                    sess.last_message_at = datetime.utcnow()
+                    sess.last_read_at = datetime(2000, 1, 1)  # Mark as unread
+                
+                await bg_db.commit()
+                
+                # 🔔 Notify User (New Greeting Message)
+                await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
+        
+        # Start background task (don't await)
+        asyncio.create_task(send_delayed_greeting())
+    
     return HistoryResponse(
         messages=[
             HistoryMessage(
