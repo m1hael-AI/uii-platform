@@ -11,6 +11,7 @@ interface Agent {
     name: string;
     description?: string;
     system_prompt: string;
+    greeting_message?: string; // Added field
     is_active: boolean;
 }
 
@@ -20,14 +21,16 @@ export default function AgentsControlPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+
     // Editor state
     const [editPrompt, setEditPrompt] = useState("");
+    const [editGreeting, setEditGreeting] = useState(""); // Added state
 
     // Fetch Agents
     useEffect(() => {
         const fetchAgents = async () => {
             const token = Cookies.get("token");
-            if (!token) return; // Middleware should handle redirect really
+            if (!token) return;
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
             try {
@@ -57,7 +60,8 @@ export default function AgentsControlPage() {
     // Handle Selection
     const handleSelectAgent = (agent: Agent) => {
         setSelectedAgent(agent);
-        setEditPrompt(agent.system_prompt);
+        setEditPrompt(agent.system_prompt || "");
+        setEditGreeting(agent.greeting_message || "");
     };
 
     // Save Changes
@@ -75,16 +79,21 @@ export default function AgentsControlPage() {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    system_prompt: editPrompt
+                    system_prompt: editPrompt,
+                    greeting_message: editGreeting
                 })
             });
 
             if (res.ok) {
                 // Update local list
                 setAgents(prev => prev.map(a =>
-                    a.id === selectedAgent.id ? { ...a, system_prompt: editPrompt } : a
+                    a.id === selectedAgent.id ? {
+                        ...a,
+                        system_prompt: editPrompt,
+                        greeting_message: editGreeting
+                    } : a
                 ));
-                alert("Промпт сохранен!");
+                alert("Изменения сохранены!");
             } else {
                 alert("Ошибка сохранения");
             }
@@ -136,10 +145,10 @@ export default function AgentsControlPage() {
                 <div className="flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden">
                     {selectedAgent ? (
                         <>
-                            <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
                                 <div>
                                     <h2 className="font-bold text-lg">{selectedAgent.name}</h2>
-                                    <span className="text-xs text-gray-400">Редактирование System Prompt</span>
+                                    <span className="text-xs text-gray-400">Редактирование</span>
                                 </div>
                                 <button
                                     onClick={handleSave}
@@ -151,19 +160,48 @@ export default function AgentsControlPage() {
                                 </button>
                             </div>
 
-                            <div className="flex-1 p-0 relative">
-                                <textarea
-                                    value={editPrompt}
-                                    onChange={(e) => setEditPrompt(e.target.value)}
-                                    className="w-full h-full p-6 resize-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-100 font-mono text-sm leading-relaxed text-gray-800"
-                                    placeholder="Введите системный промпт здесь..."
-                                    spellCheck={false}
-                                />
+                            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                                {/* System Prompt Section */}
+                                <div className="flex flex-col h-[50%] min-h-[300px]">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                        System Prompt
+                                    </label>
+                                    <textarea
+                                        value={editPrompt}
+                                        onChange={(e) => setEditPrompt(e.target.value)}
+                                        className="w-full h-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono text-sm leading-relaxed resize-none text-gray-800"
+                                        placeholder="Введите системный промпт здесь..."
+                                        spellCheck={false}
+                                    />
+                                    <p className="text-xs text-gray-400 mt-2">
+                                        Задает личность, знания и стиль общения агента.
+                                    </p>
+                                </div>
+
+                                {/* Greeting Message Section */}
+                                <div className="flex flex-col">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                        Приветственное сообщение
+                                    </label>
+                                    <textarea
+                                        rows={4}
+                                        value={editGreeting}
+                                        onChange={(e) => setEditGreeting(e.target.value)}
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm leading-relaxed resize-none text-gray-800"
+                                        placeholder="Привет! Я... Чем могу помочь?"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-2">
+                                        Отображается при старте нового диалога.
+                                    </p>
+                                </div>
                             </div>
 
-                            <div className="p-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between">
+                            <div className="p-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex justify-between shrink-0">
                                 <span>ID: {selectedAgent.id}</span>
-                                <span>Chars: {editPrompt.length}</span>
+                                <div>
+                                    <span className="mr-4">Prompt: {editPrompt.length} chars</span>
+                                    <span>Greeting: {editGreeting.length} chars</span>
+                                </div>
                             </div>
                         </>
                     ) : (
