@@ -82,6 +82,8 @@ export default function AgentChatPage() {
 
     } catch (e) {
       console.error(e);
+      // Clear partial streaming text and replace with error
+      setStreamingMessage("");
       setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу. Пожалуйста, обновите страницу." }]);
     } finally {
       setIsTyping(false);
