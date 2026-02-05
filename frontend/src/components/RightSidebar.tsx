@@ -32,6 +32,8 @@ export default function RightSidebar() {
 
     // Ref to track initial history load
     const isInitialLoad = useRef(true);
+    // 🆕 VARIANT 1: Track if history was empty (new user)
+    const wasHistoryEmpty = useRef(false);
 
     const toggle = () => setIsOpen(!isOpen);
 
@@ -112,6 +114,7 @@ export default function RightSidebar() {
                         }));
                         setMessages(uiMsgs);
                         setLastTooltipMessageIndex(uiMsgs.length - 1);
+                        wasHistoryEmpty.current = false; // ← History was NOT empty
 
                         const lastAssistantMsg = uiMsgs[uiMsgs.length - 1];
                         if (lastAssistantMsg.role === 'assistant') {
@@ -123,6 +126,9 @@ export default function RightSidebar() {
                     } else {
                         setHasUnreadMessages(false);
                     }
+                } else {
+                    // 🆕 VARIANT 1: History was empty (new user)
+                    wasHistoryEmpty.current = true;
                 }
             } catch (e) {
                 console.error("Failed to load history", e);
@@ -150,7 +156,8 @@ export default function RightSidebar() {
             }
         } else {
             // SCENARIO 2: Sidebar is CLOSED.
-            if (isInitialLoad.current) return;
+            // 🆕 VARIANT 1: Allow notification if history was empty (new user)
+            if (isInitialLoad.current && !wasHistoryEmpty.current) return;
 
             // Trigger: New COMMITTED message (finished)
             const currentIndex = messages.length - 1;
@@ -173,6 +180,50 @@ export default function RightSidebar() {
             }
         }
     }, [messages, isOpen, lastTooltipMessageIndex, hasUnreadMessages]);
+
+    // 🆕 VARIANT 4: Listen to SSE chatStatusUpdate for instant notifications
+    useEffect(() => {
+        const handleChatUpdate = () => {
+            // SSE event received: new message from backend
+            if (!isOpen && !isInitialLoad.current) {
+                // Sidebar is closed AND initial load is done
+                // Refetch history to get new message
+                const refetchHistory = async () => {
+                    const token = Cookies.get("token");
+                    if (!token) return;
+
+                    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+                    const url = new URL(`${API_URL}/chat/history`);
+                    url.searchParams.append("agent_id", "main_assistant");
+
+                    try {
+                        const res = await fetch(url.toString(), {
+                            headers: { "Authorization": `Bearer ${token}` }
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            const historyMessages = data.messages || [];
+                            if (historyMessages.length > 0) {
+                                const uiMsgs = historyMessages.map((m: any) => ({
+                                    role: m.role,
+                                    text: m.content,
+                                    created_at: m.created_at
+                                }));
+                                setMessages(uiMsgs);
+                                // Trigger notification via existing logic
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to refetch history on SSE", e);
+                    }
+                };
+                refetchHistory();
+            }
+        };
+
+        window.addEventListener("chatStatusUpdate", handleChatUpdate);
+        return () => window.removeEventListener("chatStatusUpdate", handleChatUpdate);
+    }, [isOpen]);
 
     // Sync Read Status with Server when Open
     useEffect(() => {
