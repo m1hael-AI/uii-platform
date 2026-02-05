@@ -19,6 +19,7 @@ export default function AgentChatPage() {
   const agent = AGENTS_DATA[agentId] || { name: "AI Агент", role: "Bot", status: "Онлайн" };
 
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([]);
+  const [streamingMessage, setStreamingMessage] = useState("");
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -53,8 +54,7 @@ export default function AgentChatPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` }
           });
-
-          // 🔔 Broadcase update to Header Bell
+          // 🔔 BROADCAST STATUS UPDATE
           window.dispatchEvent(new Event("chatStatusUpdate"));
         }
       } catch (e) {
@@ -67,7 +67,7 @@ export default function AgentChatPage() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, streamingMessage]);
 
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
@@ -106,9 +106,8 @@ export default function AgentChatPage() {
 
       if (!reader) throw new Error("No reader");
 
-      setMessages(prev => [...prev, { role: 'assistant', text: "" }]);
-
       let accumulatedText = "";
+      setStreamingMessage("");
 
       while (true) {
         const { done, value } = await reader.read();
@@ -116,14 +115,12 @@ export default function AgentChatPage() {
 
         const chunk = decoder.decode(value, { stream: true });
         accumulatedText += chunk;
-
-        setMessages(prev => {
-          const newMsgs = [...prev];
-          const last = newMsgs[newMsgs.length - 1];
-          if (last.role === 'assistant') last.text = accumulatedText;
-          return newMsgs;
-        });
+        setStreamingMessage(accumulatedText);
       }
+
+      // DONE
+      setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText }]);
+      setStreamingMessage("");
 
     } catch (e) {
       console.error(e);
@@ -179,7 +176,7 @@ export default function AgentChatPage() {
           </div>
         ))}
 
-        {isTyping && (
+        {isTyping && !streamingMessage && (
           <div className="flex justify-start items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
               {agent.name[0]}
@@ -189,6 +186,19 @@ export default function AgentChatPage() {
                 <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                 <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                 <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {streamingMessage && (
+          <div className="flex justify-start">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
+              {agent.name[0]}
+            </div>
+            <div className="max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 md:px-5 md:py-4 text-base shadow-sm bg-white border border-gray-100 text-gray-800 rounded-tl-none">
+              <div className="prose prose-sm md:prose-base max-w-none text-gray-800">
+                <ReactMarkdown>{streamingMessage}</ReactMarkdown>
               </div>
             </div>
           </div>

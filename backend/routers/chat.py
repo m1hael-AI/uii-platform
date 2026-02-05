@@ -108,13 +108,15 @@ async def get_user_sessions(
     
     if not rows:
         # --- COLD START LOGIC ---
-        # If user has NO sessions, create ALL initial sessions immediately
-        initial_slugs = ["mentor", "python", "hr", "analyst"]
+        # If user has NO sessions, create ALL initial sessions immediately + Assistant
+        initial_slugs = ["mentor", "python", "hr", "analyst", "main_assistant"]
         
         for slug in initial_slugs:
-            agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
-            agent_obj = agent_res.scalar_one_or_none()
-            if not agent_obj: continue
+            # For agents, check existence. Assistant is a special slug.
+            if slug != "main_assistant":
+                agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
+                agent_obj = agent_res.scalar_one_or_none()
+                if not agent_obj: continue
             
             # Create Session
             new_session = ChatSession(
@@ -129,7 +131,10 @@ async def get_user_sessions(
             await db.refresh(new_session)
             
             # Create Message
-            welcome_text = GREETINGS.get(slug, "Привет!")
+            welcome_text = GREETINGS.get(slug, "Здравствуйте! Я ваш AI-помощник. Чем могу помочь?")
+            if slug == "main_assistant":
+                 welcome_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
+            
             msg = Message(
                 session_id=new_session.id,
                 role=MessageRole.ASSISTANT,
@@ -139,11 +144,12 @@ async def get_user_sessions(
             db.add(msg)
             await db.commit()
 
-        # Re-fetch rows to return them
-        result = await db.execute(q)
+        # Re-fetch rows (excluding assistant which is for sidebar)
+        q_agents = q.where(ChatSession.agent_slug != "main_assistant")
+        result = await db.execute(q_agents)
         rows = result.all()
         
-        # Build sessions_dto again with the new sessions
+        # Build sessions_dto again
         sessions_dto = []
         for session, agent in rows:
             msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)

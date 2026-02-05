@@ -106,6 +106,11 @@ export default function ChatIndexPage() {
                         <Link
                             key={session.id}
                             href={`/platform/chat/${session.agent_id}`}
+                            onClick={() => {
+                                // 💨 INSTANT LOCAL UPDATE
+                                session.has_unread = false;
+                                window.dispatchEvent(new Event("chatStatusUpdate"));
+                            }}
                             className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
                         >
                             <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${getAgentStyle(session.agent_id)}`}>
