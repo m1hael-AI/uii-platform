@@ -25,7 +25,7 @@ AsyncSessionLocal = sessionmaker(bg_engine, class_=AsyncSession, expire_on_commi
 
 # --- GREETINGS MAPPING ---
 GREETINGS = {
-    "mentor": "Привет! Я твой персональный куратор. Я здесь, чтобы помочь тебе освоиться на платформе, ответить на вопросы по обучению и поддержать тебя на пути к новой профессии. С чего начнем?",
+    "startup_expert": "Привет! Я эксперт по стартапам. Помогу с идеями, бизнес-моделями, поиском инвестиций и запуском проектов. Что планируешь?",
     "python": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?",
     "analyst": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь. Посмотрим на твои цифры?"
 }
@@ -98,11 +98,11 @@ class ChatSessionDTO(BaseModel):
 
 async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     """
-    Ensures that a new user has all necessary initial sessions (Mentor, Python, etc. + Assistant)
+    Ensures that a new user has all necessary initial sessions (Agents + Assistant)
     Created here to be called from both /sessions and /unread-status for instant cold start.
     
-    NOTE: Does NOT create greeting messages. Greetings are created on-demand when user
-    first accesses /chat/history for each agent (with 1-second delay for notifications).
+    NOTE: Creates greeting messages for AGENTS immediately.
+    Main Assistant greeting is created on-demand via /chat/history (with 1-second delay).
     """
     # 1. Check if user already has sessions
     q = select(ChatSession).where(ChatSession.user_id == user_id)
@@ -110,8 +110,8 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     if res.first():
         return False # Already has sessions
         
-    # 2. Setup initial sessions (WITHOUT greeting messages)
-    initial_slugs = ["mentor", "python", "hr", "analyst", "main_assistant"]
+    # 2. Setup initial sessions
+    initial_slugs = ["startup_expert", "python", "hr", "analyst", "main_assistant"]
     
     for slug in initial_slugs:
         # For agents, check existence. Assistant is a special slug.
@@ -120,17 +120,33 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
             agent_obj = agent_res.scalar_one_or_none()
             if not agent_obj: continue
         
-        # Create Session (without greeting message)
+        # Create Session
         new_session = ChatSession(
             user_id=user_id,
             agent_slug=slug,
             is_active=True
-            # Do NOT set last_message_at or last_read_at yet
-            # They will be set when greeting is created
         )
         db.add(new_session)
         await db.commit()
         await db.refresh(new_session)
+        
+        # Create greeting message for AGENTS (not for main_assistant)
+        if slug != "main_assistant":
+            welcome_text = GREETINGS.get(slug, "Привет! Чем могу помочь?")
+            
+            msg = Message(
+                session_id=new_session.id,
+                role=MessageRole.ASSISTANT,
+                content=welcome_text,
+                created_at=datetime.utcnow()
+            )
+            db.add(msg)
+            
+            # Update session timestamps
+            new_session.last_message_at = datetime.utcnow()
+            new_session.last_read_at = datetime(2000, 1, 1)  # Mark as unread
+            
+            await db.commit()
     
     return True
 
