@@ -29,6 +29,7 @@ def upgrade() -> None:
     sa.Column('avatar_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('system_prompt', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('description', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('greeting_message', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
