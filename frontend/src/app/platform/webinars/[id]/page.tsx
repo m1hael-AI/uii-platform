@@ -110,10 +110,10 @@ export default function WebinarPage() {
                     setWebinar({
                         ...data,
                         description: cleanDesc,
-                        // Fill defaults if missing
-                        category: "AI Education",
-                        speaker: "Дмитрий Романов",
-                        duration: "1:00:00",
+                        // Use API data (NO hardcoded defaults)
+                        category: data.category || "Общее",
+                        speaker: data.speaker_name || "Не указан",
+                        duration: data.duration || "Не указано",
                         date: new Date(data.created_at).toLocaleDateString("ru-RU", {
                             day: 'numeric', month: 'long', year: 'numeric'
                         }),

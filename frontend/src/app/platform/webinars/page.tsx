@@ -59,12 +59,12 @@ export default function WebinarsPage() {
             if (res.ok) {
                 const data = await res.json();
 
-                // Transform API data to UI data
+                // Transform API data to UI data (NO hardcoded defaults)
                 const enhancedData = data.map((w: any) => ({
                     ...w,
-                    category: "AI Education",
-                    speaker: w.speaker_name || "Дмитрий Романов",
-                    duration: "1:00:00",
+                    category: w.category || "Общее",
+                    speaker: w.speaker_name || "Не указан",
+                    duration: w.duration || "Не указано",
                     video_url: w.video_url || "",
                     date: new Date(w.conducted_at || w.created_at).toLocaleDateString("ru-RU", {
                         day: 'numeric', month: 'long', year: 'numeric'
@@ -92,13 +92,13 @@ export default function WebinarsPage() {
         fetchWebinars(1, true);
     }, [fetchWebinars]);
 
-    // Reset on search/filter change
+    // Reset on search change only (filter is client-side)
     useEffect(() => {
         setPage(1);
         setWebinars([]);
         setHasMore(true);
         fetchWebinars(1, true);
-    }, [searchQuery, selectedCategory, fetchWebinars]);
+    }, [searchQuery, fetchWebinars]);
 
     // Intersection Observer for infinite scroll
     useEffect(() => {
