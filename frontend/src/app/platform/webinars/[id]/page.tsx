@@ -360,7 +360,7 @@ export default function WebinarPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-6 border-t border-gray-100 border-b mb-8 w-full">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 py-6 border-t border-gray-100 border-b mb-8 w-full">
                 <div className="min-w-0">
                     <div className="text-xs text-gray-400 uppercase mb-1 font-bold">Спикер</div>
                     <div className="font-medium text-gray-900 break-words">{webinar.speaker}</div>
@@ -368,10 +368,6 @@ export default function WebinarPage() {
                 <div className="min-w-0">
                     <div className="text-xs text-gray-400 uppercase mb-1 font-bold">Дата</div>
                     <div className="font-medium text-gray-900 break-words">{webinar.date}</div>
-                </div>
-                <div className="min-w-0">
-                    <div className="text-xs text-gray-400 uppercase mb-1 font-bold">Длительность</div>
-                    <div className="font-medium text-gray-900">{webinar.duration}</div>
                 </div>
                 <div className="min-w-0">
                     <div className="text-xs text-gray-400 uppercase mb-1 font-bold">Категория</div>
