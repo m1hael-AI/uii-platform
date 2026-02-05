@@ -9,8 +9,6 @@ import { motion, AnimatePresence } from "framer-motion";
 const ADMIN_MENU = [
     { name: "Агенты", href: "/admin/agents", icon: "🤖" },
     { name: "Вебинары", href: "/admin/webinars", icon: "📚" },
-    { name: "Пользователи", href: "/admin/users", icon: "👥" },
-    { name: "Мониторинг", href: "/admin/monitoring", icon: "📊" },
     { name: "Настройки", href: "/admin/settings", icon: "⚙️" },
 ];
 
