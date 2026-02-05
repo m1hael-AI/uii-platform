@@ -159,6 +159,7 @@ export default function RightSidebar() {
             // SCENARIO 1: Sidebar is OPEN. 
             // We see everything. Clear alerts.
             if (hasUnreadMessages) setHasUnreadMessages(false);
+            if (showTooltip) setShowTooltip(false);
 
             // Mark all current COMMITTED messages as seen
             if (messages.length > 0) {
