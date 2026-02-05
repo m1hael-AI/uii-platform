@@ -73,6 +73,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage] 
     agent_id: Optional[str] = "mentor"
     webinar_id: Optional[int] = None
+    save_user_message: bool = True # Control duplication
 
 # History Response Model
 class HistoryMessage(BaseModel):
@@ -357,8 +358,9 @@ async def chat_completions(
         # ---------------------
 
     # 3. Save User Message
+    # 3. Save User Message
     # We take the LAST message from the client as the new one
-    if request.messages:
+    if request.messages and request.save_user_message:
         last_user_msg_content = request.messages[-1].content
         user_db_msg = Message(
             session_id=chat_session.id,
