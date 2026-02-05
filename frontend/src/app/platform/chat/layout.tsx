@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AGENTS = [
     { id: "mentor", name: "AI Ментор", role: "Куратор", avatar: "A", color: "bg-orange-50 text-orange-600", lastMsg: "Персональный куратор по всем вопросам." },
@@ -20,37 +20,42 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     const [sessions, setSessions] = useState<Record<string, any>>({});
 
     // Fetch sessions to get real last messages
-    useState(() => {
-        const fetchSessions = async () => {
-            try {
-                // Determine API_URL
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+    // Fetch sessions logic
+    const fetchSessions = async () => {
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+            // Check for token safely
+            const { default: Cookies } = await import("js-cookie");
+            const token = Cookies.get("token");
 
-                // Need token
-                // We can import Cookies
-                const { default: Cookies } = await import("js-cookie");
-                const token = Cookies.get("token");
-                if (!token) return;
+            if (!token) return;
 
-                const res = await fetch(`${API_URL}/chat/sessions`, {
-                    headers: { Authorization: `Bearer ${token}` }
+            const res = await fetch(`${API_URL}/chat/sessions`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const sessionMap: Record<string, any> = {};
+                data.forEach((s: any) => {
+                    sessionMap[s.agent_id] = s;
                 });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    // Map by agent_id for easy lookup
-                    const sessionMap: Record<string, any> = {};
-                    data.forEach((s: any) => {
-                        sessionMap[s.agent_id] = s;
-                    });
-                    setSessions(sessionMap);
-                }
-            } catch (e) {
-                console.error("Failed to fetch sessions", e);
+                setSessions(sessionMap);
             }
-        };
+        } catch (e) {
+            console.error("Failed to fetch sessions", e);
+        }
+    };
+
+    // Initial load + Event Listener for updates
+    useEffect(() => {
         fetchSessions();
-    });
+
+        const handleUpdate = () => fetchSessions();
+        window.addEventListener("chatStatusUpdate", handleUpdate);
+
+        return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
+    }, []);
 
     const filteredAgents = AGENTS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -94,6 +99,13 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                             <Link
                                 key={agent.id}
                                 href={`/platform/chat/${agent.id}`}
+                                onClick={() => {
+                                    // 💨 INSTANT LOCAL UPDATE
+                                    setSessions(prev => ({
+                                        ...prev,
+                                        [agent.id]: { ...prev[agent.id], has_unread: false }
+                                    }));
+                                }}
                                 className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
                                     }`}
                             >
