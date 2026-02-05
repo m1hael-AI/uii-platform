@@ -30,6 +30,79 @@ export default function AgentChatPage() {
     return () => { isMounted.current = false; };
   }, []);
 
+  // Helper: Stream Response (Extracted for re-use)
+  const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[]) => {
+    setIsTyping(true);
+    const token = Cookies.get("token");
+    if (!token) return;
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+      // 🔔 Dispatch Typing event ON (start)
+      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
+        detail: { agentId, isTyping: true }
+      }));
+
+      const res = await fetch(`${API_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          messages: currentMessages.map(m => ({ role: m.role, content: m.text })),
+          agent_id: agentId
+        })
+      });
+
+      if (!res.ok) throw new Error("API Error");
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No reader");
+
+      let accumulatedText = "";
+      setStreamingMessage("");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+        setStreamingMessage(accumulatedText);
+      }
+
+      // DONE
+      setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText }]);
+      setStreamingMessage("");
+
+    } catch (e) {
+      console.error(e);
+      setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу." }]);
+    } finally {
+      setIsTyping(false);
+      // 🔔 Dispatch Typing event OFF (end)
+      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
+        detail: { agentId, isTyping: false }
+      }));
+
+      // 🔥 SMART READ RECEIPT: Only if user still here
+      if (isMounted.current) {
+        try {
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+          await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          window.dispatchEvent(new Event("chatStatusUpdate"));
+        } catch (e) { console.error("Auto-read failed", e); }
+      }
+    }
+  };
+
   // Fetch History on Mount
   useEffect(() => {
     const fetchHistory = async () => {
@@ -44,14 +117,15 @@ export default function AgentChatPage() {
 
         if (res.ok) {
           const history = await res.json();
-          // The backend returns an object with a 'messages' array: { messages: [], last_read_at: ... }
+          let loadedMessages: { role: 'user' | 'assistant', text: string }[] = [];
+
           if (history.messages && history.messages.length > 0) {
-            setMessages(history.messages.map((h: any) => ({
+            loadedMessages = history.messages.map((h: any) => ({
               role: h.role,
               text: h.content
-            })));
+            }));
+            setMessages(loadedMessages);
           } else {
-            // Fallback if no messages yet (safety)
             setMessages([]);
           }
 
@@ -60,8 +134,16 @@ export default function AgentChatPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` }
           });
-          // 🔔 BROADCAST STATUS UPDATE
           window.dispatchEvent(new Event("chatStatusUpdate"));
+
+          // 🚀 SMART RESUME: If last message was USER, try to complete it
+          if (loadedMessages.length > 0) {
+            const lastMsg = loadedMessages[loadedMessages.length - 1];
+            if (lastMsg.role === 'user') {
+              // Auto-trigger response generation
+              streamResponse(loadedMessages);
+            }
+          }
         }
       } catch (e) {
         console.error("Failed to load history", e);
@@ -69,6 +151,7 @@ export default function AgentChatPage() {
     };
 
     fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, agent.name]);
 
   useEffect(() => {
