@@ -49,7 +49,15 @@ export default function RightSidebar() {
             // 🔔 Instant Update
             window.dispatchEvent(new Event("chatStatusUpdate"));
         }
-    }, []);
+
+        // 🔔 Listen for notification bell click
+        const handleOpenSidebar = () => setIsOpen(true);
+        window.addEventListener("openRightSidebar", handleOpenSidebar);
+
+        return () => {
+            window.removeEventListener("openRightSidebar", handleOpenSidebar);
+        };
+    }, [searchParams]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
