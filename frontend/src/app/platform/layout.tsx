@@ -239,18 +239,20 @@ export default function PlatformLayout({
 
                                             console.log("🔔 Logic:", { hasUnreadFromAgents, hasUnreadFromAssistant });
 
-                                            if (hasUnreadFromAgents) {
-                                                // Navigate to agents page
-                                                router.push("/platform/chat");
-                                            } else if (hasUnreadFromAssistant) {
+                                            if (hasUnreadFromAssistant) {
                                                 // Open right sidebar (AI assistant)
                                                 // Trigger custom event to open sidebar
                                                 window.dispatchEvent(new CustomEvent("openRightSidebar"));
+                                            } else {
+                                                // Default / Priority 1 / Fallback
+                                                // If agents have unread OR no unread at all, go to main chat page
+                                                router.push("/platform/chat");
                                             }
-                                            // If no unread, do nothing (ignore click)
                                         }
                                     } catch (e) {
                                         console.error("Failed to check unread status", e);
+                                        // Fallback on error
+                                        router.push("/platform/chat");
                                     }
                                 }}
                                 className={`relative p-2 transition-colors focus:outline-none ${hasGlobalUnread ? 'text-[#FF6B35]' : 'text-gray-400 hover:text-black'}`}
