@@ -30,32 +30,41 @@ export default function ChatIndexPage() {
     }, [searchParams, router]);
 
     // Fetch Sessions
+    const fetchSessions = async () => {
+        const token = Cookies.get("token");
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+        try {
+            const res = await fetch(`${API_URL}/chat/sessions`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setSessions(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch sessions", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchSessions = async () => {
-            const token = Cookies.get("token");
-            if (!token) {
-                setLoading(false);
-                return;
-            }
+        fetchSessions();
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-            try {
-                const res = await fetch(`${API_URL}/chat/sessions`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    setSessions(data);
-                }
-            } catch (e) {
-                console.error("Failed to fetch sessions", e);
-            } finally {
-                setLoading(false);
-            }
+        // 🔔 Listen for global updates (e.g. from Sidebar or Header or ChatPage)
+        const handleUpdate = () => {
+            // Re-fetch to sync backend state with UI
+            fetchSessions();
         };
 
-        fetchSessions();
+        window.addEventListener("chatStatusUpdate", handleUpdate);
+        return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
     }, []);
 
     // Get color based on agent ID (consistent with mock)
