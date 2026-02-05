@@ -114,7 +114,7 @@ export default function RightSidebar() {
                         }));
                         setMessages(uiMsgs);
                         setLastTooltipMessageIndex(uiMsgs.length - 1);
-                        wasHistoryEmpty.current = false; // ← History was NOT empty
+                        wasHistoryEmpty.current = false; // History was NOT empty
 
                         const lastAssistantMsg = uiMsgs[uiMsgs.length - 1];
                         if (lastAssistantMsg.role === 'assistant') {
@@ -124,10 +124,12 @@ export default function RightSidebar() {
                             setHasUnreadMessages(false);
                         }
                     } else {
+                        // History was EMPTY (new user)
                         setHasUnreadMessages(false);
+                        wasHistoryEmpty.current = true;
                     }
                 } else {
-                    // 🆕 VARIANT 1: History was empty (new user)
+                    // Request failed - assume empty
                     wasHistoryEmpty.current = true;
                 }
             } catch (e) {
