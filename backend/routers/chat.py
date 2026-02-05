@@ -1,3 +1,4 @@
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
