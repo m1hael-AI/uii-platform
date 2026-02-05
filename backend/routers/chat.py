@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, delete, or_
+from sqlalchemy import select, delete, or_, update
 from datetime import datetime
 import asyncio
 import json
@@ -516,7 +516,12 @@ async def chat_completions(
                      db.add(ai_msg)
                      
                      # ⏰ Update last_message_at for proactivity timer
-                     chat_session.last_message_at = datetime.utcnow()
+                     # Use explicit UPDATE to avoid detached instance issues after previous commits
+                     await db.execute(
+                         update(ChatSession)
+                         .where(ChatSession.id == chat_session.id)
+                         .values(last_message_at=datetime.utcnow())
+                     )
                      
                      await db.commit()
                      
