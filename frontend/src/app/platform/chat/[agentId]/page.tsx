@@ -43,6 +43,9 @@ export default function AgentChatPage() {
               role: h.role,
               text: h.content
             })));
+          } else {
+            // Fallback if no messages yet (safety)
+            setMessages([]);
           }
 
           // Mark as read
@@ -50,6 +53,9 @@ export default function AgentChatPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` }
           });
+
+          // 🔔 Broadcase update to Header Bell
+          window.dispatchEvent(new Event("chatStatusUpdate"));
         }
       } catch (e) {
         console.error("Failed to load history", e);
@@ -172,6 +178,22 @@ export default function AgentChatPage() {
             </div>
           </div>
         ))}
+
+        {isTyping && (
+          <div className="flex justify-start items-center">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
+              {agent.name[0]}
+            </div>
+            <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm">
+              <div className="flex gap-1.5 items-center h-6">
+                <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 

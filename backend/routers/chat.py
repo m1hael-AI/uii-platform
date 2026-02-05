@@ -21,65 +21,6 @@ GREETINGS = {
     "analyst": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь. Посмотрим на твои цифры?"
 }
 
-async def run_welcome_sequence(user_id: int):
-    """
-    Rapid-fire welcome: Mentor -> 3s -> Python -> 6s -> HR -> 9s -> Analyst
-    """
-    # Create a new session specifically for this background task
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
-    agents_sequence = [
-        {"slug": "python", "delay": 3, "text": GREETINGS["python"]},
-        {"slug": "hr", "delay": 3, "text": GREETINGS["hr"]},
-        {"slug": "analyst", "delay": 3, "text": GREETINGS["analyst"]}
-    ]
-    
-    try:
-        async with async_session_factory() as db:
-             for item in agents_sequence:
-                await asyncio.sleep(item["delay"])
-                
-                # Check agent exist
-                agent_res = await db.execute(select(Agent).where(Agent.slug == item["slug"]))
-                agent = agent_res.scalar_one_or_none()
-                if not agent:
-                    continue
-                    
-                # Create Session
-                # Duplicate check needed to be safe
-                existing = await db.execute(select(ChatSession).where(
-                    ChatSession.user_id == user_id, 
-                    ChatSession.agent_slug == item["slug"]
-                ))
-                if existing.scalar_one_or_none():
-                    continue
-
-                new_session = ChatSession(
-                    user_id=user_id,
-                    agent_slug=item["slug"],
-                    is_active=True,
-                    last_message_at=datetime.utcnow(),
-                    last_read_at=datetime(2000, 1, 1) # Force unread for new user
-                )
-                db.add(new_session)
-                await db.commit()
-                await db.refresh(new_session)
-                
-                # Message
-                msg = Message(
-                    session_id=new_session.id,
-                    role=MessageRole.ASSISTANT,
-                    content=item["text"],
-                    created_at=datetime.utcnow()
-                )
-                db.add(msg)
-                await db.commit()
-                
-    except Exception as e:
-        print(f"Error in welcome sequence: {e}")
-
 
 # Request Models
 class ChatMessage(BaseModel):
@@ -167,19 +108,18 @@ async def get_user_sessions(
     
     if not rows:
         # --- COLD START LOGIC ---
-        # If user has NO sessions, create a Welcome Session with Mentor
-        # This ensures the user sees something immediately.
+        # If user has NO sessions, create ALL initial sessions immediately
+        initial_slugs = ["mentor", "python", "hr", "analyst"]
         
-        # 1. Check if 'mentor' agent exists
-        mentor_slug = "mentor"
-        agent_res = await db.execute(select(Agent).where(Agent.slug == mentor_slug))
-        mentor_agent = agent_res.scalar_one_or_none()
-        
-        if mentor_agent:
+        for slug in initial_slugs:
+            agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
+            agent_obj = agent_res.scalar_one_or_none()
+            if not agent_obj: continue
+            
             # Create Session
             new_session = ChatSession(
                 user_id=current_user.id,
-                agent_slug=mentor_slug,
+                agent_slug=slug,
                 is_active=True,
                 last_message_at=datetime.utcnow(),
                 last_read_at=datetime(2000, 1, 1) # Force unread
@@ -188,31 +128,41 @@ async def get_user_sessions(
             await db.commit()
             await db.refresh(new_session)
             
-            # Create Welcome Message
-            welcome_text = GREETINGS["mentor"]
-            
-            welcome_msg = Message(
+            # Create Message
+            welcome_text = GREETINGS.get(slug, "Привет!")
+            msg = Message(
                 session_id=new_session.id,
                 role=MessageRole.ASSISTANT,
                 content=welcome_text,
                 created_at=datetime.utcnow()
             )
-            db.add(welcome_msg)
+            db.add(msg)
             await db.commit()
+
+        # Re-fetch rows to return them
+        result = await db.execute(q)
+        rows = result.all()
+        
+        # Build sessions_dto again with the new sessions
+        sessions_dto = []
+        for session, agent in rows:
+            msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)
+            msg_res = await db.execute(msg_q)
+            last_msg = msg_res.scalar_one_or_none()
             
-            # TRIGGER RAPID FIRE SEQUENCE
-            background_tasks.add_task(run_welcome_sequence, current_user.id)
-            
-            # Return this new session directly as DTO
-            return [ChatSessionDTO(
-                id=new_session.id,
-                agent_id=mentor_agent.slug,
-                agent_name=mentor_agent.name,
-                agent_avatar=mentor_agent.avatar_url,
-                last_message=welcome_text[:60] + "..." if len(welcome_text) > 60 else welcome_text,
-                last_message_at=new_session.last_message_at.isoformat(),
-                has_unread=True # It is definitely unread
-            )]
+            last_content = last_msg.content if last_msg else "Начните диалог"
+            if len(last_content) > 60:
+                last_content = last_content[:60] + "..."
+                
+            sessions_dto.append(ChatSessionDTO(
+                id=session.id,
+                agent_id=agent.slug,
+                agent_name=agent.name,
+                agent_avatar=agent.avatar_url,
+                last_message=last_content,
+                last_message_at=session.last_message_at.isoformat() if session.last_message_at else None,
+                has_unread=True
+            ))
             
     return sessions_dto
 
@@ -519,4 +469,28 @@ async def reset_user_chats(
     await db.commit()
     
     return {"status": "ok", "message": f"Reset complete. Deleted {len(session_ids)} sessions."}
+
+
+@router.get("/unread-status")
+async def get_unread_status(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if there are ANY unread messages across all user sessions.
+    Used for the global header bell icon.
+    """
+    # 1. Check Agent sessions
+    q = select(ChatSession).where(
+        ChatSession.user_id == current_user.id,
+        ChatSession.is_active == True,
+        or_(
+            ChatSession.last_read_at == None,
+            ChatSession.last_message_at > ChatSession.last_read_at
+        )
+    )
+    res = await db.execute(q)
+    any_unread = res.first() is not None
+    
+    return {"has_unread": any_unread}
 

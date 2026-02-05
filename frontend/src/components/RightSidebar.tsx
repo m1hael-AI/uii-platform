@@ -64,6 +64,12 @@ export default function RightSidebar() {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}` }
             });
+            if (res.ok) {
+                // 🔔 Trigger Global Refresh
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event("chatStatusUpdate"));
+                }
+            }
             return res.ok;
         } catch (e) {
             console.error("Failed to mark as read", e);
