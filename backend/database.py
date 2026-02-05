@@ -12,7 +12,7 @@ from config import settings
 # === СИНХРОННЫЙ ENGINE (для миграций и простых операций) ===
 sync_engine = create_engine(
     settings.database_url,
-    echo=settings.debug,
+    echo=False, # Disable verbose SQL logging
     pool_pre_ping=True,
 )
 
@@ -25,7 +25,7 @@ async_database_url = settings.database_url.replace(
 
 async_engine = create_async_engine(
     async_database_url,
-    echo=settings.debug,
+    echo=False, # Disable verbose SQL logging
     pool_pre_ping=True,
 )
 

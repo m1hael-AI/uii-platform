@@ -23,6 +23,12 @@ export default function AgentChatPage() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   // Fetch History on Mount
   useEffect(() => {
@@ -138,6 +144,19 @@ export default function AgentChatPage() {
       window.dispatchEvent(new CustomEvent("chatTypingStatus", {
         detail: { agentId, isTyping: false }
       }));
+
+      // 🔥 SMART READ RECEIPT: Only if user still here
+      if (isMounted.current) {
+        try {
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+          await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          // Update local UI immediately too (optional, but good for sync)
+          window.dispatchEvent(new Event("chatStatusUpdate"));
+        } catch (e) { console.error("Auto-read failed", e); }
+      }
     }
   };
 

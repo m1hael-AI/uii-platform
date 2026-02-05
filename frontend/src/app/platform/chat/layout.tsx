@@ -39,6 +39,12 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                 const data = await res.json();
                 const sessionMap: Record<string, any> = {};
                 data.forEach((s: any) => {
+                    // 🛡️ ANTI-FLICKER: If we are currently on this agent's page, ignore server's "unread" status
+                    // current pathname might be /platform/chat/mentor
+                    // s.agent_id is "mentor"
+                    if (window.location.pathname.includes(`/chat/${s.agent_id}`)) {
+                        s.has_unread = false;
+                    }
                     sessionMap[s.agent_id] = s;
                 });
                 setSessions(sessionMap);
