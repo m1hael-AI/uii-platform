@@ -17,7 +17,7 @@ const MENU_ITEMS = [
         )
     },
     {
-        name: "Обучение", href: "/platform/webinars", icon: (
+        name: "Библиотека", href: "/platform/webinars", icon: (
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664zM21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         )
     },
@@ -63,6 +63,7 @@ export default function PlatformLayout({
                 });
                 if (res.ok) {
                     const data = await res.json();
+                    // Check if ANY session (agents OR assistant) has unread
                     setHasGlobalUnread(data.has_unread);
                 }
             } catch (e) {
@@ -210,7 +211,43 @@ export default function PlatformLayout({
                         {/* Profile & Actions */}
                         <div className="flex items-center gap-2 md:gap-4">
                             <button
-                                onClick={() => router.push("/platform/chat")}
+                                onClick={async () => {
+                                    // Fetch unread status to determine where to navigate
+                                    const token = Cookies.get("token");
+                                    if (!token) return;
+                                    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+                                    try {
+                                        const res = await fetch(`${API_URL}/chat/unread-status`, {
+                                            headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            const sessions = data.sessions || [];
+
+                                            // Priority 1: Check for unread from agents (not main_assistant)
+                                            const hasUnreadFromAgents = sessions.some(
+                                                (s: any) => s.agent_slug !== "main_assistant" && s.unread_count > 0
+                                            );
+
+                                            // Priority 2: Check for unread from AI assistant
+                                            const hasUnreadFromAssistant = sessions.some(
+                                                (s: any) => s.agent_slug === "main_assistant" && s.unread_count > 0
+                                            );
+
+                                            if (hasUnreadFromAgents) {
+                                                // Navigate to agents page
+                                                router.push("/platform/chat");
+                                            } else if (hasUnreadFromAssistant) {
+                                                // Open right sidebar (AI assistant)
+                                                // Trigger custom event to open sidebar
+                                                window.dispatchEvent(new CustomEvent("openRightSidebar"));
+                                            }
+                                            // If no unread, do nothing (ignore click)
+                                        }
+                                    } catch (e) {
+                                        console.error("Failed to check unread status", e);
+                                    }
+                                }}
                                 className={`relative p-2 transition-colors focus:outline-none ${hasGlobalUnread ? 'text-[#FF6B35]' : 'text-gray-400 hover:text-black'}`}
                             >
                                 {hasGlobalUnread && (
