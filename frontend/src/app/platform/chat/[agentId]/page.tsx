@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import Cookies from "js-cookie";
 
 const AGENTS_DATA: Record<string, { name: string; role: string; status: string; color: string; bg: string }> = {
-  mentor: { name: "AI Ментор", role: "Куратор", status: "Онлайн", color: "text-orange-600", bg: "bg-orange-50" },
+  startup_expert: { name: "Эксперт по стартапам", role: "Бизнес", status: "Онлайн", color: "text-orange-600", bg: "bg-orange-50" },
   python: { name: "Python Эксперт", role: "Tutor", status: "Онлайн", color: "text-yellow-600", bg: "bg-yellow-50" },
   analyst: { name: "Аналитик Данных", role: "Expert", status: "Онлайн", color: "text-green-600", bg: "bg-green-50" },
   hr: { name: "HR Консультант", role: "Assistant", status: "Онлайн", color: "text-purple-600", bg: "bg-purple-50" },

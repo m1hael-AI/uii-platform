@@ -70,7 +70,7 @@ export default function ChatIndexPage() {
     // Get color based on agent ID (consistent with mock)
     const getAgentStyle = (slug: string) => {
         switch (slug) {
-            case "mentor": return "bg-orange-50 text-orange-600";
+            case "startup_expert": return "bg-orange-50 text-orange-600";
             case "python": return "bg-yellow-50 text-yellow-600";
             case "analyst": return "bg-green-50 text-green-600";
             case "hr": return "bg-purple-50 text-purple-600";

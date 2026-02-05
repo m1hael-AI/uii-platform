@@ -5,7 +5,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const AGENTS = [
-    { id: "mentor", name: "AI Ментор", role: "Куратор", avatar: "A", color: "bg-orange-50 text-orange-600" },
+    { id: "startup_expert", name: "Эксперт по стартапам", role: "Бизнес", avatar: "S", color: "bg-orange-50 text-orange-600" },
     { id: "python", name: "Python Эксперт", role: "Tutor", avatar: "P", color: "bg-yellow-50 text-yellow-600" },
     { id: "analyst", name: "Data Analyst", role: "Expert", avatar: "D", color: "bg-green-50 text-green-600" },
     { id: "hr", name: "HR Консультант", role: "Assistant", avatar: "H", color: "bg-purple-50 text-purple-600" },
