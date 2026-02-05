@@ -134,7 +134,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                             >
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color} relative`}>
                                     {agent.avatar}
-                                    {hasUnread && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
+                                    {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-center mb-0.5">
