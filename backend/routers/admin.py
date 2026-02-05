@@ -18,6 +18,7 @@ class AgentUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
     greeting_message: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class AgentResponse(BaseModel):
     id: int
@@ -27,6 +28,7 @@ class AgentResponse(BaseModel):
     system_prompt: str
     is_active: bool
     greeting_message: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class ProactivitySettingsUpdate(BaseModel):
     # OpenAI Settings
@@ -126,6 +128,8 @@ async def update_agent(
         agent.is_active = update_data.is_active
     if update_data.greeting_message is not None:
         agent.greeting_message = update_data.greeting_message
+    if update_data.avatar_url is not None:
+        agent.avatar_url = update_data.avatar_url
         
     await db.commit()
     await db.refresh(agent)

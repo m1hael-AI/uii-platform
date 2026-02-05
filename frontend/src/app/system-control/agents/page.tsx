@@ -11,7 +11,8 @@ interface Agent {
     name: string;
     description?: string;
     system_prompt: string;
-    greeting_message?: string; // Added field
+    greeting_message?: string;
+    avatar_url?: string; // New field
     is_active: boolean;
 }
 
@@ -24,7 +25,8 @@ export default function AgentsControlPage() {
 
     // Editor state
     const [editPrompt, setEditPrompt] = useState("");
-    const [editGreeting, setEditGreeting] = useState(""); // Added state
+    const [editGreeting, setEditGreeting] = useState("");
+    const [editAvatar, setEditAvatar] = useState(""); // New field
 
     // Fetch Agents
     useEffect(() => {
@@ -62,6 +64,7 @@ export default function AgentsControlPage() {
         setSelectedAgent(agent);
         setEditPrompt(agent.system_prompt || "");
         setEditGreeting(agent.greeting_message || "");
+        setEditAvatar(agent.avatar_url || "");
     };
 
     // Save Changes
@@ -80,7 +83,8 @@ export default function AgentsControlPage() {
                 },
                 body: JSON.stringify({
                     system_prompt: editPrompt,
-                    greeting_message: editGreeting
+                    greeting_message: editGreeting,
+                    avatar_url: editAvatar // Saving avatar
                 })
             });
 
@@ -90,7 +94,8 @@ export default function AgentsControlPage() {
                     a.id === selectedAgent.id ? {
                         ...a,
                         system_prompt: editPrompt,
-                        greeting_message: editGreeting
+                        greeting_message: editGreeting,
+                        avatar_url: editAvatar
                     } : a
                 ));
                 alert("Изменения сохранены!");
@@ -129,13 +134,22 @@ export default function AgentsControlPage() {
                                 key={agent.id}
                                 onClick={() => handleSelectAgent(agent)}
                                 className={`p-4 border-b border-gray-50 cursor-pointer transition-colors hover:bg-blue-50 ${selectedAgent?.id === agent.id ? "bg-blue-50 border-l-4 border-blue-500" : ""
-                                    }`}
+                                    } flex items-center gap-4`}
                             >
-                                <div className="font-bold text-gray-800">{agent.name}</div>
-                                <div className="text-xs text-gray-400 font-mono mt-1">{agent.slug}</div>
-                                {agent.description && (
-                                    <div className="text-xs text-gray-500 mt-2 line-clamp-2">{agent.description}</div>
-                                )}
+                                {/* Avatar Preview in List */}
+                                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden shrink-0 border border-gray-300">
+                                    {agent.avatar_url ? (
+                                        <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
+                                            {agent.slug.substring(0, 2).toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="overflow-hidden">
+                                    <div className="font-bold text-gray-800 truncate">{agent.name}</div>
+                                    <div className="text-xs text-gray-400 font-mono mt-1 truncate">{agent.slug}</div>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -146,9 +160,19 @@ export default function AgentsControlPage() {
                     {selectedAgent ? (
                         <>
                             <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
-                                <div>
-                                    <h2 className="font-bold text-lg">{selectedAgent.name}</h2>
-                                    <span className="text-xs text-gray-400">Редактирование</span>
+                                <div className="flex items-center gap-4">
+                                    {/* Big Avatar Preview */}
+                                    <div className="w-12 h-12 rounded-full bg-white border border-gray-200 overflow-hidden shadow-sm">
+                                        {editAvatar ? (
+                                            <img src={editAvatar} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-300 text-lg">?</div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h2 className="font-bold text-lg">{selectedAgent.name}</h2>
+                                        <span className="text-xs text-gray-400">Редактирование профиля</span>
+                                    </div>
                                 </div>
                                 <button
                                     onClick={handleSave}
@@ -161,8 +185,25 @@ export default function AgentsControlPage() {
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                                {/* Avatar URL Section */}
+                                <div>
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">
+                                        Avatar URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editAvatar}
+                                        onChange={(e) => setEditAvatar(e.target.value)}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:border-blue-500 outline-none text-sm text-gray-800 font-mono"
+                                        placeholder="https://example.com/image.png"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-2">
+                                        Ссылка на изображение (PNG/JPG). Будет отображаться в чате.
+                                    </p>
+                                </div>
+
                                 {/* System Prompt Section */}
-                                <div className="flex flex-col h-[50%] min-h-[300px]">
+                                <div className="flex flex-col h-[40%] min-h-[300px]">
                                     <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
                                         System Prompt
                                     </label>
@@ -173,9 +214,6 @@ export default function AgentsControlPage() {
                                         placeholder="Введите системный промпт здесь..."
                                         spellCheck={false}
                                     />
-                                    <p className="text-xs text-gray-400 mt-2">
-                                        Задает личность, знания и стиль общения агента.
-                                    </p>
                                 </div>
 
                                 {/* Greeting Message Section */}
@@ -190,9 +228,6 @@ export default function AgentsControlPage() {
                                         className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm leading-relaxed resize-none text-gray-800"
                                         placeholder="Привет! Я... Чем могу помочь?"
                                     />
-                                    <p className="text-xs text-gray-400 mt-2">
-                                        Отображается при старте нового диалога.
-                                    </p>
                                 </div>
                             </div>
 
