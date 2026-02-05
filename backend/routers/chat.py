@@ -121,12 +121,32 @@ async def get_user_sessions(
     result = await db.execute(q)
     rows = result.all() # [(ChatSession, Agent), ...]
     
+    if not rows:
+        # --- COLD START LOGIC ---
+        await ensure_initial_sessions(db, current_user.id)
+        # Re-fetch rows (exclude assistant from the main list if desired, but previously it seemed we wanted them?)
+        # Wait, the frontend list usually DOES NOT show the main assistant if it's in the sidebar.
+        # But for notification "bell" we check all.
+        # For this endpoint /sessions which powers the "Agents" page, we typically exclude main_assistant if it lives in sidebar only.
+        # The previous code had `q.where(ChatSession.agent_slug != "main_assistant")`. Let's keep that constraint if it was there.
+        # Actually in the VERY first version it didn't filtering.
+        # But in Step 405 replacement it added filtering. 
+        # Let's apply filtering to be safe as per previous intent.
+        
+        q_agents = q.where(ChatSession.agent_slug != "main_assistant")
+        result = await db.execute(q_agents)
+        rows = result.all()
+    else:
+        # If we had rows initially, we might still want to filter main_assistant if it was returned by general query?
+        # The general query joins Agent. 
+        # If main_assistant is in Agent table, it might appear.
+        # Let's filter it out in python or query to be consistent.
+        rows = [r for r in rows if r[0].agent_slug != "main_assistant"]
+
     sessions_dto = []
     
     for session, agent in rows:
         # Get last message content
-        # Optimization: storing last_message_content in ChatSession would be better for perf,
-        # but for now we query.
         msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)
         msg_res = await db.execute(msg_q)
         last_msg = msg_res.scalar_one_or_none()
@@ -153,37 +173,6 @@ async def get_user_sessions(
             has_unread=has_unread
         ))
         
-    
-    result = await db.execute(q)
-    rows = result.all()
-    
-    if not rows:
-        # --- COLD START LOGIC ---
-        await ensure_initial_sessions(db, current_user.id)
-        # Re-fetch rows
-        result = await db.execute(q.where(ChatSession.agent_slug != "main_assistant"))
-        rows = result.all()
-        
-    sessions_dto = []
-        for session, agent in rows:
-            msg_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at.desc()).limit(1)
-            msg_res = await db.execute(msg_q)
-            last_msg = msg_res.scalar_one_or_none()
-            
-            last_content = last_msg.content if last_msg else "Начните диалог"
-            if len(last_content) > 60:
-                last_content = last_content[:60] + "..."
-                
-            sessions_dto.append(ChatSessionDTO(
-                id=session.id,
-                agent_id=agent.slug,
-                agent_name=agent.name,
-                agent_avatar=agent.avatar_url,
-                last_message=last_content,
-                last_message_at=session.last_message_at.isoformat() if session.last_message_at else None,
-                has_unread=True
-            ))
-            
     return sessions_dto
 
 @router.get("/history", response_model=HistoryResponse)
