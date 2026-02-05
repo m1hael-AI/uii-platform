@@ -2,24 +2,26 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, delete, or_
 from datetime import datetime
 import asyncio
 import json
 import logging
 
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, or_
-from datetime import datetime
-
 from services.openai_service import generate_chat_response, stream_chat_response
 from services.context_manager import is_context_overflow, compress_context_task
 from dependencies import get_db, get_current_user
 from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule
+from config import settings
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+# Create AsyncSessionLocal for background tasks
+database_url = settings.database_url.replace("postgresql://", "postgresql+asyncpg://")
+bg_engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
+AsyncSessionLocal = sessionmaker(bg_engine, class_=AsyncSession, expire_on_commit=False)
 
 # --- GREETINGS MAPPING ---
 GREETINGS = {
@@ -330,31 +332,42 @@ async def chat_completions(
         await db.commit()
         await db.refresh(chat_session)
         
-        # --- AUTO GREETING ---
-        # Fetch agent name for greeting
-        agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
-        agent_obj = agent_res.scalar_one_or_none()
-        agent_name = agent_obj.name if agent_obj else "AI Assistant"
-        
-        greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
+        # --- DELAYED AUTO GREETING (1 second) ---
+        # Send greeting AFTER frontend loads history to trigger notification
+        async def send_delayed_greeting():
+            await asyncio.sleep(1)  # Wait 1 second
             
-        greeting_msg = Message(
-            session_id=chat_session.id,
-            role=MessageRole.ASSISTANT,
-            content=greeting_text
-        )
-        db.add(greeting_msg)
+            # Create new DB session for background task
+            async with AsyncSessionLocal() as bg_db:
+                # Fetch agent name for greeting
+                agent_res = await bg_db.execute(select(Agent).where(Agent.slug == slug))
+                agent_obj = agent_res.scalar_one_or_none()
+                agent_name = agent_obj.name if agent_obj else "AI Assistant"
+                
+                greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
+                    
+                greeting_msg = Message(
+                    session_id=chat_session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=greeting_text
+                )
+                bg_db.add(greeting_msg)
+                
+                # Update session timestamps
+                session_stmt = select(ChatSession).where(ChatSession.id == chat_session.id)
+                session_result = await bg_db.execute(session_stmt)
+                session = session_result.scalar_one_or_none()
+                if session:
+                    session.last_message_at = datetime.utcnow()
+                    session.last_read_at = datetime(2000, 1, 1)  # Mark as unread
+                
+                await bg_db.commit()
+                
+                # 🔔 Notify User (New Greeting Message)
+                await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
         
-        # Set last_message_at so it appears at top
-        chat_session.last_message_at = datetime.utcnow()
-        # Set last_read_at in the past so it's unread
-        chat_session.last_read_at = datetime(2000, 1, 1)
-        
-        await db.commit()
-        
-        # 🔔 Notify User (New Intro Message)
-        # We don't await this to avoid blocking? Actually queue.put is fast.
-        await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
+        # Start background task (don't await)
+        asyncio.create_task(send_delayed_greeting())
         # ---------------------
 
     # 3. Save User Message
