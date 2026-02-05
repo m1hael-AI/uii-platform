@@ -81,7 +81,7 @@ export default function AgentChatPage() {
 
     } catch (e) {
       console.error(e);
-      setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу." }]);
+      setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу. Пожалуйста, обновите страницу." }]);
     } finally {
       setIsTyping(false);
       // 🔔 Dispatch Typing event OFF (end)
