@@ -157,18 +157,34 @@ export default function RightSidebar() {
         } else {
             // SCENARIO 2: Sidebar is CLOSED.
             // 🆕 VARIANT 1: Allow notification if history was empty (new user)
-            if (isInitialLoad.current && !wasHistoryEmpty.current) return;
+            console.log("🔍 DEBUG Notification Check:", {
+                isInitialLoad: isInitialLoad.current,
+                wasHistoryEmpty: wasHistoryEmpty.current,
+                messagesLength: messages.length,
+                isOpen
+            });
+
+            if (isInitialLoad.current && !wasHistoryEmpty.current) {
+                console.log("❌ Blocked: isInitialLoad=true and history was NOT empty");
+                return;
+            }
 
             // Trigger: New COMMITTED message (finished)
             const currentIndex = messages.length - 1;
             const lastMessage = messages[currentIndex];
 
+            console.log("🔍 Last Message:", lastMessage);
+            console.log("🔍 lastTooltipMessageIndex:", lastTooltipMessageIndex);
+
             // Allow notification ONLY if it's a new, untracked message
             // AND it's not a temporary user optimistic message (wait for assistant)
             const isNewCommitted = lastMessage && lastMessage.role === 'assistant' && currentIndex > lastTooltipMessageIndex;
 
+            console.log("🔍 isNewCommitted:", isNewCommitted);
+
             if (isNewCommitted) {
                 if (!hasUnreadMessages) {
+                    console.log("✅ SHOWING TOOLTIP!");
                     setShowTooltip(true);
                     setLastTooltipMessageIndex(currentIndex);
                     setHasUnreadMessages(true);
