@@ -70,7 +70,7 @@ async def restore_webinars():
                 "title": item.get('title'),
                 "description": item.get('description'),
                 "thumbnail_url": item.get('thumbnail_url'),
-                "speaker_name": item.get('speaker_name'),
+                "speaker_name": item.get('speaker_name') or "Дмитрий Романов",  # Default speaker
                 "is_published": item.get('is_published', True),
                 "created_at": item.get('created_at', now),
                 "updated_at": item.get('updated_at', now)
