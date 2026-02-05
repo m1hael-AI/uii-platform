@@ -142,6 +142,9 @@ class Agent(SQLModel, table=True):
     # System prompt агента (редактируется в админке)
     system_prompt: str = Field(default="", description="Системный промпт агента")
     
+    # Приветственное сообщение
+    greeting_message: Optional[str] = Field(default=None, description="Приветственное сообщение для начала диалога")
+    
     # Описание для UI
     description: Optional[str] = Field(default=None, description="Краткое описание агента для пользователей")
     

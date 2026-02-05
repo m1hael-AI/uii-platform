@@ -132,7 +132,7 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
         
         # Create greeting message for AGENTS (not for main_assistant)
         if slug != "main_assistant":
-            welcome_text = GREETINGS.get(slug, "Привет! Чем могу помочь?")
+            welcome_text = agent_obj.greeting_message if agent_obj.greeting_message else GREETINGS.get(slug, "Привет! Чем могу помочь?")
             
             msg = Message(
                 session_id=new_session.id,
@@ -389,12 +389,17 @@ async def chat_completions(
             
             # Create new DB session for background task
             async with AsyncSessionLocal() as bg_db:
-                # Fetch agent name for greeting
                 agent_res = await bg_db.execute(select(Agent).where(Agent.slug == slug))
                 agent_obj = agent_res.scalar_one_or_none()
                 agent_name = agent_obj.name if agent_obj else "AI Assistant"
                 
-                greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
+                # Priority: 1. DB Greeting, 2. Hardcoded Greeting, 3. Default
+                greeting_text = None
+                if agent_obj and agent_obj.greeting_message:
+                    greeting_text = agent_obj.greeting_message
+                
+                if not greeting_text:
+                    greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
                     
                 greeting_msg = Message(
                     session_id=chat_session.id,

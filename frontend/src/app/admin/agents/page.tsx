@@ -11,6 +11,7 @@ interface Agent {
     name: string;
     description: string;
     system_prompt: string;
+    greeting_message: string;
     is_active: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function AdminPromptsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
     const [promptText, setPromptText] = useState("");
+    const [greetingText, setGreetingText] = useState("");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
@@ -66,7 +68,8 @@ export default function AdminPromptsPage() {
 
     const selectAgent = (agent: Agent) => {
         setSelectedAgent(agent);
-        setPromptText(agent.system_prompt);
+        setPromptText(agent.system_prompt || "");
+        setGreetingText(agent.greeting_message || "");
     };
 
     const handleSave = async () => {
@@ -81,16 +84,23 @@ export default function AdminPromptsPage() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ system_prompt: promptText })
+                body: JSON.stringify({
+                    system_prompt: promptText,
+                    greeting_message: greetingText
+                })
             });
 
             if (res.ok) {
                 // Update local state
                 const updatedAgents = agents.map(a =>
-                    a.slug === selectedAgent.slug ? { ...a, system_prompt: promptText } : a
+                    a.slug === selectedAgent.slug ? {
+                        ...a,
+                        system_prompt: promptText,
+                        greeting_message: greetingText
+                    } : a
                 );
                 setAgents(updatedAgents);
-                alert("Промпт сохранен!");
+                alert("Изменения сохранены!");
             } else {
                 alert("Ошибка сохранения");
             }
@@ -170,19 +180,40 @@ export default function AdminPromptsPage() {
                             </button>
                         </div>
 
-                        <div className="flex-1 flex flex-col">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                                System Prompt
-                            </label>
-                            <textarea
-                                value={promptText}
-                                onChange={(e) => setPromptText(e.target.value)}
-                                className="flex-1 w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:ring-1 focus:ring-black outline-none font-mono text-sm leading-relaxed resize-none text-gray-800"
-                                spellCheck={false}
-                            />
-                            <p className="text-xs text-gray-400 mt-2">
-                                Используйте этот промпт для настройки поведения, тона и знаний агента.
-                            </p>
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-8">
+                            {/* System Prompt Section */}
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                    System Prompt
+                                </label>
+                                <textarea
+                                    value={promptText}
+                                    onChange={(e) => setPromptText(e.target.value)}
+                                    rows={10}
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:ring-1 focus:ring-black outline-none font-mono text-sm leading-relaxed resize-none text-gray-800"
+                                    spellCheck={false}
+                                />
+                                <p className="text-xs text-gray-400 mt-2">
+                                    Используйте этот промпт для настройки поведения, тона и знаний агента.
+                                </p>
+                            </div>
+
+                            {/* Greeting Message Section */}
+                            <div className="flex flex-col">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                                    Приветственное сообщение
+                                </label>
+                                <textarea
+                                    value={greetingText}
+                                    onChange={(e) => setGreetingText(e.target.value)}
+                                    rows={4}
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:border-black focus:ring-1 focus:ring-black outline-none text-sm leading-relaxed resize-none text-gray-800"
+                                    placeholder="Привет! Я... Чем могу помочь?"
+                                />
+                                <p className="text-xs text-gray-400 mt-2">
+                                    Это сообщение будет показано пользователю при первом открытии чата. Если пусто — используется стандартное.
+                                </p>
+                            </div>
                         </div>
                     </motion.div>
                 )}
