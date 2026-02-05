@@ -100,6 +100,9 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     """
     Ensures that a new user has all necessary initial sessions (Mentor, Python, etc. + Assistant)
     Created here to be called from both /sessions and /unread-status for instant cold start.
+    
+    NOTE: Does NOT create greeting messages. Greetings are created on-demand when user
+    first accesses /chat/history for each agent (with 1-second delay for notifications).
     """
     # 1. Check if user already has sessions
     q = select(ChatSession).where(ChatSession.user_id == user_id)
@@ -107,7 +110,7 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     if res.first():
         return False # Already has sessions
         
-    # 2. Setup initial sessions
+    # 2. Setup initial sessions (WITHOUT greeting messages)
     initial_slugs = ["mentor", "python", "hr", "analyst", "main_assistant"]
     
     for slug in initial_slugs:
@@ -117,31 +120,17 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
             agent_obj = agent_res.scalar_one_or_none()
             if not agent_obj: continue
         
-        # Create Session
+        # Create Session (without greeting message)
         new_session = ChatSession(
             user_id=user_id,
             agent_slug=slug,
-            is_active=True,
-            last_message_at=datetime.utcnow(),
-            last_read_at=datetime(2000, 1, 1) # Force unread
+            is_active=True
+            # Do NOT set last_message_at or last_read_at yet
+            # They will be set when greeting is created
         )
         db.add(new_session)
         await db.commit()
         await db.refresh(new_session)
-        
-        # Create Welcome Message
-        welcome_text = GREETINGS.get(slug, "Здравствуйте! Я ваш AI-помощник. Чем могу помочь?")
-        if slug == "main_assistant":
-             welcome_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
-        
-        msg = Message(
-            session_id=new_session.id,
-            role=MessageRole.ASSISTANT,
-            content=welcome_text,
-            created_at=datetime.utcnow()
-        )
-        db.add(msg)
-        await db.commit()
     
     return True
 
