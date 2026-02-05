@@ -5,10 +5,10 @@ import { useParams, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const AGENTS = [
-    { id: "mentor", name: "AI Ментор", role: "Куратор", avatar: "A", color: "bg-orange-50 text-orange-600", lastMsg: "Персональный куратор по всем вопросам." },
-    { id: "python", name: "Python Эксперт", role: "Tutor", avatar: "P", color: "bg-yellow-50 text-yellow-600", lastMsg: "Помогу с кодом и архитектурой." },
-    { id: "analyst", name: "Data Analyst", role: "Expert", avatar: "D", color: "bg-green-50 text-green-600", lastMsg: "Анализ данных и Pandas." },
-    { id: "hr", name: "HR Консультант", role: "Assistant", avatar: "H", color: "bg-purple-50 text-purple-600", lastMsg: "Помощь с резюме и карьерой." },
+    { id: "mentor", name: "AI Ментор", role: "Куратор", avatar: "A", color: "bg-orange-50 text-orange-600" },
+    { id: "python", name: "Python Эксперт", role: "Tutor", avatar: "P", color: "bg-yellow-50 text-yellow-600" },
+    { id: "analyst", name: "Data Analyst", role: "Expert", avatar: "D", color: "bg-green-50 text-green-600" },
+    { id: "hr", name: "HR Консультант", role: "Assistant", avatar: "H", color: "bg-purple-50 text-purple-600" },
 ];
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +19,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     const [search, setSearch] = useState("");
     const [sessions, setSessions] = useState<Record<string, any>>({});
     const [typingAgents, setTypingAgents] = useState<Record<string, boolean>>({});
+    const [isLoading, setIsLoading] = useState(true);
 
     // Fetch sessions to get real last messages
     // Fetch sessions logic
@@ -51,6 +52,8 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
             }
         } catch (e) {
             console.error("Failed to fetch sessions", e);
+        } finally {
+            setIsLoading(false);
         }
     };
 
