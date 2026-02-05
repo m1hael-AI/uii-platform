@@ -117,8 +117,12 @@ export default function ChatIndexPage() {
                             href={`/platform/chat/${session.agent_id}`}
                             onClick={() => {
                                 // 💨 INSTANT LOCAL UPDATE
-                                session.has_unread = false;
-                                window.dispatchEvent(new Event("chatStatusUpdate"));
+                                setSessions(prev => prev.map(s =>
+                                    s.id === session.id ? { ...s, has_unread: false } : s
+                                ));
+                                // We do NOT dispatch 'chatStatusUpdate' here to avoid race condition 
+                                // (re-fetching before backend marks it read).
+                                // The chat page itself will fetch history and mark read.
                             }}
                             className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
                         >
