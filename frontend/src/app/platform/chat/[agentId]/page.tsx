@@ -172,75 +172,9 @@ export default function AgentChatPage() {
 
     setMessages(newMessages);
     setInput("");
-    setIsTyping(true);
 
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-      const res = await fetch(`${API_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          messages: newMessages.map(m => ({ role: m.role, content: m.text })),
-          agent_id: agentId
-        })
-      });
-
-      if (!res.ok) throw new Error("API Error");
-
-      if (!res.ok) throw new Error("API Error");
-
-      // 🔔 Dispatch Typing event ON (start)
-      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
-        detail: { agentId, isTyping: true }
-      }));
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) throw new Error("No reader");
-
-      let accumulatedText = "";
-      setStreamingMessage("");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        accumulatedText += chunk;
-        setStreamingMessage(accumulatedText);
-      }
-
-      // DONE
-      setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText }]);
-      setStreamingMessage("");
-
-    } catch (e) {
-      console.error(e);
-      setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу." }]);
-    } finally {
-      setIsTyping(false);
-      // 🔔 Dispatch Typing event OFF (end)
-      window.dispatchEvent(new CustomEvent("chatTypingStatus", {
-        detail: { agentId, isTyping: false }
-      }));
-
-      // 🔥 SMART READ RECEIPT: Only if user still here
-      if (isMounted.current) {
-        try {
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-          await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // Update local UI immediately too (optional, but good for sync)
-          window.dispatchEvent(new Event("chatStatusUpdate"));
-        } catch (e) { console.error("Auto-read failed", e); }
-      }
-    }
+    // Use extracted helper
+    await streamResponse(newMessages);
   };
 
   return (
