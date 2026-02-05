@@ -31,7 +31,7 @@ export default function AgentChatPage() {
   }, []);
 
   // Helper: Stream Response (Extracted for re-use)
-  const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[]) => {
+  const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
     setIsTyping(true);
     const token = Cookies.get("token");
     if (!token) return;
@@ -52,7 +52,8 @@ export default function AgentChatPage() {
         },
         body: JSON.stringify({
           messages: currentMessages.map(m => ({ role: m.role, content: m.text })),
-          agent_id: agentId
+          agent_id: agentId,
+          save_user_message: saveUserMessage
         })
       });
 
@@ -140,8 +141,8 @@ export default function AgentChatPage() {
           if (loadedMessages.length > 0) {
             const lastMsg = loadedMessages[loadedMessages.length - 1];
             if (lastMsg.role === 'user') {
-              // Auto-trigger response generation
-              streamResponse(loadedMessages);
+              // Auto-trigger response generation - DO NOT SAVE (prevent duplicate)
+              streamResponse(loadedMessages, false);
             }
           }
         }
