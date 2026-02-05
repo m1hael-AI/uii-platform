@@ -1,6 +1,13 @@
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete, or_
+from datetime import datetime
+import asyncio
+import json
+import logging
+
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, or_
@@ -17,9 +24,43 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 GREETINGS = {
     "mentor": "Привет! Я твой персональный куратор. Я здесь, чтобы помочь тебе освоиться на платформе, ответить на вопросы по обучению и поддержать тебя на пути к новой профессии. С чего начнем?",
     "python": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?",
-    "hr": "Привет! Я помогу подготовиться к собеседованию и составить резюме. Расскажи о своем опыте?",
     "analyst": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь. Посмотрим на твои цифры?"
 }
+
+# --- SSE NOTIFICATION MANAGER ---
+class NotificationManager:
+    def __init__(self):
+        # user_id -> set of queues (one per connection/tab)
+        self.connections: dict[int, set[asyncio.Queue]] = {}
+
+    async def connect(self, user_id: int) -> asyncio.Queue:
+        if user_id not in self.connections:
+            self.connections[user_id] = set()
+        queue = asyncio.Queue()
+        self.connections[user_id].add(queue)
+        print(f"SSE: User {user_id} connected. Active tabs: {len(self.connections[user_id])}")
+        return queue
+
+    def disconnect(self, user_id: int, queue: asyncio.Queue):
+        if user_id in self.connections:
+            self.connections[user_id].discard(queue)
+            if not self.connections[user_id]:
+                del self.connections[user_id]
+        print(f"SSE: User {user_id} disconnected.")
+
+    async def broadcast(self, user_id: int, message: dict):
+        """Send message to all open tabs of a user"""
+        if user_id not in self.connections:
+            return
+            
+        # Serialize once
+        data = f"data: {json.dumps(message, ensure_ascii=False)}\n\n"
+        
+        # Send to all queues
+        for queue in self.connections[user_id]:
+            await queue.put(data)
+            
+manager = NotificationManager()
 
 
 # Request Models
@@ -47,6 +88,7 @@ class ChatSessionDTO(BaseModel):
     agent_id: str
     agent_name: str
     agent_avatar: Optional[str]
+    last_message: str # FIX: Added back
     last_message_at: Optional[str]
     has_unread: bool = False
 
@@ -168,7 +210,7 @@ async def get_user_sessions(
             agent_id=agent.slug,
             agent_name=agent.name,
             agent_avatar=agent.avatar_url,
-            last_message=last_content,
+            last_message=last_content, # FIX: Passed correctly
             last_message_at=session.last_message_at.isoformat() if session.last_message_at else None,
             has_unread=has_unread
         ))
@@ -307,6 +349,10 @@ async def chat_completions(
         chat_session.last_read_at = datetime(2000, 1, 1)
         
         await db.commit()
+        
+        # 🔔 Notify User (New Intro Message)
+        # We don't await this to avoid blocking? Actually queue.put is fast.
+        await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
         # ---------------------
 
     # 3. Save User Message
@@ -407,6 +453,11 @@ async def chat_completions(
                      chat_session.last_message_at = datetime.utcnow()
                      
                      await db.commit()
+                     
+                     # 🔔 Notify User (AI Response Finished)
+                     # Trigger global update to refresh lists and bells
+                     await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
+                     
                  except Exception as ex:
                      print(f"Failed to save AI history: {ex}")
 
@@ -444,6 +495,9 @@ async def mark_chat_read(
         
     session.last_read_at = datetime.utcnow()
     await db.commit()
+    
+    # 🔔 Notify User (Read Status Changed)
+    await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
     
     return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
 
@@ -506,3 +560,46 @@ async def get_unread_status(
     
     return {"has_unread": any_unread}
 
+
+
+
+@router.get("/notifications/stream")
+async def stream_notifications(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    SSE Endpoint for real-time notifications.
+    Client connects here and hangs waiting for events.
+    """
+    queue = await manager.connect(current_user.id)
+    
+    async def event_generator():
+        try:
+            while True:
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    break
+                    
+                # Wait for data with timeout to send keepalive
+                try:
+                    data = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    yield data
+                except asyncio.TimeoutError:
+                    # Keep-alive (comment character for SSE)
+                    yield ": keepalive\n\n"
+                    
+        except Exception as e:
+            print(f"SSE Stream Error: {e}")
+        finally:
+            manager.disconnect(current_user.id, queue)
+            
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )

@@ -8,6 +8,7 @@ import Cookies from "js-cookie";
 // import AIWidget from "@/components/AIWidget"; // Removed
 import RightSidebar from "@/components/RightSidebar"; // Added
 import logger from "@/lib/clientLogger";
+import { SSEProvider } from "@/context/SSEContext";
 
 const MENU_ITEMS = [
     {
@@ -70,14 +71,13 @@ export default function PlatformLayout({
         };
 
         checkUnread();
-        const interval = setInterval(checkUnread, 10000); // Check every 10s
+        // Polling removed in favor of SSE
 
-        // 🔗 CUSTOM EVENT for instant updates
+        // 🔗 CUSTOM EVENT for instant updates (triggered by SSEContext)
         const handleStatusUpdate = () => checkUnread();
         window.addEventListener("chatStatusUpdate", handleStatusUpdate);
 
         return () => {
-            clearInterval(interval);
             window.removeEventListener("chatStatusUpdate", handleStatusUpdate);
         };
     }, []);
@@ -133,126 +133,25 @@ export default function PlatformLayout({
     }
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            {/* Sidebar - Hidden on mobile/tablet */}
-            <aside
-                className={`bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out flex-col hidden lg:flex flex-shrink-0 ${isSidebarOpen ? "w-64 min-w-[200px] max-w-[256px]" : "w-20 min-w-[80px] max-w-[80px]"
-                    }`}
-            >
-                {/* Logo */}
-                <div className="h-16 flex items-center pl-6 border-b border-gray-50 overflow-hidden whitespace-nowrap">
-                    <span className="font-bold text-xl text-black shrink-0">
-                        AI
-                    </span>
-                    <span className={`font-bold text-xl tracking-tight text-black ml-1 transition-all duration-500 ease-in-out ${isSidebarOpen ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 w-0"
-                        }`}>
-                        University
-                    </span>
-                </div>
-
-                <nav className="flex-1 py-6 px-3 space-y-1 flex flex-col">
-                    {MENU_ITEMS.map((item) => {
-                        const isActive = item.href === "/platform"
-                            ? pathname === item.href
-                            : pathname.startsWith(item.href);
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`flex items-center rounded-xl group py-3 relative overflow-hidden whitespace-nowrap ${isActive
-                                    ? "bg-[#FF6B35]/10 text-[#FF6B35]"
-                                    : "text-gray-500 hover:bg-gray-50 hover:text-black"
-                                    }`}
-                            >
-                                <div className={`shrink-0 transition-all duration-500 ease-in-out flex items-center justify-center w-12`}>
-                                    <svg className={`w-6 h-6 transition-colors duration-500 ease-in-out ${isActive ? "text-[#FF6B35]" : "text-gray-400 group-hover:text-black"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        {item.icon}
-                                    </svg>
-                                </div>
-
-                                <span className={`font-medium transition-all duration-500 ease-in-out ${isSidebarOpen ? "opacity-100 translate-x-0 ml-3" : "opacity-0 -translate-x-4 w-0"
-                                    }`}>
-                                    {item.name}
-                                </span>
-                            </Link>
-                        )
-                    })}
-                </nav>
-
-                {/* Toggle (Footer) */}
-                <div className="p-4 border-t border-gray-50 flex justify-center">
-                    <button
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-2 rounded-lg hover:bg-gray-50 text-gray-400"
-                    >
-                        <svg className={`w-5 h-5 transition-transform ${isSidebarOpen ? "" : "rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                        </svg>
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content Wrapper */}
-            <div
-                className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 ${isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
-                    }`}
-            >
-                {/* Header */}
-                <header className="h-16 bg-white border-b border-gray-100 sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between">
-                    <h1 className="text-base md:text-lg font-medium text-gray-800">
-                        {pathname === "/platform" ? "Главная" :
-                            pathname.includes("/webinars") ? "Библиотека" :
-                                pathname.includes("/schedule") ? "Расписание" :
-                                    pathname.includes("/chat") ? "Агенты" : "Панель управления"}
-                    </h1>
-
-                    {/* Profile & Actions */}
-                    <div className="flex items-center gap-2 md:gap-4">
-                        <button
-                            onClick={() => router.push("/platform/chat")}
-                            className={`relative p-2 transition-colors focus:outline-none ${hasGlobalUnread ? 'text-[#FF6B35]' : 'text-gray-400 hover:text-black'}`}
-                        >
-                            {hasGlobalUnread && (
-                                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#FF6B35] rounded-full border-2 border-white animate-pulse"></span>
-                            )}
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                        </button>
-
-                        <div className="h-8 w-[1px] bg-gray-100 mx-1 hidden md:block"></div>
-
-                        <Link href="/platform/profile" className="flex items-center gap-3 hover:bg-gray-50 p-1.5 rounded-lg transition-colors group">
-                            <div className="text-right hidden md:block">
-                                <div className="text-sm font-medium text-black group-hover:text-[#206ecf] transition-colors">{user?.name || "Загрузка..."}</div>
-                                <div className="text-xs text-gray-400">{user?.email || ""}</div>
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-[#f0f9ff] text-[#206ecf] overflow-hidden border border-[#FF6B35]/10 flex items-center justify-center font-bold relative">
-                                {user?.avatar && !avatarError ? (
-                                    <img
-                                        src={user.avatar}
-                                        alt={user.name}
-                                        className="w-full h-full object-cover"
-                                        onError={() => setAvatarError(true)}
-                                    />
-                                ) : (
-                                    user?.name ? user.name.charAt(0).toUpperCase() : "U"
-                                )}
-                            </div>
-                        </Link>
-
-
+        <SSEProvider>
+            <div className="flex min-h-screen bg-gray-50">
+                {/* Sidebar - Hidden on mobile/tablet */}
+                <aside
+                    className={`bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out flex-col hidden lg:flex flex-shrink-0 ${isSidebarOpen ? "w-64 min-w-[200px] max-w-[256px]" : "w-20 min-w-[80px] max-w-[80px]"
+                        }`}
+                >
+                    {/* Logo */}
+                    <div className="h-16 flex items-center pl-6 border-b border-gray-50 overflow-hidden whitespace-nowrap">
+                        <span className="font-bold text-xl text-black shrink-0">
+                            AI
+                        </span>
+                        <span className={`font-bold text-xl tracking-tight text-black ml-1 transition-all duration-500 ease-in-out ${isSidebarOpen ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 w-0"
+                            }`}>
+                            University
+                        </span>
                     </div>
-                </header>
 
-                {/* Page Content */}
-                <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6 overflow-y-auto">
-                    {children}
-                </main>
-
-                {/* Mobile Bottom Navigation - Visible on mobile & tablet */}
-                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom">
-                    <div className="flex items-center justify-around h-16 px-2">
+                    <nav className="flex-1 py-6 px-3 space-y-1 flex flex-col">
                         {MENU_ITEMS.map((item) => {
                             const isActive = item.href === "/platform"
                                 ? pathname === item.href
@@ -261,24 +160,127 @@ export default function PlatformLayout({
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px] ${isActive
-                                        ? "text-[#FF6B35]"
-                                        : "text-gray-400"
+                                    className={`flex items-center rounded-xl group py-3 relative overflow-hidden whitespace-nowrap ${isActive
+                                        ? "bg-[#FF6B35]/10 text-[#FF6B35]"
+                                        : "text-gray-500 hover:bg-gray-50 hover:text-black"
                                         }`}
                                 >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        {item.icon}
-                                    </svg>
-                                    <span className="text-[10px] font-medium">{item.name}</span>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </nav>
-            </div>
+                                    <div className={`shrink-0 transition-all duration-500 ease-in-out flex items-center justify-center w-12`}>
+                                        <svg className={`w-6 h-6 transition-colors duration-500 ease-in-out ${isActive ? "text-[#FF6B35]" : "text-gray-400 group-hover:text-black"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            {item.icon}
+                                        </svg>
+                                    </div>
 
-            {/* AI Assistant (Right Sidebar) */}
-            <RightSidebar />
-        </div>
+                                    <span className={`font-medium transition-all duration-500 ease-in-out ${isSidebarOpen ? "opacity-100 translate-x-0 ml-3" : "opacity-0 -translate-x-4 w-0"
+                                        }`}>
+                                        {item.name}
+                                    </span>
+                                </Link>
+                            )
+                        })}
+                    </nav>
+
+                    {/* Toggle (Footer) */}
+                    <div className="p-4 border-t border-gray-50 flex justify-center">
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            className="p-2 rounded-lg hover:bg-gray-50 text-gray-400"
+                        >
+                            <svg className={`w-5 h-5 transition-transform ${isSidebarOpen ? "" : "rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        </button>
+                    </div>
+                </aside>
+
+                {/* Main Content Wrapper */}
+                <div
+                    className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 ${isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
+                        }`}
+                >
+                    {/* Header */}
+                    <header className="h-16 bg-white border-b border-gray-100 sticky top-0 z-30 px-4 md:px-6 flex items-center justify-between">
+                        <h1 className="text-base md:text-lg font-medium text-gray-800">
+                            {pathname === "/platform" ? "Главная" :
+                                pathname.includes("/webinars") ? "Библиотека" :
+                                    pathname.includes("/schedule") ? "Расписание" :
+                                        pathname.includes("/chat") ? "Агенты" : "Панель управления"}
+                        </h1>
+
+                        {/* Profile & Actions */}
+                        <div className="flex items-center gap-2 md:gap-4">
+                            <button
+                                onClick={() => router.push("/platform/chat")}
+                                className={`relative p-2 transition-colors focus:outline-none ${hasGlobalUnread ? 'text-[#FF6B35]' : 'text-gray-400 hover:text-black'}`}
+                            >
+                                {hasGlobalUnread && (
+                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#FF6B35] rounded-full border-2 border-white animate-pulse"></span>
+                                )}
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </button>
+
+                            <div className="h-8 w-[1px] bg-gray-100 mx-1 hidden md:block"></div>
+
+                            <Link href="/platform/profile" className="flex items-center gap-3 hover:bg-gray-50 p-1.5 rounded-lg transition-colors group">
+                                <div className="text-right hidden md:block">
+                                    <div className="text-sm font-medium text-black group-hover:text-[#206ecf] transition-colors">{user?.name || "Загрузка..."}</div>
+                                    <div className="text-xs text-gray-400">{user?.email || ""}</div>
+                                </div>
+                                <div className="w-10 h-10 rounded-full bg-[#f0f9ff] text-[#206ecf] overflow-hidden border border-[#FF6B35]/10 flex items-center justify-center font-bold relative">
+                                    {user?.avatar && !avatarError ? (
+                                        <img
+                                            src={user.avatar}
+                                            alt={user.name}
+                                            className="w-full h-full object-cover"
+                                            onError={() => setAvatarError(true)}
+                                        />
+                                    ) : (
+                                        user?.name ? user.name.charAt(0).toUpperCase() : "U"
+                                    )}
+                                </div>
+                            </Link>
+
+
+                        </div>
+                    </header>
+
+                    {/* Page Content */}
+                    <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6 overflow-y-auto">
+                        {children}
+                    </main>
+
+                    {/* Mobile Bottom Navigation - Visible on mobile & tablet */}
+                    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom">
+                        <div className="flex items-center justify-around h-16 px-2">
+                            {MENU_ITEMS.map((item) => {
+                                const isActive = item.href === "/platform"
+                                    ? pathname === item.href
+                                    : pathname.startsWith(item.href);
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-colors min-w-[60px] ${isActive
+                                            ? "text-[#FF6B35]"
+                                            : "text-gray-400"
+                                            }`}
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            {item.icon}
+                                        </svg>
+                                        <span className="text-[10px] font-medium">{item.name}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </nav>
+                </div>
+
+                {/* AI Assistant (Right Sidebar) */}
+                <RightSidebar />
+            </div>
+        </SSEProvider>
     );
 }

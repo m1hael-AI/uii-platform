@@ -65,7 +65,8 @@ const QUESTIONS: Question[] = [
         text: "Введите ваш номер телефона",
         type: "phone",
         placeholder: "+7 (999) 000-00-00",
-        validation: (val) => val.length > 8, // Basic check, library handles mask
+        // validation: (val) => val.length >= 10, // Validation moved to component logic for Mask check
+
     },
     {
         id: "email",
@@ -91,6 +92,9 @@ export default function OnboardingPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
+    // Specific validation state for phone (dynamic mask check)
+    const [isPhoneValid, setIsPhoneValid] = useState(false);
+
     // Local state for current input value (restored from answers on step change)
     const [currentValue, setCurrentValue] = useState("");
 
@@ -104,13 +108,22 @@ export default function OnboardingPage() {
     useEffect(() => {
         const q = QUESTIONS[step];
         setCurrentValue(answers[q.id] || "");
+        if (q.type === 'phone') {
+            // Reset or re-validate if we had a value (simple check, or force false to be safe until typed)
+            // Ideally we re-run mask check but we don't have the mask 'data' here easily.
+            // If restored value exists, let's assume valid if length > 10 as fallback or force re-entry?
+            // Better: If existing value, set valid for now (if user could save it, it was valid).
+            setIsPhoneValid(!!answers[q.id]);
+        }
     }, [step]); // Removed 'answers' from deps to avoid loop, we only care when step changes
 
     // Global Enter key handler for all question types
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const currentQ = QUESTIONS[step];
-            const isValid = !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
+            const isValid = currentQ.type === 'phone'
+                ? isPhoneValid
+                : !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
 
             if (e.key === 'Enter' && isValid && !submitting) {
                 e.preventDefault();
@@ -157,6 +170,34 @@ export default function OnboardingPage() {
         // Also update answers immediately? Or only on 'Next'?
         // Let's update answers so we don't lose it if user clicks Back immediately
         setAnswers(prev => ({ ...prev, [QUESTIONS[step].id]: val }));
+    };
+
+    const handlePhoneChange = (value: string, data: any) => {
+        setCurrentValue(value);
+        setAnswers(prev => ({ ...prev, phone: value })); // Auto-save
+
+        // Dynamic Mask Validation
+        if (!data || !data.format) {
+            setIsPhoneValid(true); // Fallback if no format data
+            return;
+        }
+
+        const format = data.format;
+        // Count how many dots are in the format (placeholders for digits)
+        // AND count how many fixed digits are in the format (e.g. +1 ...)
+        // 'react-phone-input-2' value is RAW digits (including country code).
+        // Format uses '.' for variable digits. FIXED digits in format are NOT dots.
+        // So Total Expected Digits = (Dots count) + (Fixed Digits count)
+
+        let digitCount = 0;
+        for (let char of format) {
+            if (char === '.' || (char >= '0' && char <= '9')) {
+                digitCount++;
+            }
+        }
+
+        // Check if current value length matches the mask capacity
+        setIsPhoneValid(value.length === digitCount);
     };
 
     const handleNext = async () => {
@@ -248,7 +289,9 @@ export default function OnboardingPage() {
     const progress = ((step + 1) / QUESTIONS.length) * 100;
 
     // Check if current value satisfies validation (if exists) or just isn't empty
-    const canProceed = !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
+    const canProceed = currentQ.type === 'phone'
+        ? isPhoneValid
+        : !!currentValue && (currentQ.validation ? currentQ.validation(currentValue) : currentValue.length > 0);
 
     return (
         <div className="min-h-screen bg-white text-black flex flex-col items-center justify-center p-6">
@@ -318,7 +361,7 @@ export default function OnboardingPage() {
                                 <PhoneInput
                                     country={'ru'}
                                     value={currentValue}
-                                    onChange={(phone) => handleSelect(phone)}
+                                    onChange={(phone, data) => handlePhoneChange(phone, data)}
                                     masks={{ ru: '(...) ...-..-..' }}
                                     placeholder="+7 (999) 000-00-00"
                                     inputStyle={{
