@@ -263,78 +263,13 @@ async def update_proactivity_settings(
         settings = ProactivitySettings()
         db.add(settings)
     
-    # Update Memory Settings
-    if update_data.memory_model is not None:
-        settings.memory_model = update_data.memory_model
-    if update_data.memory_temperature is not None:
-        settings.memory_temperature = update_data.memory_temperature
-    if update_data.memory_max_tokens is not None:
-        settings.memory_max_tokens = update_data.memory_max_tokens
     
-    # Update Trigger Settings
-    if update_data.trigger_model is not None:
-        settings.trigger_model = update_data.trigger_model
-    if update_data.trigger_temperature is not None:
-        settings.trigger_temperature = update_data.trigger_temperature
-    if update_data.trigger_max_tokens is not None:
-        settings.trigger_max_tokens = update_data.trigger_max_tokens
+    # Use Pydantic's exclude_unset to only update fields that were explicitly provided
+    # This allows setting fields to None (NULL) when the user clears them
+    update_dict = update_data.model_dump(exclude_unset=True)
     
-    # Update Scheduler settings
-    if update_data.enabled is not None:
-        settings.enabled = update_data.enabled
-    if update_data.cron_expression is not None:
-        settings.cron_expression = update_data.cron_expression
-    if update_data.quiet_hours_start is not None:
-        settings.quiet_hours_start = update_data.quiet_hours_start
-    if update_data.quiet_hours_end is not None:
-        settings.quiet_hours_end = update_data.quiet_hours_end
-    
-    # Update Limits
-    if update_data.max_messages_per_day_agents is not None:
-        settings.max_messages_per_day_agents = update_data.max_messages_per_day_agents
-    if update_data.max_messages_per_day_assistant is not None:
-        settings.max_messages_per_day_assistant = update_data.max_messages_per_day_assistant
-    
-    if update_data.max_messages_per_day_assistant is not None:
-        settings.max_messages_per_day_assistant = update_data.max_messages_per_day_assistant
-    
-    # Update Rate Limiter
-    if update_data.rate_limit_per_minute is not None:
-        settings.rate_limit_per_minute = update_data.rate_limit_per_minute
-    
-    # Update Summarizer settings
-    if update_data.summarizer_check_interval is not None:
-        settings.summarizer_check_interval = update_data.summarizer_check_interval
-    if update_data.summarizer_idle_threshold is not None:
-        settings.summarizer_idle_threshold = update_data.summarizer_idle_threshold
-    
-    # Update Context Compression
-    if update_data.context_soft_limit is not None:
-        settings.context_soft_limit = update_data.context_soft_limit
-    if update_data.context_threshold is not None:
-        settings.context_threshold = update_data.context_threshold
-    if update_data.context_compression_keep_last is not None:
-        settings.context_compression_keep_last = update_data.context_compression_keep_last
-    
-    # Update Prompts
-    if update_data.agent_memory_prompt is not None:
-        settings.agent_memory_prompt = update_data.agent_memory_prompt
-    if update_data.assistant_memory_prompt is not None:
-        settings.assistant_memory_prompt = update_data.assistant_memory_prompt
-    if update_data.proactivity_trigger_prompt is not None:
-        settings.proactivity_trigger_prompt = update_data.proactivity_trigger_prompt
-    if update_data.compression_prompt is not None:
-        settings.compression_prompt = update_data.compression_prompt
-    
-    # Update Architecture v2 Timings
-    if update_data.memory_update_interval is not None:
-        settings.memory_update_interval = update_data.memory_update_interval
-    if update_data.proactivity_timeout is not None:
-        settings.proactivity_timeout = update_data.proactivity_timeout
-    
-    # Update Anti-Spam
-    if update_data.max_consecutive_messages is not None:
-        settings.max_consecutive_messages = update_data.max_consecutive_messages
+    for field, value in update_dict.items():
+        setattr(settings, field, value)
     
     # Update timestamp
     from datetime import datetime
@@ -403,35 +338,23 @@ async def update_chat_settings(
         settings = ChatSettings()
         db.add(settings)
     
-    # Update Блок 1: Общение с пользователями
-    if update_data.user_chat_model is not None:
-        settings.user_chat_model = update_data.user_chat_model
-    if update_data.user_chat_temperature is not None:
-        settings.user_chat_temperature = update_data.user_chat_temperature
-    if update_data.user_chat_max_tokens is not None:
-        settings.user_chat_max_tokens = update_data.user_chat_max_tokens
-    if update_data.rate_limit_per_minute is not None:
-        settings.rate_limit_per_minute = update_data.rate_limit_per_minute
     
-    # Update Блок 2: Вечный диалог (Сжатие контекста)
-    if update_data.compression_model is not None:
-        settings.compression_model = update_data.compression_model
-    if update_data.compression_temperature is not None:
-        settings.compression_temperature = update_data.compression_temperature
-    if update_data.compression_max_tokens is not None:
-        settings.compression_max_tokens = update_data.compression_max_tokens
-    if update_data.context_threshold is not None:
-        settings.context_threshold = update_data.context_threshold
-    if update_data.context_compression_keep_last is not None:
-        settings.context_compression_keep_last = update_data.context_compression_keep_last
-    if update_data.context_soft_limit is not None:
-        settings.context_soft_limit = update_data.context_soft_limit
+    # Use Pydantic's exclude_unset to only update fields that were explicitly provided
+    # This allows setting fields to None (NULL) when the user clears them
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    # Handle compression_prompt separately (it's stored in ProactivitySettings)
+    compression_prompt_update = update_dict.pop('compression_prompt', None)
+    
+    # Update ChatSettings fields
+    for field, value in update_dict.items():
+        setattr(settings, field, value)
     
     # Update timestamp
     settings.updated_at = datetime.utcnow()
     
     # Update compression_prompt in ProactivitySettings if provided
-    if update_data.compression_prompt is not None:
+    if 'compression_prompt' in update_data.model_dump(exclude_unset=True):
         proactivity_result = await db.execute(select(ProactivitySettings))
         proactivity = proactivity_result.scalar_one_or_none()
         
