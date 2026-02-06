@@ -273,13 +273,14 @@ export default function ProactivityAdminPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-2">Интервал обновления (часы)</label>
                             <input
                                 type="number"
-                                min="1"
+                                min="0.01"
+                                step="0.01"
                                 max="48"
                                 value={settings.memory_update_interval}
-                                onChange={(e) => setSettings({ ...settings, memory_update_interval: parseInt(e.target.value) })}
+                                onChange={(e) => setSettings({ ...settings, memory_update_interval: parseFloat(e.target.value) })}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Как часто обновлять память при молчании</p>
+                            <p className="text-xs text-gray-500 mt-1">Как часто обновлять память при молчании (можно дробные, например 0.05 = 3 мин)</p>
                         </div>
                     </div>
 
