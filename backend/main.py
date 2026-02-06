@@ -37,15 +37,6 @@ async def lifespan(app: FastAPI):
     # except Exception as e:
     #     logger.error(f"Ошибка инициализации БД: {e}")
     
-    yield
-    
-    # Отключаем Redis
-    await redis_client.disconnect()
-    logger.info("Остановка AI University Backend...")
-    #         logger.error(f"Ошибка установки webhook: {e}")
-    # else:
-    logger.info("Telegram Webhook отключен (используется Polling в отдельном контейнере)")
-    
     # Запускаем планировщик проактивности
     try:
         from services.scheduler import start_scheduler
@@ -53,11 +44,11 @@ async def lifespan(app: FastAPI):
         logger.info("Планировщик проактивности запущен")
     except Exception as e:
         logger.error(f"Ошибка запуска планировщика: {e}")
-    
+
     yield
     
     logger.info("Остановка AI University Backend...")
-    
+
     # Останавливаем планировщик
     try:
         from services.scheduler import stop_scheduler
@@ -65,6 +56,11 @@ async def lifespan(app: FastAPI):
         logger.info("Планировщик проактивности остановлен")
     except Exception as e:
         logger.error(f"Ошибка остановки планировщика: {e}")
+
+    # Отключаем Redis
+    await redis_client.disconnect()
+    
+    logger.info("Telegram Webhook отключен (используется Polling в отдельном контейнере)")
     
     if settings.telegram_bot_token:
         try:
