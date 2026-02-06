@@ -27,12 +27,12 @@ interface ProactivitySettings {
     // Memory Update Settings
     memory_model: string;
     memory_temperature: number;
-    memory_max_tokens: number;
+    memory_max_tokens: number | null;
 
     // Proactivity Trigger Settings
     trigger_model: string;
     trigger_temperature: number;
-    trigger_max_tokens: number;
+    trigger_max_tokens: number | null;
 
     // Scheduler Settings
     enabled: boolean;
@@ -178,27 +178,27 @@ export default function ProactivityAdminPage() {
             <div className="flex gap-4 mb-6 border-b border-gray-200">
                 <button
                     onClick={() => setActiveTab('memory')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeTab === 'memory'
+                    className={`px-4 py-2 font-medium transition-colors focus:outline-none ${activeTab === 'memory'
                         ? 'text-[#FF6B35] border-b-2 border-[#FF6B35]'
-                        : 'text-gray-600 hover:text-gray-900'
+                        : 'text-gray-600 hover:text-[#FF6B35]'
                         }`}
                 >
                     Память
                 </button>
                 <button
                     onClick={() => setActiveTab('proactivity')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeTab === 'proactivity'
+                    className={`px-4 py-2 font-medium transition-colors focus:outline-none ${activeTab === 'proactivity'
                         ? 'text-[#FF6B35] border-b-2 border-[#FF6B35]'
-                        : 'text-gray-600 hover:text-gray-900'
+                        : 'text-gray-600 hover:text-[#FF6B35]'
                         }`}
                 >
                     Проактивность
                 </button>
                 <button
                     onClick={() => setActiveTab('general')}
-                    className={`px-4 py-2 font-medium transition-colors ${activeTab === 'general'
+                    className={`px-4 py-2 font-medium transition-colors focus:outline-none ${activeTab === 'general'
                         ? 'text-[#FF6B35] border-b-2 border-[#FF6B35]'
-                        : 'text-gray-600 hover:text-gray-900'
+                        : 'text-gray-600 hover:text-[#FF6B35]'
                         }`}
                 >
                     Общие настройки
@@ -257,10 +257,16 @@ export default function ProactivityAdminPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
                                 <input
                                     type="number"
-                                    value={settings.memory_max_tokens}
-                                    onChange={(e) => setSettings({ ...settings, memory_max_tokens: parseInt(e.target.value) })}
+                                    min="1"
+                                    placeholder="Без лимита"
+                                    value={settings.memory_max_tokens ?? ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSettings({ ...settings, memory_max_tokens: val === '' ? null : parseInt(val) });
+                                    }}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
                             </div>
                         </div>
                     </div>
@@ -333,10 +339,16 @@ export default function ProactivityAdminPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
                                 <input
                                     type="number"
-                                    value={settings.trigger_max_tokens}
-                                    onChange={(e) => setSettings({ ...settings, trigger_max_tokens: parseInt(e.target.value) })}
+                                    min="1"
+                                    placeholder="Без лимита"
+                                    value={settings.trigger_max_tokens ?? ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSettings({ ...settings, trigger_max_tokens: val === '' ? null : parseInt(val) });
+                                    }}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
                             </div>
                         </div>
                     </div>
