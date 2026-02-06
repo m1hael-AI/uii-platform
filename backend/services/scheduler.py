@@ -91,10 +91,10 @@ def start_scheduler():
         replace_existing=True,
     )
     
-    # Добавляем задачу проактивности (каждый час)
+    # Добавляем задачу проактивности (каждую 1 минуту для теста)
     scheduler.add_job(
         proactive_job,
-        trigger=IntervalTrigger(hours=1),
+        trigger=IntervalTrigger(minutes=1),
         id="proactive_check",
         name="Обработка проактивных задач",
         replace_existing=True,
