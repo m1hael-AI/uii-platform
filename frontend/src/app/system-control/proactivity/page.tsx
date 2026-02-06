@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
+const AVAILABLE_MODELS = [
+    'gpt-4o',
+    'gpt-4o-mini',
+    'o1',
+    'o1-mini',
+    'gpt-4-turbo',
+    'gpt-3.5-turbo'
+];
+
 // Cache-buster: 2026-02-06T21:40
 interface ProactivitySettings {
     id: number;
@@ -211,13 +220,18 @@ export default function ProactivityAdminPage() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Модель</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={settings.memory_model}
                                     onChange={(e) => setSettings({ ...settings, memory_model: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                    placeholder="gpt-4o-mini"
-                                />
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                >
+                                    {AVAILABLE_MODELS.map(model => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))}
+                                    {!AVAILABLE_MODELS.includes(settings.memory_model) && (
+                                        <option value={settings.memory_model}>{settings.memory_model} (текущая)</option>
+                                    )}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
@@ -282,13 +296,18 @@ export default function ProactivityAdminPage() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Модель</label>
-                                <input
-                                    type="text"
+                                <select
                                     value={settings.trigger_model}
                                     onChange={(e) => setSettings({ ...settings, trigger_model: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                    placeholder="gpt-4o-mini"
-                                />
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                >
+                                    {AVAILABLE_MODELS.map(model => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))}
+                                    {!AVAILABLE_MODELS.includes(settings.trigger_model) && (
+                                        <option value={settings.trigger_model}>{settings.trigger_model} (текущая)</option>
+                                    )}
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
