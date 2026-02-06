@@ -265,7 +265,75 @@ async def get_chat_history(
     session = result.scalar_one_or_none()
     
     if not session:
-        return HistoryResponse(messages=[])
+        # ✅ 1. Auto-create session if it doesn't exist (Lazy Load)
+        # This ensures we have a place to put the greeting immediately
+        
+        # Determine IDs based on query params (re-using logic from completions)
+        schedule_id = None
+        library_id = None
+        
+        if webinar_id:
+             # Look up library first
+            res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == webinar_id))
+            lib = res.scalar_one_or_none()
+            if lib:
+                library_id = lib.id
+            else:
+                # Check Schedule
+                res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == webinar_id))
+                sch = res_sch.scalar_one_or_none()
+                if sch:
+                     schedule_id = sch.id
+        
+        session = ChatSession(
+            user_id=current_user.id,
+            agent_slug=agent_id,
+            schedule_id=schedule_id,
+            library_id=library_id,
+            is_active=True,
+            last_message_at=datetime.utcnow(),
+            last_read_at=datetime(2000, 1, 1) # Mark as unread
+        )
+        db.add(session)
+        await db.flush() # Flush to get session.id
+        await db.refresh(session)
+        
+        # ✅ 2. Create Synchronous Greeting
+        # Get greeting text
+        if agent_id == "main_assistant":
+            greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
+        else:
+             # Look up agent name if needed
+            agent_name = "AI Assistant"
+            if agent_id != "ai_tutor": # Optimization: skip DB lookup for known hardcoded
+                 agent_res = await db.execute(select(Agent).where(Agent.slug == agent_id))
+                 agent_obj = agent_res.scalar_one_or_none()
+                 if agent_obj: agent_name = agent_obj.name
+
+            greeting_text = GREETINGS.get(agent_id, f"Привет! Я {agent_name}. Чем могу помочь?")
+            
+        greeting_msg = Message(
+            session_id=session.id,
+            role=MessageRole.ASSISTANT,
+            content=greeting_text,
+            created_at=datetime.utcnow()
+        )
+        db.add(greeting_msg)
+        await db.commit()
+        await db.refresh(session)
+        
+        # Return newly created history directly
+        return HistoryResponse(
+            messages=[
+                HistoryMessage(
+                    role=greeting_msg.role.value,
+                    content=greeting_msg.content,
+                    created_at=greeting_msg.created_at.isoformat()
+                )
+            ],
+            last_read_at=session.last_read_at.isoformat() if session.last_read_at else None,
+            is_new_session=True
+        )
         
     # Get messages (exclude archived and system messages)
     msgs_q = select(Message).where(
@@ -282,50 +350,30 @@ async def get_chat_history(
     all_messages = all_msgs_res.scalars().all()
     is_new_session = len(all_messages) == 0
     
-    # If session exists but has NO messages (after filter), trigger delayed greeting
+    # If session exists but has NO messages (e.g. manually cleared), trigger sync greeting
     if len(messages) == 0 and agent_id:
-        # Trigger delayed greeting (1 second) for notification UX
-        async def send_delayed_greeting():
-            await asyncio.sleep(1)  # Wait 1 second
+         # Same logic as above but for existing session
+        if agent_id == "main_assistant":
+            greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
+        else:
+            agent_name = "AI Assistant"
+            if agent_id != "ai_tutor":
+                 agent_res = await db.execute(select(Agent).where(Agent.slug == agent_id))
+                 agent_obj = agent_res.scalar_one_or_none()
+                 if agent_obj: agent_name = agent_obj.name
+            greeting_text = GREETINGS.get(agent_id, f"Привет! Я {agent_name}. Чем могу помочь?")
             
-            # Create new DB session for background task
-            async with AsyncSessionLocal() as bg_db:
-                # Fetch agent name for greeting
-                if agent_id != "main_assistant":
-                    agent_res = await bg_db.execute(select(Agent).where(Agent.slug == agent_id))
-                    agent_obj = agent_res.scalar_one_or_none()
-                    agent_name = agent_obj.name if agent_obj else "AI Assistant"
-                else:
-                    agent_name = "AI Помощник"
-                
-                # Get greeting text
-                if agent_id == "main_assistant":
-                    greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
-                else:
-                    greeting_text = GREETINGS.get(agent_id, f"Привет! Я {agent_name}. Чем могу помочь?")
-                    
-                greeting_msg = Message(
-                    session_id=session.id,
-                    role=MessageRole.ASSISTANT,
-                    content=greeting_text
-                )
-                bg_db.add(greeting_msg)
-                
-                # Update session timestamps
-                session_stmt = select(ChatSession).where(ChatSession.id == session.id)
-                session_result = await bg_db.execute(session_stmt)
-                sess = session_result.scalar_one_or_none()
-                if sess:
-                    sess.last_message_at = datetime.utcnow()
-                    sess.last_read_at = datetime(2000, 1, 1)  # Mark as unread
-                
-                await bg_db.commit()
-                
-                # 🔔 Notify User (New Greeting Message)
-                await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
+        greeting_msg = Message(
+            session_id=session.id,
+            role=MessageRole.ASSISTANT,
+            content=greeting_text,
+            created_at=datetime.utcnow()
+        )
+        db.add(greeting_msg)
+        await db.commit()
         
-        # Start background task (don't await)
-        asyncio.create_task(send_delayed_greeting())
+        # Add to messages list to return immediately
+        messages.append(greeting_msg)
     
     return HistoryResponse(
         messages=[
