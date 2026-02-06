@@ -571,7 +571,7 @@ async def chat_completions(
                      await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
                      
                  except Exception as ex:
-                     print(f"Failed to save AI history: {ex}")
+                     logger.error(f"❌ Failed to save AI response to database: {ex}", exc_info=True)
 
     return StreamingResponse(
         response_generator(), 
@@ -612,9 +612,6 @@ async def mark_chat_read(
     await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
     
     return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
-
-
-
 
 
 @router.get("/unread-status")
