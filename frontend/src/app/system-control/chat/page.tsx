@@ -17,7 +17,7 @@ interface ChatSettings {
     compression_max_tokens: number | null;
     context_threshold: number;
     context_compression_keep_last: number;
-    context_soft_limit: number;
+    context_soft_limit: number; // Оставляем в интерфейсе типа для совместимости, но не показываем в UI
     updated_at: string;
 }
 
@@ -143,11 +143,9 @@ export default function ChatSettingsPage() {
     // Helper to calc effective limit
     const getEffectiveLimit = () => {
         if (!settings) return 0;
-        // If soft_limit is set (>0), use it. Otherwise use Model Max.
-        const baseLimit = (settings.context_soft_limit && settings.context_soft_limit > 0)
-            ? settings.context_soft_limit
-            : getModelMaxTokens();
-        return Math.floor(baseLimit * (settings.context_threshold || 0.9));
+        const maxTokens = getModelMaxTokens();
+        const threshold = settings.context_threshold || 0.9;
+        return Math.floor(maxTokens * threshold);
     };
 
     if (loading) {
@@ -374,25 +372,7 @@ export default function ChatSettingsPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Лимит токенов (Override)
-                            </label>
-                            <input
-                                type="number"
-                                min="0"
-                                max="1000000"
-                                step="1000"
-                                placeholder={`Auto (${getModelMaxTokens()})`}
-                                value={settings.context_soft_limit || ''}
-                                onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Укажите <b>0</b> или пусто, чтобы использовать аппаратный лимит ({getModelMaxTokens().toLocaleString()}).
-                            </p>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Порог срабатывания (%)
@@ -400,9 +380,9 @@ export default function ChatSettingsPage() {
                             <div className="flex items-center gap-2">
                                 <input
                                     type="range"
-                                    min="0.1"
+                                    min="0.01"
                                     max="1.0"
-                                    step="0.05"
+                                    step="0.01"
                                     value={settings.context_threshold || 0.9}
                                     onChange={(e) => setSettings({ ...settings, context_threshold: parseFloat(e.target.value) })}
                                     className="flex-1"
@@ -412,7 +392,7 @@ export default function ChatSettingsPage() {
                                 </span>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита.
+                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита ({getModelMaxTokens().toLocaleString()}).
                             </p>
                         </div>
                     </div>
