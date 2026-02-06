@@ -6,7 +6,7 @@ from sqlalchemy import select
 from pydantic import BaseModel, Field
 
 from dependencies import get_db, get_current_user
-from models import User, UserRole, Agent, ProactivitySettings
+from models import User, UserRole, Agent, ProactivitySettings, ChatSettings
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -97,6 +97,43 @@ class ProactivitySettingsResponse(BaseModel):
     # Prompts
     agent_memory_prompt: str
     assistant_memory_prompt: str
+
+
+# === Chat Settings Models ===
+
+class ChatSettingsUpdate(BaseModel):
+    # Блок 1: Общение с пользователями
+    user_chat_model: Optional[str] = None
+    user_chat_temperature: Optional[float] = None
+    user_chat_max_tokens: Optional[int] = None
+    rate_limit_per_minute: Optional[int] = None
+    
+    # Блок 2: Вечный диалог (Сжатие контекста)
+    compression_model: Optional[str] = None
+    compression_temperature: Optional[float] = None
+    compression_max_tokens: Optional[int] = None
+    context_threshold: Optional[float] = None
+    context_compression_keep_last: Optional[int] = None
+    context_soft_limit: Optional[int] = None
+
+
+class ChatSettingsResponse(BaseModel):
+    id: int
+    # Блок 1: Общение с пользователями
+    user_chat_model: str
+    user_chat_temperature: float
+    user_chat_max_tokens: Optional[int]
+    rate_limit_per_minute: int
+    
+    # Блок 2: Вечный диалог (Сжатие контекста)
+    compression_model: str
+    compression_temperature: float
+    compression_max_tokens: Optional[int]
+    context_threshold: float
+    context_compression_keep_last: int
+    context_soft_limit: int
+    
+    updated_at: datetime
 
 # --- Helpers ---
 
@@ -245,6 +282,77 @@ async def update_proactivity_settings(
     
     # Update timestamp
     from datetime import datetime
+    settings.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(settings)
+    return settings
+
+
+# === Chat Settings Endpoints ===
+
+@router.get("/chat-settings", response_model=ChatSettingsResponse)
+async def get_chat_settings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get chat settings (Admin only)"""
+    verify_admin(current_user)
+    
+    result = await db.execute(select(ChatSettings))
+    settings = result.scalar_one_or_none()
+    
+    if not settings:
+        # Create default settings if not exist
+        settings = ChatSettings()
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    
+    return settings
+
+
+@router.patch("/chat-settings", response_model=ChatSettingsResponse)
+async def update_chat_settings(
+    update_data: ChatSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update chat settings (Admin only)"""
+    verify_admin(current_user)
+    
+    result = await db.execute(select(ChatSettings))
+    settings = result.scalar_one_or_none()
+    
+    if not settings:
+        settings = ChatSettings()
+        db.add(settings)
+    
+    # Update Блок 1: Общение с пользователями
+    if update_data.user_chat_model is not None:
+        settings.user_chat_model = update_data.user_chat_model
+    if update_data.user_chat_temperature is not None:
+        settings.user_chat_temperature = update_data.user_chat_temperature
+    if update_data.user_chat_max_tokens is not None:
+        settings.user_chat_max_tokens = update_data.user_chat_max_tokens
+    if update_data.rate_limit_per_minute is not None:
+        settings.rate_limit_per_minute = update_data.rate_limit_per_minute
+    
+    # Update Блок 2: Вечный диалог (Сжатие контекста)
+    if update_data.compression_model is not None:
+        settings.compression_model = update_data.compression_model
+    if update_data.compression_temperature is not None:
+        settings.compression_temperature = update_data.compression_temperature
+    if update_data.compression_max_tokens is not None:
+        settings.compression_max_tokens = update_data.compression_max_tokens
+    if update_data.context_threshold is not None:
+        settings.context_threshold = update_data.context_threshold
+    if update_data.context_compression_keep_last is not None:
+        settings.context_compression_keep_last = update_data.context_compression_keep_last
+    if update_data.context_soft_limit is not None:
+        settings.context_soft_limit = update_data.context_soft_limit
+    
+    # Update timestamp
     settings.updated_at = datetime.utcnow()
     
     await db.commit()
