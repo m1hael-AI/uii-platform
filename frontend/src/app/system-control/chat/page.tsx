@@ -17,7 +17,6 @@ interface ChatSettings {
     compression_max_tokens: number | null;
     context_threshold: number;
     context_compression_keep_last: number;
-    context_soft_limit: number; // Оставляем в интерфейсе типа для совместимости, но не показываем в UI
     updated_at: string;
 }
 
@@ -135,15 +134,16 @@ export default function ChatSettingsPage() {
         }
     };
 
-    const getModelMaxTokens = () => {
+    // Лимит модели для сжатия (определяет порог срабатывания вечного диалога)
+    const getCompressionModelMaxTokens = () => {
         if (!settings) return 128000;
-        return MODEL_LIMITS[settings.user_chat_model] || 128000;
+        return MODEL_LIMITS[settings.compression_model] || 128000;
     };
 
-    // Helper to calc effective limit
+    // Trigger Point рассчитывается от модели сжатия
     const getEffectiveLimit = () => {
         if (!settings) return 0;
-        const maxTokens = getModelMaxTokens();
+        const maxTokens = getCompressionModelMaxTokens();
         const threshold = settings.context_threshold || 0.9;
         return Math.floor(maxTokens * threshold);
     };
@@ -291,7 +291,7 @@ export default function ChatSettingsPage() {
                                 ~{getEffectiveLimit().toLocaleString()} tokens
                             </div>
                             <div className="text-xs text-blue-500">
-                                (Model Max: {getModelMaxTokens().toLocaleString()})
+                                (Model Max: {getCompressionModelMaxTokens().toLocaleString()})
                             </div>
                         </div>
                     </div>
@@ -392,7 +392,7 @@ export default function ChatSettingsPage() {
                                 </span>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита ({getModelMaxTokens().toLocaleString()}).
+                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита ({getCompressionModelMaxTokens().toLocaleString()}).
                             </p>
                         </div>
                     </div>
