@@ -282,120 +282,120 @@ export default function ProactivityAdminPage() {
                             <p className="text-xs text-gray-500 mt-1">Как часто обновлять память при молчании</p>
                         </div>
                     </div>
-                </div>
+
 
                     {/* Agent Memory Prompt */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold mb-2">Промпт для агентов</h2>
-                <p className="text-sm text-gray-600 mb-4">
-                    Используется для извлечения памяти обычных агентов (Data Analyst, Career Mentor и т.д.)
-                </p>
-                <textarea
-                    value={settings.agent_memory_prompt}
-                    onChange={(e) => setSettings({ ...settings, agent_memory_prompt: e.target.value })}
-                    rows={15}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                />
-            </div>
-
-            {/* Assistant Memory Prompt */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold mb-2">Промпт для ассистента</h2>
-                <p className="text-sm text-gray-600 mb-4">
-                    Используется для извлечения памяти главного ассистента
-                </p>
-                <textarea
-                    value={settings.assistant_memory_prompt}
-                    onChange={(e) => setSettings({ ...settings, assistant_memory_prompt: e.target.value })}
-                    rows={15}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                />
-            </div>
-        </div>
-    )
-}
-
-{/* Proactivity Tab */ }
-{
-    activeTab === 'proactivity' && (
-        <div className="space-y-6">
-            {/* Proactivity Trigger LLM Settings */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold mb-4">Настройки LLM для проверки проактивности</h2>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Модель</label>
-                        <select
-                            value={settings.trigger_model}
-                            onChange={(e) => setSettings({ ...settings, trigger_model: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
-                        >
-                            {AVAILABLE_MODELS.map(model => (
-                                <option key={model} value={model}>{model}</option>
-                            ))}
-                            {!AVAILABLE_MODELS.includes(settings.trigger_model) && (
-                                <option value={settings.trigger_model}>{settings.trigger_model} (Custom)</option>
-                            )}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
-                        <input
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            value={settings.trigger_temperature}
-                            onChange={(e) => setSettings({ ...settings, trigger_temperature: parseFloat(e.target.value) })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-semibold mb-2">Промпт для агентов</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Используется для извлечения памяти обычных агентов (Data Analyst, Career Mentor и т.д.)
+                        </p>
+                        <textarea
+                            value={settings.agent_memory_prompt}
+                            onChange={(e) => setSettings({ ...settings, agent_memory_prompt: e.target.value })}
+                            rows={15}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
-                        <input
-                            type="number"
-                            min="1"
-                            placeholder="Без лимита"
-                            value={settings.trigger_max_tokens ?? ''}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setSettings({ ...settings, trigger_max_tokens: val === '' ? null : parseInt(val) });
-                            }}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+
+                    {/* Assistant Memory Prompt */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-semibold mb-2">Промпт для ассистента</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Используется для извлечения памяти главного ассистента
+                        </p>
+                        <textarea
+                            value={settings.assistant_memory_prompt}
+                            onChange={(e) => setSettings({ ...settings, assistant_memory_prompt: e.target.value })}
+                            rows={15}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
                     </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Тайм-аут проактивности (часы)</label>
-                    <input
-                        type="number"
-                        min="1"
-                        max="168"
-                        value={settings.proactivity_timeout}
-                        onChange={(e) => setSettings({ ...settings, proactivity_timeout: parseInt(e.target.value) })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Время молчания перед проверкой триггера</p>
-                </div>
-            </div>
-        </div>
-
-                    {/* Proactivity Trigger Prompt */ }
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold mb-2">Промпт для проверки проактивности</h2>
-        <p className="text-sm text-gray-600 mb-4">
-            Используется для принятия решения о необходимости проактивного сообщения
-        </p>
-        <textarea
-            value={settings.proactivity_trigger_prompt}
-            onChange={(e) => setSettings({ ...settings, proactivity_trigger_prompt: e.target.value })}
-            rows={15}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-        />
-    </div>
-                </div >
             )
+            }
+
+            {/* Proactivity Tab */}
+            {
+                activeTab === 'proactivity' && (
+                    <div className="space-y-6">
+                        {/* Proactivity Trigger LLM Settings */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h2 className="text-xl font-semibold mb-4">Настройки LLM для проверки проактивности</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Модель</label>
+                                    <select
+                                        value={settings.trigger_model}
+                                        onChange={(e) => setSettings({ ...settings, trigger_model: e.target.value })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                    >
+                                        {AVAILABLE_MODELS.map(model => (
+                                            <option key={model} value={model}>{model}</option>
+                                        ))}
+                                        {!AVAILABLE_MODELS.includes(settings.trigger_model) && (
+                                            <option value={settings.trigger_model}>{settings.trigger_model} (Custom)</option>
+                                        )}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        min="0"
+                                        max="2"
+                                        value={settings.trigger_temperature}
+                                        onChange={(e) => setSettings({ ...settings, trigger_temperature: parseFloat(e.target.value) })}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Без лимита"
+                                        value={settings.trigger_max_tokens ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSettings({ ...settings, trigger_max_tokens: val === '' ? null : parseInt(val) });
+                                        }}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Тайм-аут проактивности (часы)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="168"
+                                    value={settings.proactivity_timeout}
+                                    onChange={(e) => setSettings({ ...settings, proactivity_timeout: parseInt(e.target.value) })}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Время молчания перед проверкой триггера</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Proactivity Trigger Prompt */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold mb-2">Промпт для проверки проактивности</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                    Используется для принятия решения о необходимости проактивного сообщения
+                </p>
+                <textarea
+                    value={settings.proactivity_trigger_prompt}
+                    onChange={(e) => setSettings({ ...settings, proactivity_trigger_prompt: e.target.value })}
+                    rows={15}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                />
+            </div>
+        </div >
+    )
 }
 
 {/* General Settings Tab */ }
