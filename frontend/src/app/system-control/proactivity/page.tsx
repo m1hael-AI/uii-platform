@@ -4,14 +4,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
-const AVAILABLE_MODELS = [
-    'gpt-4o',
-    'gpt-4o-mini',
-    'o1',
-    'o1-mini',
-    'gpt-4-turbo',
-    'gpt-3.5-turbo'
-];
+// Limits referenced from Backend (context_manager.py)
+const MODEL_LIMITS: Record<string, number> = {
+    // GPT-4.1 Family
+    "gpt-4.1": 1000000,
+    "gpt-4.1-mini": 1000000,
+
+    // GPT-5 Family
+    "gpt-5": 272000,
+    "gpt-5-mini": 400000,
+
+    // Legacy / Stable
+    "gpt-4o": 128000,
+    "gpt-4o-mini": 128000,
+};
+
+const AVAILABLE_MODELS = Object.keys(MODEL_LIMITS);
 
 // Cache-buster: 2026-02-06T21:40
 interface ProactivitySettings {
@@ -229,7 +237,7 @@ export default function ProactivityAdminPage() {
                                         <option key={model} value={model}>{model}</option>
                                     ))}
                                     {!AVAILABLE_MODELS.includes(settings.memory_model) && (
-                                        <option value={settings.memory_model}>{settings.memory_model} (текущая)</option>
+                                        <option value={settings.memory_model}>{settings.memory_model} (Custom)</option>
                                     )}
                                 </select>
                             </div>
@@ -305,7 +313,7 @@ export default function ProactivityAdminPage() {
                                         <option key={model} value={model}>{model}</option>
                                     ))}
                                     {!AVAILABLE_MODELS.includes(settings.trigger_model) && (
-                                        <option value={settings.trigger_model}>{settings.trigger_model} (текущая)</option>
+                                        <option value={settings.trigger_model}>{settings.trigger_model} (Custom)</option>
                                     )}
                                 </select>
                             </div>

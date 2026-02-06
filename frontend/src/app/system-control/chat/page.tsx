@@ -135,15 +135,15 @@ export default function ChatSettingsPage() {
     };
 
     // Лимит модели для сжатия (определяет порог срабатывания вечного диалога)
-    const getCompressionModelMaxTokens = () => {
+    const getChatModelMaxTokens = () => {
         if (!settings) return 128000;
-        return MODEL_LIMITS[settings.compression_model] || 128000;
+        return MODEL_LIMITS[settings.user_chat_model] || 128000;
     };
 
-    // Trigger Point рассчитывается от модели сжатия
+    // Trigger Point рассчитывается от основной модели общения
     const getEffectiveLimit = () => {
         if (!settings) return 0;
-        const maxTokens = getCompressionModelMaxTokens();
+        const maxTokens = getChatModelMaxTokens();
         const threshold = settings.context_threshold || 0.9;
         return Math.floor(maxTokens * threshold);
     };
@@ -291,7 +291,7 @@ export default function ChatSettingsPage() {
                                 ~{getEffectiveLimit().toLocaleString()} tokens
                             </div>
                             <div className="text-xs text-blue-500">
-                                (Model Max: {getCompressionModelMaxTokens().toLocaleString()})
+                                (Model Max: {getChatModelMaxTokens().toLocaleString()})
                             </div>
                         </div>
                     </div>
@@ -392,7 +392,7 @@ export default function ChatSettingsPage() {
                                 </span>
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита ({getCompressionModelMaxTokens().toLocaleString()}).
+                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита основной модели ({getChatModelMaxTokens().toLocaleString()}).
                             </p>
                         </div>
                     </div>
