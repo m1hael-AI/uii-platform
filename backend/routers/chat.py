@@ -356,7 +356,7 @@ async def chat_completions(
         # Try to match either
         q = q.where(or_(ChatSession.library_id == request.webinar_id, ChatSession.schedule_id == request.webinar_id))
     else:
-        slug = request.agent_id or "mentor"
+        slug = request.agent_id or "ai_tutor"
         q = q.where(ChatSession.agent_slug == slug).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
         
     result = await db.execute(q)
@@ -364,7 +364,7 @@ async def chat_completions(
     
     if not chat_session:
         # Create new session
-        slug = request.agent_id or "mentor"
+        slug = request.agent_id or "ai_tutor"
         
         # Determine strict type for creation
         schedule_id = None
@@ -458,7 +458,7 @@ async def chat_completions(
         
         # 🔪 Kill Switch: Delete pending proactive tasks for this agent
         # If user initiates conversation, we don't need to send proactive message
-        agent_slug = request.agent_id or "mentor"
+        agent_slug = request.agent_id or "ai_tutor"
         await db.execute(
             delete(PendingAction)
             .where(PendingAction.user_id == current_user.id)
@@ -482,7 +482,7 @@ async def chat_completions(
         )
     else:
         # Load agent from DB
-        agent_slug = request.agent_id or "mentor"
+        agent_slug = request.agent_id or "ai_tutor"
         agent_res = await db.execute(select(Agent).where(Agent.slug == agent_slug))
         agent_obj = agent_res.scalar_one_or_none()
         if agent_obj and agent_obj.system_prompt:
@@ -521,7 +521,7 @@ async def chat_completions(
                 conversation, 
                 max_tokens=1500,
                 user_id=current_user.id,
-                agent_slug=request.agent_id or "mentor"
+                agent_slug=request.agent_id or "ai_tutor"
             ):
                 full_response += chunk
                 yield chunk
