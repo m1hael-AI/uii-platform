@@ -416,7 +416,7 @@ class ChatSettings(SQLModel, table=True):
     # === Блок 1: Общение с пользователями ===
     user_chat_model: str = Field(default="gpt-4o", description="Модель для общения с пользователями")
     user_chat_temperature: float = Field(default=0.7, description="Температура для общения")
-    user_chat_max_tokens: Optional[int] = Field(default=4096, description="Max tokens для ответов (null = без лимита)")
+    user_chat_max_tokens: Optional[int] = Field(default=None, description="Max tokens для ответов (null = без лимита)")
     rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
     
     # === Блок 2: Вечный диалог (Сжатие контекста) ===

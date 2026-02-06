@@ -30,6 +30,7 @@ def upgrade():
     # Reset existing default values to NULL (for unlimited)
     op.execute("UPDATE proactivity_settings SET memory_max_tokens = NULL WHERE memory_max_tokens = 800")
     op.execute("UPDATE proactivity_settings SET trigger_max_tokens = NULL WHERE trigger_max_tokens = 500")
+    op.execute("UPDATE chat_settings SET user_chat_max_tokens = NULL WHERE user_chat_max_tokens = 4096")
 
 
 def downgrade():
