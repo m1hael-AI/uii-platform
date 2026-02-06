@@ -140,11 +140,15 @@ async def process_agent_memory(
         
         result = json.loads(result_text)
         
-        # Обновляем память
-        chat_session.local_summary = result.get("memory_update", current_memory)
+        # Обновляем память (убеждаемся что это строка)
+        memory_update = result.get("memory_update", current_memory)
+        if isinstance(memory_update, (dict, list)):
+            memory_update = json.dumps(memory_update, ensure_ascii=False)
+            
+        chat_session.local_summary = memory_update
         chat_session.summarized_at = datetime.utcnow()
         
-        logger.info(f"✅ Память агента обновлена: {chat_session.local_summary[:100]}...")
+        logger.info(f"✅ Память агента обновлена: {str(chat_session.local_summary)[:100]}...")
         
         # Проверяем триггер
         if result.get("create_task"):
@@ -284,15 +288,23 @@ async def process_assistant_memory(
         result = json.loads(result_text)
         
         # Обновляем локальную память AI Помощника
-        chat_session.local_summary = result.get("memory_update", current_memory)
+        memory_update = result.get("memory_update", current_memory)
+        if isinstance(memory_update, (dict, list)):
+            memory_update = json.dumps(memory_update, ensure_ascii=False)
+            
+        chat_session.local_summary = memory_update
         chat_session.summarized_at = datetime.utcnow()
         
         # Обновляем глобальную биографию
-        user_memory.narrative_summary = result.get("global_profile_update", user_profile)
+        profile_update = result.get("global_profile_update", user_profile)
+        if isinstance(profile_update, (dict, list)):
+            profile_update = json.dumps(profile_update, ensure_ascii=False)
+            
+        user_memory.narrative_summary = profile_update
         user_memory.updated_at = datetime.utcnow()
         
         logger.info(f"✅ Память AI Помощника обновлена")
-        logger.info(f"✅ Глобальная биография обновлена: {user_memory.narrative_summary[:100]}...")
+        logger.info(f"✅ Глобальная биография обновлена: {str(user_memory.narrative_summary)[:100]}...")
         
         # Проверяем триггер
         if result.get("create_task"):
