@@ -239,8 +239,13 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
         # Deep Link to specific agent chat
         chat_url = f"https://platform.ai-university.ru/platform/chat?agent={agent.slug}"
         
+        # Truncate for preview (avoid "wall of text")
+        preview_text = message_text
+        if len(preview_text) > 200:
+            preview_text = preview_text[:200] + "..."
+        
         # Markdown Link
-        text = f"💬 *{agent.name}*\n\n{message_text}\n\n👉 [Перейти в диалог]({chat_url})"
+        text = f"💬 *{agent.name}*\n\n{preview_text}\n\n👉 [Перейти в диалог]({chat_url})"
         
         await bot.send_message(
             chat_id=user.tg_id,
@@ -342,6 +347,14 @@ async def execute_proactive_message(
         await db.commit()
         
         logger.info(f"✅ Проактивное сообщение сохранено в БД")
+        
+        # 🔔 Notify User (Real-time update for red dot)
+        try:
+            # Inline import to avoid circular dependency
+            from routers.chat import manager
+            await manager.broadcast(user.id, {"type": "chatStatusUpdate"})
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось отправить SSE уведомление: {e}")
         
         # Отправляем в Telegram
         await send_to_telegram(user, agent, proactive_text)
