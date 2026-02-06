@@ -476,20 +476,6 @@ export default function ProactivityAdminPage() {
                                     />
                                 </div>
                             </div>
-                            <div className="mt-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Макс. сообщений подряд от AI (Anti-Spam)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="10"
-                                    value={settings.max_consecutive_messages || 3}
-                                    onChange={(e) => setSettings({ ...settings, max_consecutive_messages: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Если AI написал столько сообщений подряд без ответа юзера — проактивность останавливается.</p>
-                            </div>
                         </div>
 
 
