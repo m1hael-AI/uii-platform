@@ -339,7 +339,33 @@ class ProactivitySettings(SQLModel, table=True):
 
 
 
+class ChatSettings(SQLModel, table=True):
+    """
+    Настройки чата: модели для общения и сжатия, rate limit, вечный диалог.
+    """
+    __tablename__ = "chat_settings"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # === Блок 1: Общение с пользователями ===
+    user_chat_model: str = Field(default="gpt-4o", description="Модель для общения с пользователями")
+    user_chat_temperature: float = Field(default=0.7, description="Температура для общения")
+    user_chat_max_tokens: Optional[int] = Field(default=4096, description="Max tokens для ответов (null = без лимита)")
+    rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
+    
+    # === Блок 2: Вечный диалог (Сжатие контекста) ===
+    compression_model: str = Field(default="gpt-4.1-mini", description="Модель для сжатия контекста")
+    compression_temperature: float = Field(default=0.2, description="Температура для сжатия")
+    compression_max_tokens: Optional[int] = Field(default=None, description="Max tokens для саммари (null = без лимита)")
+    context_threshold: float = Field(default=0.9, description="Порог срабатывания сжатия (0.9 = 90%)")
+    context_compression_keep_last: int = Field(default=20, description="Сколько последних сообщений оставлять")
+    context_soft_limit: int = Field(default=350000, description="Мягкий лимит токенов для срабатывания")
+    
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class WebinarSchedule(SQLModel, table=True):
+
     """
     Расписание предстоящих вебинаров.
     """
