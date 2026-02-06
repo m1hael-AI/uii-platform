@@ -649,7 +649,9 @@ async def get_unread_status(
     # We need detailed info for the frontend to decide where to route (agent vs assistant)
     q = select(ChatSession).where(
         ChatSession.user_id == current_user.id,
-        ChatSession.is_active == True
+        ChatSession.is_active == True,
+        ChatSession.schedule_id == None,
+        ChatSession.library_id == None
     )
     res = await db.execute(q)
     sessions = res.scalars().all()

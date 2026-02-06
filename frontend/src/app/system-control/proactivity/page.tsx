@@ -20,31 +20,16 @@ interface ProactivitySettings {
     // Limits
     max_messages_per_day_agents: number;
     max_messages_per_day_assistant: number;
-    rate_limit_per_minute: number;
+    rate_limit_per_minute: number; // Still in interface for type safety, but UI removed if passed from backend
 
     // Summarizer Settings
     summarizer_check_interval: number;
     summarizer_idle_threshold: number;
 
-    // Context Compression
-    context_soft_limit: number;
-    context_threshold: number;
-    context_compression_keep_last: number;
-
     // Prompts
     agent_memory_prompt: string;
     assistant_memory_prompt: string;
 }
-
-// Limits referenced from Backend (context_manager.py)
-const MODEL_LIMITS: Record<string, number> = {
-    "gpt-4.1": 1000000,
-    "gpt-4.1-mini": 1000000,
-    "gpt-5": 272000,
-    "gpt-5-mini": 400000,
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-};
 
 export default function ProactivityAdminPage() {
     const router = useRouter();
@@ -124,22 +109,6 @@ export default function ProactivityAdminPage() {
         } finally {
             setSaving(false);
         }
-    };
-
-    // Helper to get max limit
-    const getModelMaxTokens = () => {
-        if (!settings) return 128000;
-        return MODEL_LIMITS[settings.model] || 128000;
-    };
-
-    // Helper to calc effective limit
-    const getEffectiveLimit = () => {
-        if (!settings) return 0;
-        // If soft_limit is set (>0), use it. Otherwise use Model Max.
-        const baseLimit = (settings.context_soft_limit && settings.context_soft_limit > 0)
-            ? settings.context_soft_limit
-            : getModelMaxTokens();
-        return Math.floor(baseLimit * (settings.context_threshold || 0.9));
     };
 
     if (loading) {
@@ -232,7 +201,7 @@ export default function ProactivityAdminPage() {
 
                     {/* OpenAI Settings */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-4">Настройки OpenAI</h2>
+                        <h2 className="text-xl font-semibold mb-4">Настройки OpenAI (Проактивность)</h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -314,20 +283,7 @@ export default function ProactivityAdminPage() {
                     {/* Limits */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 className="text-xl font-semibold mb-4">Лимиты сообщений</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Сообщений в минуту (Rate Limit)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="1000"
-                                    value={settings.rate_limit_per_minute || 15}
-                                    onChange={(e) => setSettings({ ...settings, rate_limit_per_minute: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     В день (Общий лимит агентов)
@@ -355,6 +311,7 @@ export default function ProactivityAdminPage() {
                                 />
                             </div>
                         </div>
+                        <p className="text-xs text-gray-400 mt-2 italic">Настройка "Rate Limit" перенесена в раздел "Настройки чата".</p>
                     </div>
 
                     {/* Summarizer Settings -> Proactivity Detector */}
@@ -388,82 +345,6 @@ export default function ProactivityAdminPage() {
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Сколько минут пользователь должен молчать, чтобы диалог считался завершённым.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Context Compression Settings -> Infinite Dialog */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h2 className="text-xl font-semibold">Вечный диалог (Сжатие контекста)</h2>
-                                <p className="text-sm text-gray-500">Автоматически сжимает переписку при достижении лимита</p>
-                            </div>
-                            <div className="text-right bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
-                                <div className="text-xs text-blue-600 font-semibold uppercase">Trigger Point</div>
-                                <div className="text-lg font-bold text-blue-800">
-                                    ~{getEffectiveLimit().toLocaleString()} tokens
-                                </div>
-                                <div className="text-xs text-blue-500">
-                                    (Model Max: {getModelMaxTokens().toLocaleString()})
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Лимит токенов (Override)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="1000000"
-                                    step="1000"
-                                    placeholder={`Auto (${getModelMaxTokens()})`}
-                                    value={settings.context_soft_limit || ''}
-                                    onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Укажите <b>0</b> или пусто, чтобы использовать аппаратный лимит ({getModelMaxTokens().toLocaleString()}).
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Порог срабатывания (%)
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="range"
-                                        min="0.1"
-                                        max="1.0"
-                                        step="0.05"
-                                        value={settings.context_threshold || 0.9}
-                                        onChange={(e) => setSettings({ ...settings, context_threshold: parseFloat(e.target.value) })}
-                                        className="flex-1"
-                                    />
-                                    <span className="w-12 text-sm font-bold text-gray-700">
-                                        {Math.round((settings.context_threshold || 0.9) * 100)}%
-                                    </span>
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита.
-                                </p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Оставлять сообщений (Keep Last)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="5"
-                                    max="100"
-                                    value={settings.context_compression_keep_last || 20}
-                                    onChange={(e) => setSettings({ ...settings, context_compression_keep_last: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Сколько последних сообщений НЕ сжимать.</p>
                             </div>
                         </div>
                     </div>
