@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 interface ChatSettings {
     id: number;
@@ -34,7 +35,7 @@ export default function ChatSettingsPage() {
 
     const fetchSettings = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = Cookies.get('token');
             if (!token) {
                 router.push('/login');
                 return;
@@ -72,7 +73,7 @@ export default function ChatSettingsPage() {
         setSuccessMessage(null);
 
         try {
-            const token = localStorage.getItem('token');
+            const token = Cookies.get('token');
             if (!token) {
                 router.push('/login');
                 return;
