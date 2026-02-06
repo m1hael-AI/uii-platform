@@ -2,7 +2,7 @@
 Суммаризатор для проактивности AI University.
 
 Компоненты:
-1. Извлечение памяти — обновляет ChatSession.local_summary (память о пользователе)
+1. Извлечение памяти — обновляет ChatSession.user_agent_profile (память о пользователе)
 2. Детекция триггеров — создаёт PendingAction для проактивных сообщений
 3. Глобальная биография — обновляет UserMemory.narrative_summary (только для AI Помощника)
 4. Cron задача — проверяет "застывшие" чаты каждые 2 минуты
@@ -103,7 +103,7 @@ async def process_memory_update(
         await db.refresh(user_memory)
 
     user_profile = user_memory.narrative_summary if user_memory else "Нет данных"
-    current_memory = chat_session.local_summary or "Пусто"
+    current_memory = chat_session.user_agent_profile or "Пусто"
     
     # 2. Выбираем промпт и логику (Агент vs Ассистент)
     if chat_session.agent_slug == "main_assistant":
@@ -115,11 +115,11 @@ async def process_memory_update(
         
         agent_memories = []
         for session in all_sessions:
-            if session.local_summary and session.id != chat_session.id:
+            if session.user_agent_profile and session.id != chat_session.id:
                 agent_result = await db.execute(select(Agent).where(Agent.slug == session.agent_slug))
                 agent = agent_result.scalar_one_or_none()
                 agent_name = agent.name if agent else session.agent_slug
-                agent_memories.append(f"{agent_name}: {session.local_summary}")
+                agent_memories.append(f"{agent_name}: {session.user_agent_profile}")
         
         all_agent_memories = "\n\n".join(agent_memories) if agent_memories else "Нет данных"
         
@@ -186,7 +186,7 @@ async def process_memory_update(
         if isinstance(memory_update, (dict, list)):
             memory_update = json.dumps(memory_update, ensure_ascii=False)
             
-        chat_session.local_summary = memory_update
+        chat_session.user_agent_profile = memory_update
         chat_session.summarized_at = datetime.utcnow()
         
         if chat_session.agent_slug == "main_assistant":

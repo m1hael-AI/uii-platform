@@ -548,8 +548,8 @@ class ChatSession(SQLModel, table=True):
     summarized_at: Optional[datetime] = Field(default=None, description="Время последней суммаризации (для проактивности)")
     last_proactivity_check_at: Optional[datetime] = Field(default=None, description="Время последней проверки проактивности")
     
-    # Локальная суммаризация для агента (проактивность)
-    local_summary: Optional[str] = Field(default=None, description="Локальная суммаризация диалога с этим агентом")
+    # Локальная суммаризация    # Память (Локальный профиль)
+    user_agent_profile: Optional[str] = Field(default=None, description="Локальный профиль пользователя для этого агента (факты, контекст)")
     
     # Relationships
     user: Optional[User] = Relationship(back_populates="chat_sessions")

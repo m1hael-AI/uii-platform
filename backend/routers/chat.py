@@ -15,7 +15,7 @@ from pathlib import Path
 from services.openai_service import generate_chat_response, stream_chat_response
 from services.context_manager import is_context_overflow, compress_context_task
 from dependencies import get_db, get_current_user, rate_limiter
-from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule
+from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule, UserMemory
 from config import settings
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -494,9 +494,32 @@ async def chat_completions(
         
         await db.commit()
 
-    # 4. Prepare Prompt
-    system_prompt = "You are a helpful AI Assistant."
+    # 4. Building Context (Memory v2)
+    # =========================================================================
+    # A. Fetch History from DB (Active only)
+    # We ignore frontend 'messages' list for context building. We trust the DB.
+    # This automatically includes [SUMMARY] messages (role=SYSTEM) from compression.
+    history_result = await db.execute(
+        select(Message)
+        .where(Message.session_id == chat_session.id)
+        .where(Message.is_archived == False)
+        .order_by(Message.created_at.asc())
+    )
+    history_messages = history_result.scalars().all()
+    
+    # B. Fetch Memory (for Injection)
+    # 1. Global Profile (UserMemory)
+    user_memory_res = await db.execute(select(UserMemory).where(UserMemory.user_id == current_user.id))
+    user_memory = user_memory_res.scalar_one_or_none()
+    global_profile = user_memory.narrative_summary if user_memory and user_memory.narrative_summary else "Неизвестно"
+    
+    # 2. Local Profile (User-Agent Profile)
+    # Previously 'local_summary'. Now 'user_agent_profile'.
+    local_profile = chat_session.user_agent_profile if chat_session.user_agent_profile else "Неизвестно"
 
+    # C. Prepare System Prompt
+    system_prompt = "You are a helpful AI Assistant."
+    
     if webinar_context:
         system_prompt = (
             f"Ты — виртуальный ассистент по вебинару.\n"
@@ -513,10 +536,19 @@ async def chat_completions(
         agent_obj = agent_res.scalar_one_or_none()
         if agent_obj and agent_obj.system_prompt:
             system_prompt = agent_obj.system_prompt
+            
+        # D. INJECTION
+        # Inject Memory into placeholders
+        # We rely on specific placeholders in the prompt text: {user_profile}, {user_agent_profile}
+        system_prompt = system_prompt.replace("{user_profile}", global_profile)
+        system_prompt = system_prompt.replace("{user_agent_profile}", local_profile)
+        system_prompt = system_prompt.replace("{local_summary}", local_profile) # Legacy support
 
+    # E. Construct Conversation
     conversation = [{"role": "system", "content": system_prompt}]
-    for m in request.messages:
-        conversation.append({"role": m.role, "content": m.content})
+    
+    for m in history_messages:
+        conversation.append({"role": m.role.value, "content": m.content})
         
     # --- Context Management Check ---
     # Получаем настройки чата из БД
