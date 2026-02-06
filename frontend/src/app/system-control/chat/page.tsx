@@ -58,7 +58,6 @@ export default function ChatSettingsPage() {
                 return;
             }
 
-            // Using environment variable or fallback to match existing patterns
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
             const response = await fetch(`${API_URL}/admin/chat-settings`, {
                 headers: {
@@ -138,7 +137,6 @@ export default function ChatSettingsPage() {
 
     const getModelMaxTokens = () => {
         if (!settings) return 128000;
-        // Limit determined by User Chat Model as it holds the context
         return MODEL_LIMITS[settings.user_chat_model] || 128000;
     };
 
@@ -284,26 +282,18 @@ export default function ChatSettingsPage() {
 
                 {/* Context Compression Settings -> Infinite Dialog */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex justify-between items-start mb-6">
+                    <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h2 className="text-xl font-semibold flex items-center gap-2">
-                                Вечный диалог (Сжатие контекста)
-                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${settings.context_soft_limit ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
-                                    {settings.context_soft_limit ? 'Custom Limit' : 'Auto Limit'}
-                                </span>
-                            </h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Стратегия управления памятью для <b>{settings.user_chat_model}</b>
-                            </p>
+                            <h2 className="text-xl font-semibold">Вечный диалог (Сжатие контекста)</h2>
+                            <p className="text-sm text-gray-500">Автоматически сжимает переписку при достижении лимита</p>
                         </div>
-                        <div className="text-right bg-blue-50 px-4 py-3 rounded-lg border border-blue-100 min-w-[200px]">
-                            <div className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Trigger Point</div>
-                            <div className="text-2xl font-black text-blue-800 leading-none">
-                                ~{(getEffectiveLimit() / 1000).toFixed(1)}k
-                                <span className="text-sm font-medium text-blue-600 ml-1">tokens</span>
+                        <div className="text-right bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
+                            <div className="text-xs text-blue-600 font-semibold uppercase">Trigger Point</div>
+                            <div className="text-lg font-bold text-blue-800">
+                                ~{getEffectiveLimit().toLocaleString()} tokens
                             </div>
-                            <div className="text-xs text-blue-500 mt-1 font-medium">
-                                of {getModelMaxTokens().toLocaleString()} max
+                            <div className="text-xs text-blue-500">
+                                (Model Max: {getModelMaxTokens().toLocaleString()})
                             </div>
                         </div>
                     </div>
@@ -371,7 +361,7 @@ export default function ChatSettingsPage() {
                         {/* Keep Last */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Keep Last (Msg)
+                                Оставлять сообщений (Keep Last)
                             </label>
                             <input
                                 type="number"
@@ -384,47 +374,45 @@ export default function ChatSettingsPage() {
                         </div>
                     </div>
 
-                    <div className="border-t border-gray-100 pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Порог срабатывания (Threshold)
+                                Лимит токенов (Override)
                             </label>
-                            <div className="flex items-center gap-4">
+                            <input
+                                type="number"
+                                min="0"
+                                max="1000000"
+                                step="1000"
+                                placeholder={`Auto (${getModelMaxTokens()})`}
+                                value={settings.context_soft_limit || ''}
+                                onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Укажите <b>0</b> или пусто, чтобы использовать аппаратный лимит ({getModelMaxTokens().toLocaleString()}).
+                            </p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Порог срабатывания (%)
+                            </label>
+                            <div className="flex items-center gap-2">
                                 <input
                                     type="range"
-                                    min="0.5"
+                                    min="0.1"
                                     max="1.0"
-                                    step="0.01"
+                                    step="0.05"
                                     value={settings.context_threshold || 0.9}
                                     onChange={(e) => setSettings({ ...settings, context_threshold: parseFloat(e.target.value) })}
-                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#FF6B35]"
+                                    className="flex-1"
                                 />
-                                <span className="w-16 text-right font-bold text-gray-900 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                <span className="w-12 text-sm font-bold text-gray-700">
                                     {Math.round((settings.context_threshold || 0.9) * 100)}%
                                 </span>
                             </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                Сжатие начнется, когда контекст заполнится на этот процент от лимита ({getModelMaxTokens().toLocaleString()}).
-                            </p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Ручной лимит (Soft Limit Override)
-                            </label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="1000"
-                                    placeholder={`Auto (${getModelMaxTokens()})`}
-                                    value={settings.context_soft_limit || ''}
-                                    onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                            </div>
-                            <p className="text-xs text-gray-500 mt-2">
-                                Если 0 или пусто, используется полный размер контекста модели.
+                            <p className="text-xs text-gray-500 mt-1">
+                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита.
                             </p>
                         </div>
                     </div>
