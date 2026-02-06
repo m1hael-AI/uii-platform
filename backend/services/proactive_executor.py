@@ -109,8 +109,12 @@ def replace_placeholders(
     """
     now = datetime.utcnow()
     
+    first_name = user.tg_first_name or ""
+    last_name = user.tg_last_name or ""
+    full_name = f"{first_name} {last_name}".strip() or user.tg_username or user.email.split("@")[0]
+    
     replacements = {
-        "{user_name}": user.full_name or user.email.split("@")[0],
+        "{user_name}": full_name,
         "{user_profile}": user_memory.narrative_summary if user_memory else "Нет данных",
         "{agent_summary}": agent_summary or "Нет данных",
         "{current_date}": now.strftime("%Y-%m-%d"),
