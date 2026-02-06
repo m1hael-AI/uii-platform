@@ -397,7 +397,31 @@ export default function ChatSettingsPage() {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div></div>
+
+            {/* Sticky Footer */ }
+    <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 -mx-8 -mb-8 mt-4 flex justify-end gap-3 rounded-b-xl z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <button
+            onClick={() => router.push('/system-control')}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+            Отмена
+        </button>
+        <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 bg-[#FF6B35] text-white font-medium rounded-lg hover:bg-[#E85A2D] disabled:opacity-50 transition-colors shadow-sm flex items-center gap-2"
+        >
+            {saving ? (
+                <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Сохранение...
+                </>
+            ) : (
+                "Сохранить изменения"
+            )}
+        </button>
+    </div>
+        </div >
     );
 }
