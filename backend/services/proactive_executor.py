@@ -17,6 +17,8 @@ from sqlalchemy import select
 from sqlalchemy import select
 from openai import AsyncOpenAI
 from loguru import logger
+import time
+from services.audit_service import fire_and_forget_audit
 
 from models import (
     PendingAction, 
@@ -185,12 +187,36 @@ async def generate_proactive_message(
     messages.append({"role": "user", "content": trigger_message})
     
     # Генерируем ответ
+    start_time = time.time()
     response = await openai_client.chat.completions.create(
         model=settings.model,
         messages=messages,
         temperature=settings.temperature,
         max_tokens=settings.max_tokens
     )
+    
+    # Audit Log
+    if response.usage:
+        duration = int((time.time() - start_time) * 1000)
+        
+        usage = response.usage
+        input_tokens = usage.prompt_tokens
+        output_tokens = usage.completion_tokens
+        cached_tokens = 0
+        if getattr(usage, "prompt_tokens_details", None):
+             cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+        
+        fire_and_forget_audit(
+            user_id=user.id,
+            agent_slug=f"{agent.slug}:proactive",
+            model=settings.model,
+            messages=messages,
+            response_content=response.choices[0].message.content or "",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_tokens=cached_tokens,
+            duration_ms=duration
+        )
     
     return response.choices[0].message.content.strip()
 

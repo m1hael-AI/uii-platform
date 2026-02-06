@@ -13,6 +13,7 @@ from config import settings
 from services.summarizer import check_idle_conversations
 from services.proactive_scheduler import process_pending_actions
 from services.webinar_notifier import check_webinar_reminders
+from services.audit_service import cleanup_old_logs
 
 
 # Создаём engine для scheduler (отдельный от FastAPI)
@@ -62,6 +63,13 @@ async def webinar_reminders_job():
         except Exception as e:
             logger.error(f"❌ Ошибка в webinar_reminders_job: {e}")
 
+async def cleanup_job():
+    """Задача очистки старых логов"""
+    try:
+        await cleanup_old_logs(7)
+    except Exception as e:
+        logger.error(f"❌ Ошибка в cleanup_job: {e}")
+
 
 def start_scheduler():
     """Запуск планировщика"""
@@ -89,6 +97,15 @@ def start_scheduler():
         trigger=IntervalTrigger(hours=1),
         id="proactive_check",
         name="Обработка проактивных задач",
+        replace_existing=True,
+    )
+    
+    # Добавляем задачу очистки логов (каждые 24 часа)
+    scheduler.add_job(
+        cleanup_job,
+        trigger=IntervalTrigger(hours=24),
+        id="cleanup_logs",
+        name="Очистка старых логов LLM",
         replace_existing=True,
     )
     

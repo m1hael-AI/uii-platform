@@ -7,7 +7,7 @@
 from datetime import datetime
 from typing import Optional, List, Any, Dict
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import JSON, Column, BigInteger, BigInteger
+from sqlalchemy import JSON, Column, BigInteger, Text
 from enum import Enum
 
 
@@ -552,3 +552,36 @@ class TelegramAuthData(SQLModel):
     photo_url: Optional[str] = None
     auth_date: int
     hash: str
+
+# === LOGGING Models ===
+
+class LLMAudit(SQLModel, table=True):
+    """
+    Аудит всех запросов к LLM (OpenAI).
+    Хранит полную историю запросов и ответов для отладки.
+    Записи старше 7 дней должны очищаться (поле request/response) или удаляться полностью.
+    """
+    __tablename__ = "llm_audit"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True)
+    agent_slug: str = Field(index=True)
+    model: str
+    
+    # Stats
+    input_tokens: int = 0
+    cached_tokens: int = 0  # New field for Prompt Caching
+    output_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    duration_ms: int = 0
+    
+    # Content (Full Log) - большие тексты
+    request_json: str = Field(sa_column=Column(Text))
+    response_json: str = Field(sa_column=Column(Text))
+    
+    # Metadata
+    status: str = "success" # success, error
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+

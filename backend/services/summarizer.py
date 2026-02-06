@@ -15,6 +15,8 @@ from sqlalchemy import select
 from openai import AsyncOpenAI
 from loguru import logger
 import json
+import time
+from services.audit_service import fire_and_forget_audit
 
 from models import ChatSession, Message, UserMemory, PendingAction, ProactivitySettings, User, Agent
 from config import settings as app_settings
@@ -95,15 +97,38 @@ async def process_agent_memory(
     
     # Генерируем обновление памяти
     try:
+        llm_messages = [
+            {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе. Отвечай ТОЛЬКО валидным JSON."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        start_time = time.time()
         response = await openai_client.chat.completions.create(
             model=settings.model,
-            messages=[
-                {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе. Отвечай ТОЛЬКО валидным JSON."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=llm_messages,
             temperature=settings.temperature,
             max_tokens=800
         )
+        
+        # LOGGING
+        if response.usage:
+             duration = int((time.time() - start_time) * 1000)
+             usage = response.usage
+             cached_tokens = 0
+             if getattr(usage, "prompt_tokens_details", None):
+                  cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+             
+             fire_and_forget_audit(
+                 user_id=user.id,
+                 agent_slug=f"{chat_session.agent_slug}:memory",
+                 model=settings.model,
+                 messages=llm_messages,
+                 response_content=response.choices[0].message.content or "",
+                 input_tokens=usage.prompt_tokens,
+                 output_tokens=usage.completion_tokens,
+                 cached_tokens=cached_tokens,
+                 duration_ms=duration
+             )
         
         result_text = response.choices[0].message.content.strip()
         
@@ -213,16 +238,40 @@ async def process_assistant_memory(
     )
     
     # Генерируем обновление
+    # Генерируем обновление
     try:
+        llm_messages = [
+            {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе и обновляй глобальный профиль. Отвечай ТОЛЬКО валидным JSON."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        start_time = time.time()
         response = await openai_client.chat.completions.create(
             model=settings.model,
-            messages=[
-                {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе и обновляй глобальный профиль. Отвечай ТОЛЬКО валидным JSON."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=llm_messages,
             temperature=settings.temperature,
             max_tokens=1000
         )
+        
+        # LOGGING
+        if response.usage:
+             duration = int((time.time() - start_time) * 1000)
+             usage = response.usage
+             cached_tokens = 0
+             if getattr(usage, "prompt_tokens_details", None):
+                  cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+             
+             fire_and_forget_audit(
+                 user_id=user.id,
+                 agent_slug="assistant:memory",
+                 model=settings.model,
+                 messages=llm_messages,
+                 response_content=response.choices[0].message.content or "",
+                 input_tokens=usage.prompt_tokens,
+                 output_tokens=usage.completion_tokens,
+                 cached_tokens=cached_tokens,
+                 duration_ms=duration
+             )
         
         result_text = response.choices[0].message.content.strip()
         

@@ -9,6 +9,8 @@ from datetime import datetime
 import asyncio
 import json
 import logging
+import yaml
+from pathlib import Path
 
 from services.openai_service import generate_chat_response, stream_chat_response
 from services.context_manager import is_context_overflow, compress_context_task
@@ -24,11 +26,24 @@ bg_engine = create_async_engine(database_url, echo=False, pool_pre_ping=True)
 AsyncSessionLocal = sessionmaker(bg_engine, class_=AsyncSession, expire_on_commit=False)
 
 # --- GREETINGS MAPPING ---
-GREETINGS = {
-    "startup_expert": "Привет! Я эксперт по стартапам. Помогу с идеями, бизнес-моделями, поиском инвестиций и запуском проектов. Что планируешь?",
-    "python": "Привет! Я помогу разобраться с Python, кодом и архитектурой. Есть вопросы по домашке?",
-    "analyst": "Привет! Если нужно проанализировать данные или разобраться с Pandas — я здесь. Посмотрим на твои цифры?"
-}
+# --- GREETINGS MAPPING ---
+def load_greetings():
+    try:
+        path = Path(__file__).parent.parent / "resources" / "default_prompts.yaml"
+        if not path.exists():
+            print(f"WARNING: Prompts file not found at {path}")
+            return {}
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        
+        # Transform to simple dict {slug: greeting}
+        agents = data.get("agents", {})
+        return {slug: props.get("greeting") for slug, props in agents.items() if props.get("greeting")}
+    except Exception as e:
+        print(f"Error loading greetings: {e}")
+        return {}
+
+GREETINGS = load_greetings()
 
 # --- SSE NOTIFICATION MANAGER ---
 class NotificationManager:
@@ -502,7 +517,12 @@ async def chat_completions(
     async def response_generator():
         full_response = ""
         try:
-            async for chunk in stream_chat_response(conversation, max_tokens=1500):
+            async for chunk in stream_chat_response(
+                conversation, 
+                max_tokens=1500,
+                user_id=current_user.id,
+                agent_slug=request.agent_id or "mentor"
+            ):
                 full_response += chunk
                 yield chunk
         except Exception as e:

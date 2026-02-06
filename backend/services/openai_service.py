@@ -7,6 +7,8 @@ Vendor-agnostic: стандартный SDK, без привязки к плат
 from typing import AsyncGenerator, List, Dict, Optional
 from openai import AsyncOpenAI
 from config import settings
+from services.audit_service import fire_and_forget_audit
+import time
 
 
 # Инициализация асинхронного клиента OpenAI
@@ -19,6 +21,8 @@ async def generate_chat_response(
     model: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: int = 1000,
+    user_id: Optional[int] = None,
+    agent_slug: str = "unknown"
 ) -> str:
     """
     Генерирует ответ от AI агента (без стриминга).
@@ -32,6 +36,7 @@ async def generate_chat_response(
     Returns:
         Текст ответа от AI
     """
+    start_time = time.time()
     response = await client.chat.completions.create(
         model=model or settings.openai_model,
         messages=messages,
@@ -39,7 +44,36 @@ async def generate_chat_response(
         max_tokens=max_tokens,
     )
     
-    return response.choices[0].message.content or ""
+    content = response.choices[0].message.content or ""
+    
+    # Audit Log
+    if user_id and response.usage:
+        duration = int((time.time() - start_time) * 1000)
+        
+        # Extract Real Token Usage from API
+        usage = response.usage
+        input_tokens = usage.prompt_tokens
+        output_tokens = usage.completion_tokens
+        
+        cached_tokens = 0
+        if getattr(usage, "prompt_tokens_details", None):
+             cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+        
+        target_model = model or settings.openai_model
+        
+        fire_and_forget_audit(
+            user_id=user_id,
+            agent_slug=agent_slug,
+            model=target_model,
+            messages=messages,
+            response_content=content,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_tokens=cached_tokens,
+            duration_ms=duration
+        )
+        
+    return content
 
 
 async def stream_chat_response(
@@ -47,6 +81,8 @@ async def stream_chat_response(
     model: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: int = 1000,
+    user_id: Optional[int] = None,
+    agent_slug: str = "unknown"
 ) -> AsyncGenerator[str, None]:
     """
     Генерирует ответ от AI агента со стримингом.
@@ -61,35 +97,65 @@ async def stream_chat_response(
     Yields:
         Куски текста по мере генерации
     """
+    start_time = time.time()
+    accumulated_content = ""
+    
+    # Request stream with Usage stats
     stream = await client.chat.completions.create(
         model=model or settings.openai_model,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
         stream=True,
+        stream_options={"include_usage": True},
     )
     
+    usage_data = None
+    
     async for chunk in stream:
-        if chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+        if chunk.choices:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                accumulated_content += delta
+                yield delta
+        
+        if chunk.usage:
+            usage_data = chunk.usage
+
+    # Audit Log
+    if user_id and usage_data:
+        duration = int((time.time() - start_time) * 1000)
+        
+        input_tokens = usage_data.prompt_tokens
+        output_tokens = usage_data.completion_tokens
+        
+        cached_tokens = 0
+        if getattr(usage_data, "prompt_tokens_details", None):
+             cached_tokens = usage_data.prompt_tokens_details.cached_tokens or 0
+        
+        target_model = model or settings.openai_model
+        
+        fire_and_forget_audit(
+            user_id=user_id,
+            agent_slug=agent_slug,
+            model=target_model,
+            messages=messages,
+            response_content=accumulated_content,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_tokens=cached_tokens,
+            duration_ms=duration
+        )
 
 
 async def summarize_conversation(
     conversation_history: List[Dict[str, str]],
     existing_summary: str = "",
     judge_prompt: str = "",
+    user_id: Optional[int] = None,
 ) -> Dict[str, str]:
     """
     Анализирует диалог и обновляет профиль пользователя.
-    Используется Summarizer'ом (Judge) для проактивности.
-    
-    Args:
-        conversation_history: История диалога
-        existing_summary: Текущее резюме пользователя
-        judge_prompt: Системный промпт для анализа (из SystemConfig)
-    
-    Returns:
-        Словарь с обновлённым summary и списком тем для других агентов
     """
     system_message = judge_prompt or """
     Ты — анализатор диалогов образовательной платформы.
@@ -107,12 +173,36 @@ async def summarize_conversation(
         {"role": "user", "content": f"Текущее резюме:\n{existing_summary}\n\nНовый диалог:\n{str(conversation_history)}"},
     ]
     
+    start_time = time.time()
     response = await client.chat.completions.create(
         model=settings.openai_model,
         messages=messages,
         temperature=0.3,
         max_tokens=1500,
     )
+    
+    # Audit Log
+    if user_id and response.usage:
+        duration = int((time.time() - start_time) * 1000)
+        
+        usage = response.usage
+        input_tokens = usage.prompt_tokens
+        output_tokens = usage.completion_tokens
+        cached_tokens = 0
+        if getattr(usage, "prompt_tokens_details", None):
+             cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+        
+        fire_and_forget_audit(
+            user_id=user_id,
+            agent_slug="system_summarizer",
+            model=settings.openai_model,
+            messages=messages,
+            response_content=response.choices[0].message.content or "",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_tokens=cached_tokens,
+            duration_ms=duration
+        )
     
     # Парсим ответ (в реальности нужен более надёжный парсинг)
     content = response.choices[0].message.content or "{}"
