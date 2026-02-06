@@ -180,17 +180,21 @@ export default function WebinarPage() {
 
                 if (res.ok) {
                     const hist = await res.json();
-                    // Backend returns {messages: [...], last_read_at: ...}
+                    // Backend returns {messages: [...], last_read_at: ..., is_new_session: bool}
                     if (hist?.messages && hist.messages.length > 0) {
                         const uiMsgs = hist.messages.map((m: any) => ({
                             role: m.role,
                             text: m.content
                         }));
                         setMessages(uiMsgs);
-                    } else {
+                    } else if (hist?.is_new_session) {
+                        // Only show greeting if this is a truly new session (no messages at all)
                         setMessages([
                             { role: 'assistant', text: `Привет! Я ваш AI-тьютор по этому вебинару. Спрашивайте что угодно по теме!` }
                         ]);
+                    } else {
+                        // Session exists but all messages are archived - show empty chat
+                        setMessages([]);
                     }
                 }
             } catch (e) {

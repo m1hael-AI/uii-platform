@@ -101,6 +101,7 @@ class HistoryMessage(BaseModel):
 class HistoryResponse(BaseModel):
     messages: List[HistoryMessage]
     last_read_at: Optional[str] = None
+    is_new_session: bool = False  # True if session has no messages (even archived)
 
 class ChatSessionDTO(BaseModel):
     id: int
@@ -275,8 +276,15 @@ async def get_chat_history(
     res = await db.execute(msgs_q)
     messages = res.scalars().all()
     
+    # Check if this is a truly new session (no messages at all, even archived)
+    all_msgs_q = select(Message).where(Message.session_id == session.id)
+    all_msgs_res = await db.execute(all_msgs_q)
+    all_messages = all_msgs_res.scalars().all()
+    is_new_session = len(all_messages) == 0
+    
     # If session exists but has NO messages (after filter), trigger delayed greeting
-    if len(messages) == 0 and agent_id:
+    # BUT only for non-AI-Tutor agents (AI Tutor greeting is handled by frontend)
+    if len(messages) == 0 and agent_id and agent_id != "ai_tutor":
         # Trigger delayed greeting (1 second) for notification UX
         async def send_delayed_greeting():
             await asyncio.sleep(1)  # Wait 1 second
@@ -328,7 +336,8 @@ async def get_chat_history(
                 created_at=m.created_at.isoformat()
             ) for m in messages
         ],
-        last_read_at=session.last_read_at.isoformat() if session.last_read_at else None
+        last_read_at=session.last_read_at.isoformat() if session.last_read_at else None,
+        is_new_session=is_new_session
     )
 
 @router.post("/completions")
