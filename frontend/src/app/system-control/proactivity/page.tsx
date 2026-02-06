@@ -370,13 +370,14 @@ export default function ProactivityAdminPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Тайм-аут проактивности (часы)</label>
                                 <input
                                     type="number"
-                                    min="1"
+                                    min="0.1"
+                                    step="0.1"
                                     max="168"
                                     value={settings.proactivity_timeout}
-                                    onChange={(e) => setSettings({ ...settings, proactivity_timeout: parseInt(e.target.value) })}
+                                    onChange={(e) => setSettings({ ...settings, proactivity_timeout: parseFloat(e.target.value) })}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Время молчания перед проверкой триггера</p>
+                                <p className="text-xs text-gray-500 mt-1">Время молчания перед проверкой триггера (можно дробные)</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Макс. сообщений подряд от AI (Anti-Spam)</label>

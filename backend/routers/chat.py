@@ -359,7 +359,7 @@ async def get_chat_history(
         if agent_id == "main_assistant":
             greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
         else:
-            agent_name = "AI AI Assistant" # Fallback
+            agent_name = "AI Assistant" # Fallback
             if agent_id == "ai_tutor":
                 agent_name = "AI Тьютор"
             else:

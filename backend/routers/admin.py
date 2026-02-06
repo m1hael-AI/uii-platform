@@ -73,8 +73,8 @@ class ProactivitySettingsUpdate(BaseModel):
     compression_prompt: Optional[str] = None
     
     # Architecture v2 Timings
-    memory_update_interval: Optional[int] = None
-    proactivity_timeout: Optional[int] = None
+    memory_update_interval: Optional[float] = None
+    proactivity_timeout: Optional[float] = None
     
     # Anti-Spam
     max_consecutive_messages: Optional[int] = None
@@ -120,8 +120,8 @@ class ProactivitySettingsResponse(BaseModel):
     compression_prompt: str
     
     # Architecture v2 Timings
-    memory_update_interval: int
-    proactivity_timeout: int
+    memory_update_interval: float
+    proactivity_timeout: float
     
     # Anti-Spam
     max_consecutive_messages: int

@@ -244,8 +244,8 @@ class ProactivitySettings(SQLModel, table=True):
     summarizer_idle_threshold: int = Field(default=5, description="Диалог завершён через N минут молчания")
     
     # === Architecture v2 Settings ===
-    memory_update_interval: int = Field(default=2, description="Интервал обновления памяти (в часах молчания)")
-    proactivity_timeout: int = Field(default=24, description="Тайм-аут для проактивности (в часах молчания)")
+    memory_update_interval: float = Field(default=2.0, description="Интервал обновления памяти (в часах молчания)")
+    proactivity_timeout: float = Field(default=24.0, description="Тайм-аут для проактивности (в часах молчания)")
     max_consecutive_messages: int = Field(default=3, description="Макс. сообщений подряд без ответа")
     
     # === Context Compression Settings (Вечный диалог) ===
