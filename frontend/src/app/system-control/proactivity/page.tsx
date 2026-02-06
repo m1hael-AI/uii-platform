@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 
+// Cache-buster: 2026-02-06T21:40
 interface ProactivitySettings {
     id: number;
     // Memory Update Settings
@@ -25,7 +26,7 @@ interface ProactivitySettings {
     // Limits
     max_messages_per_day_agents: number;
     max_messages_per_day_assistant: number;
-    rate_limit_per_minute: number; // Still in interface for type safety, but UI removed if passed from backend
+    rate_limit_per_minute: number;
 
     // Architecture v2 Timings
     memory_update_interval: number;
@@ -346,58 +347,6 @@ export default function ProactivityAdminPage() {
                         </label>
                     </div>
 
-                    {/* OpenAI Settings */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-4">Настройки OpenAI (Проактивность)</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Модель
-                                </label>
-                                <select
-                                    value={settings.model}
-                                    onChange={(e) => setSettings({ ...settings, model: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                >
-                                    <option value="gpt-4.1-mini">gpt-4.1-mini (1M)</option>
-                                    <option value="gpt-4.1">gpt-4.1 (1M)</option>
-                                    <option value="gpt-5-mini">gpt-5-mini (400k)</option>
-                                    <option value="gpt-5">gpt-5 (272k)</option>
-                                    <option value="gpt-4o">gpt-4o (128k)</option>
-                                    <option value="gpt-4o-mini">gpt-4o-mini (128k)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Temperature (0-2)
-                                </label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="2"
-                                    step="0.1"
-                                    value={settings.temperature}
-                                    onChange={(e) => setSettings({ ...settings, temperature: parseFloat(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Generartion Max Tokens
-                                </label>
-                                <input
-                                    type="number"
-                                    min="100"
-                                    max="10000"
-                                    step="100"
-                                    value={settings.max_tokens}
-                                    onChange={(e) => setSettings({ ...settings, max_tokens: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Scheduler Settings */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                         <h2 className="text-xl font-semibold mb-4">Планировщик</h2>
@@ -458,8 +407,6 @@ export default function ProactivityAdminPage() {
                                 />
                             </div>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2 italic">Настройка "Rate Limit" перенесена в раздел "Настройки чата".</p>
-
                         <div className="mt-4">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Макс. сообщений подряд от AI (Anti-Spam)
@@ -492,7 +439,6 @@ export default function ProactivityAdminPage() {
                                     onChange={(e) => setSettings({ ...settings, memory_update_interval: parseInt(e.target.value) })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Как часто обновляется память (Narrative Memory) после молчания.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -506,7 +452,6 @@ export default function ProactivityAdminPage() {
                                     onChange={(e) => setSettings({ ...settings, proactivity_timeout: parseInt(e.target.value) })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Сколько часов молчания до проверки проактивности.</p>
                             </div>
                         </div>
                     </div>
@@ -522,71 +467,6 @@ export default function ProactivityAdminPage() {
                             onChange={(e) => setSettings({ ...settings, compression_prompt: e.target.value })}
                             rows={15}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Prompts Tab */}
-            {activeTab === 'prompts' && (
-                <div className="space-y-6">
-                    {/* Agent Memory Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для агентов</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для извлечения памяти обычных агентов (Data Analyst, Career Mentor и т.д.)
-                        </p>
-                        <textarea
-                            value={settings.agent_memory_prompt}
-                            onChange={(e) => setSettings({ ...settings, agent_memory_prompt: e.target.value })}
-                            rows={20}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                            placeholder="Промпт для агентов..."
-                        />
-                    </div>
-
-                    {/* Assistant Memory Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для AI Помощника</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для AI Помощника (обновляет глобальную биографию пользователя)
-                        </p>
-                        <textarea
-                            value={settings.assistant_memory_prompt}
-                            onChange={(e) => setSettings({ ...settings, assistant_memory_prompt: e.target.value })}
-                            rows={15}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                            placeholder="Промпт для AI Помощника..."
-                        />
-                    </div>
-
-                    {/* Proactivity Trigger Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт Триггера Проактивности</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Определяет, нужно ли отправлять сообщение пользователю (Yes/No decision)
-                        </p>
-                        <textarea
-                            value={settings.proactivity_trigger_prompt}
-                            onChange={(e) => setSettings({ ...settings, proactivity_trigger_prompt: e.target.value })}
-                            rows={15}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                            placeholder="Промпт триггера..."
-                        />
-                    </div>
-
-                    {/* Compression Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт Сжатия Контекста</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для создания саммари при переполнении контекста ("Вечный диалог")
-                        </p>
-                        <textarea
-                            value={settings.compression_prompt}
-                            onChange={(e) => setSettings({ ...settings, compression_prompt: e.target.value })}
-                            rows={15}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                            placeholder="Промпт сжатия..."
                         />
                     </div>
                 </div>

@@ -192,13 +192,13 @@ async def generate_proactive_message(
     trigger_message = f"[ПРОАКТИВНОЕ СООБЩЕНИЕ] Тема: {topic_context}"
     messages.append({"role": "user", "content": trigger_message})
     
-    # Генерируем ответ
+    # Генерируем ответ (используем trigger настройки для проактивных сообщений)
     start_time = time.time()
     response = await openai_client.chat.completions.create(
-        model=settings.model,
+        model=settings.trigger_model,
         messages=messages,
-        temperature=settings.temperature,
-        max_tokens=settings.max_tokens
+        temperature=settings.trigger_temperature,
+        max_tokens=settings.trigger_max_tokens
     )
     
     # Audit Log
@@ -215,7 +215,7 @@ async def generate_proactive_message(
         fire_and_forget_audit(
             user_id=user.id,
             agent_slug=f"{agent.slug}:proactive",
-            model=settings.model,
+            model=settings.trigger_model,
             messages=messages,
             response_content=response.choices[0].message.content or "",
             input_tokens=input_tokens,

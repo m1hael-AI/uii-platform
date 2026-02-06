@@ -34,10 +34,15 @@ class AgentResponse(BaseModel):
 
 
 class ProactivitySettingsUpdate(BaseModel):
-    # OpenAI Settings
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
+    # Memory Update Settings
+    memory_model: Optional[str] = None
+    memory_temperature: Optional[float] = None
+    memory_max_tokens: Optional[int] = None
+    
+    # Proactivity Trigger Settings
+    trigger_model: Optional[str] = None
+    trigger_temperature: Optional[float] = None
+    trigger_max_tokens: Optional[int] = None
     
     # Scheduler Settings
     enabled: Optional[bool] = None
@@ -64,13 +69,27 @@ class ProactivitySettingsUpdate(BaseModel):
     # Prompts
     agent_memory_prompt: Optional[str] = None
     assistant_memory_prompt: Optional[str] = None
+    proactivity_trigger_prompt: Optional[str] = None
+    compression_prompt: Optional[str] = None
+    
+    # Architecture v2 Timings
+    memory_update_interval: Optional[int] = None
+    proactivity_timeout: Optional[int] = None
+    
+    # Anti-Spam
+    max_consecutive_messages: Optional[int] = None
 
 class ProactivitySettingsResponse(BaseModel):
     id: int
-    # OpenAI Settings
-    model: str
-    temperature: float
-    max_tokens: int
+    # Memory Update Settings
+    memory_model: str
+    memory_temperature: float
+    memory_max_tokens: int
+    
+    # Proactivity Trigger Settings
+    trigger_model: str
+    trigger_temperature: float
+    trigger_max_tokens: int
     
     # Scheduler Settings
     enabled: bool
@@ -97,6 +116,15 @@ class ProactivitySettingsResponse(BaseModel):
     # Prompts
     agent_memory_prompt: str
     assistant_memory_prompt: str
+    proactivity_trigger_prompt: str
+    compression_prompt: str
+    
+    # Architecture v2 Timings
+    memory_update_interval: int
+    proactivity_timeout: int
+    
+    # Anti-Spam
+    max_consecutive_messages: int
 
 
 # === Chat Settings Models ===
@@ -229,13 +257,21 @@ async def update_proactivity_settings(
         settings = ProactivitySettings()
         db.add(settings)
     
-    # Update OpenAI settings
-    if update_data.model is not None:
-        settings.model = update_data.model
-    if update_data.temperature is not None:
-        settings.temperature = update_data.temperature
-    if update_data.max_tokens is not None:
-        settings.max_tokens = update_data.max_tokens
+    # Update Memory Settings
+    if update_data.memory_model is not None:
+        settings.memory_model = update_data.memory_model
+    if update_data.memory_temperature is not None:
+        settings.memory_temperature = update_data.memory_temperature
+    if update_data.memory_max_tokens is not None:
+        settings.memory_max_tokens = update_data.memory_max_tokens
+    
+    # Update Trigger Settings
+    if update_data.trigger_model is not None:
+        settings.trigger_model = update_data.trigger_model
+    if update_data.trigger_temperature is not None:
+        settings.trigger_temperature = update_data.trigger_temperature
+    if update_data.trigger_max_tokens is not None:
+        settings.trigger_max_tokens = update_data.trigger_max_tokens
     
     # Update Scheduler settings
     if update_data.enabled is not None:
@@ -279,6 +315,20 @@ async def update_proactivity_settings(
         settings.agent_memory_prompt = update_data.agent_memory_prompt
     if update_data.assistant_memory_prompt is not None:
         settings.assistant_memory_prompt = update_data.assistant_memory_prompt
+    if update_data.proactivity_trigger_prompt is not None:
+        settings.proactivity_trigger_prompt = update_data.proactivity_trigger_prompt
+    if update_data.compression_prompt is not None:
+        settings.compression_prompt = update_data.compression_prompt
+    
+    # Update Architecture v2 Timings
+    if update_data.memory_update_interval is not None:
+        settings.memory_update_interval = update_data.memory_update_interval
+    if update_data.proactivity_timeout is not None:
+        settings.proactivity_timeout = update_data.proactivity_timeout
+    
+    # Update Anti-Spam
+    if update_data.max_consecutive_messages is not None:
+        settings.max_consecutive_messages = update_data.max_consecutive_messages
     
     # Update timestamp
     from datetime import datetime
