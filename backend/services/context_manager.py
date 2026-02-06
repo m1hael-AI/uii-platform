@@ -137,9 +137,9 @@ async def compress_context_task(
     
             new_summary_text = await generate_chat_response(
                 messages=[{"role": "user", "content": prompt}],
-                model="gpt-4o-mini", # Используем более умную модель для качественного сжатия
-                max_tokens=3000, # Увеличиваем лимит для более детального саммари
-                temperature=0.3
+                model="gpt-4.1-mini", # Дешевая модель для сжатия
+                temperature=0.2 # Низкая температура для точности
+                # max_tokens НЕ указываем — саммари может быть любого размера
             )
             
             final_summary_content = f"[SUMMARY] Краткое содержание предыдущего разговора:\n{new_summary_text}"
