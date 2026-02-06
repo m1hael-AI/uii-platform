@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from dependencies import get_db, get_current_user
 from models import User, UserRole, Agent, ProactivitySettings
@@ -30,15 +30,7 @@ class AgentResponse(BaseModel):
     greeting_message: Optional[str] = None
     avatar_url: Optional[str] = None
 
-class AdminUserResponse(BaseModel):
-    id: int
-    tg_id: Optional[int] = None
-    username: Optional[str]
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    role: str
-    created_at: datetime
-    is_onboarded: bool
+
 
 
 class ProactivitySettingsUpdate(BaseModel):
@@ -60,6 +52,11 @@ class ProactivitySettingsUpdate(BaseModel):
     # Summarizer Settings
     summarizer_check_interval: Optional[int] = None
     summarizer_idle_threshold: Optional[int] = None
+
+    # Context Compression
+    context_soft_limit: Optional[int] = None
+    context_threshold: Optional[float] = None
+    context_compression_keep_last: Optional[int] = None
     
     # Prompts
     agent_memory_prompt: Optional[str] = None
@@ -85,6 +82,11 @@ class ProactivitySettingsResponse(BaseModel):
     # Summarizer Settings
     summarizer_check_interval: int
     summarizer_idle_threshold: int
+
+    # Context Compression
+    context_soft_limit: Optional[int] = None
+    context_threshold: Optional[float] = None
+    context_compression_keep_last: Optional[int] = None
     
     # Prompts
     agent_memory_prompt: str
@@ -214,6 +216,14 @@ async def update_proactivity_settings(
     if update_data.summarizer_idle_threshold is not None:
         settings.summarizer_idle_threshold = update_data.summarizer_idle_threshold
     
+    # Update Context Compression
+    if update_data.context_soft_limit is not None:
+        settings.context_soft_limit = update_data.context_soft_limit
+    if update_data.context_threshold is not None:
+        settings.context_threshold = update_data.context_threshold
+    if update_data.context_compression_keep_last is not None:
+        settings.context_compression_keep_last = update_data.context_compression_keep_last
+    
     # Update Prompts
     if update_data.agent_memory_prompt is not None:
         settings.agent_memory_prompt = update_data.agent_memory_prompt
@@ -234,6 +244,7 @@ class AdminUserResponse(BaseModel):
     id: int
     tg_id: Optional[int] = None
     email: Optional[str] = None
+    username: Optional[str] = Field(default=None, validation_alias="tg_username")
     role: str
     tg_first_name: Optional[str] = None
     tg_last_name: Optional[str] = None
@@ -317,7 +328,7 @@ async def list_users(
     stmt = select(User)
     
     if q:
-        stmt = stmt.where(User.username.ilike(f"%{q}%"))
+        stmt = stmt.where(User.tg_username.ilike(f"%{q}%"))
         
     stmt = stmt.order_by(User.created_at.desc()).limit(50)
     

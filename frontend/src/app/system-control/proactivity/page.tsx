@@ -359,6 +359,7 @@ export default function ProactivityAdminPage() {
                                     onChange={(e) => setSettings({ ...settings, summarizer_check_interval: parseInt(e.target.value) })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Как часто система проверяет "зависшие" диалоги.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -372,6 +373,7 @@ export default function ProactivityAdminPage() {
                                     onChange={(e) => setSettings({ ...settings, summarizer_idle_threshold: parseInt(e.target.value) })}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Сколько минут пользователь должен молчать, чтобы диалог считался завершённым.</p>
                             </div>
                         </div>
                     </div>

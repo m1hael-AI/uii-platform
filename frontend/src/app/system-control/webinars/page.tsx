@@ -7,7 +7,8 @@ interface Webinar {
     id: number;
     title: string;
     description: string;
-    scheduled_at: string;
+    scheduled_at?: string;
+    conducted_at?: string;
     is_upcoming: boolean;
     is_published: boolean;
     speaker_name?: string;
@@ -81,7 +82,7 @@ export default function WebinarsAdminPage() {
                                 <td className="p-4 font-medium text-gray-900">{w.title}</td>
                                 <td className="p-4 text-gray-600">{w.speaker_name || "-"}</td>
                                 <td className="p-4 text-gray-600 text-sm">
-                                    {w.scheduled_at ? new Date(w.scheduled_at).toLocaleString() : "Без даты"}
+                                    {(w.scheduled_at || w.conducted_at) ? new Date(w.scheduled_at || w.conducted_at!).toLocaleString() : "Без даты"}
                                 </td>
                                 <td className="p-4">
                                     <div className="flex gap-2">
