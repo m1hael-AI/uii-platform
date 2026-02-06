@@ -182,18 +182,13 @@ export default function WebinarPage() {
                     const hist = await res.json();
                     // Backend returns {messages: [...], last_read_at: ..., is_new_session: bool}
                     if (hist?.messages && hist.messages.length > 0) {
-                        // Show message history
                         const uiMsgs = hist.messages.map((m: any) => ({
                             role: m.role,
                             text: m.content
                         }));
                         setMessages(uiMsgs);
-                    } else {
-                        // No active messages (either new session or all archived) → show greeting
-                        setMessages([
-                            { role: 'assistant', text: `Привет! Я ваш AI-тьютор по этому вебинару. Спрашивайте что угодно по теме!` }
-                        ]);
                     }
+                    // If no messages, wait for backend to create greeting via delayed task
                 }
             } catch (e) {
                 console.error("History error", e);

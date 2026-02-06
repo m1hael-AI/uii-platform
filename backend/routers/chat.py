@@ -283,8 +283,7 @@ async def get_chat_history(
     is_new_session = len(all_messages) == 0
     
     # If session exists but has NO messages (after filter), trigger delayed greeting
-    # BUT only for non-AI-Tutor agents (AI Tutor greeting is handled by frontend)
-    if len(messages) == 0 and agent_id and agent_id != "ai_tutor":
+    if len(messages) == 0 and agent_id:
         # Trigger delayed greeting (1 second) for notification UX
         async def send_delayed_greeting():
             await asyncio.sleep(1)  # Wait 1 second
@@ -413,9 +412,7 @@ async def chat_completions(
         
         # --- DELAYED AUTO GREETING (1 second) ---
         # Send greeting AFTER frontend loads history to trigger notification
-        # BUT NOT for ai_tutor (frontend handles it)
-        if slug != "ai_tutor":
-            async def send_delayed_greeting():
+        async def send_delayed_greeting():
             await asyncio.sleep(1)  # Wait 1 second
             
             # Create new DB session for background task
@@ -452,8 +449,8 @@ async def chat_completions(
                 # 🔔 Notify User (New Greeting Message)
                 await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
         
-            # Start background task (don't await)
-            asyncio.create_task(send_delayed_greeting())
+        # Start background task (don't await)
+        asyncio.create_task(send_delayed_greeting())
         # ---------------------
 
     # 3. Save User Message
