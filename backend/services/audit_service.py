@@ -69,7 +69,16 @@ async def log_llm_interaction(
     except Exception as e:
         print(f"❌ Failed to write Audit Log: {e}")
 
-    asyncio.create_task(log_llm_interaction(*args, **kwargs))
+def fire_and_forget_audit(*args, **kwargs):
+    """
+    Запускает логирование в фоне, не блокируя основной поток.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(log_llm_interaction(*args, **kwargs))
+    except RuntimeError:
+        # Если нет цикла событий (редкий кейс, но бывает)
+        pass
 
 async def cleanup_old_logs(days: int = 7):
     """
