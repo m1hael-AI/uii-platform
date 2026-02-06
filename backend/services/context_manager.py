@@ -130,16 +130,15 @@ async def compress_context_task(
                 f"5. Игнорируй только приветствия и общие фразы\n"
                 f"6. Саммари должно быть достаточно детальным, чтобы AI мог продолжить разговор без потери контекста\n\n"
                 f"=== ДИАЛОГ ===\n"
-                f"{text_to_compress[:100000]}\n" # Hard limit safety
+                f"{text_to_compress}\n"
                 f"=== КОНЕЦ ДИАЛОГА ===\n\n"
                 f"Создай подробное структурированное саммари:"
             )
     
             new_summary_text = await generate_chat_response(
                 messages=[{"role": "user", "content": prompt}],
-                model="gpt-4.1-mini", # Дешевая модель для сжатия
-                temperature=0.2 # Низкая температура для точности
-                # max_tokens НЕ указываем — саммари может быть любого размера
+                model="gpt-4.1-mini", # Используем дешевую модель для сжатия
+                temperature=0.2
             )
             
             final_summary_content = f"[SUMMARY] Краткое содержание предыдущего разговора:\n{new_summary_text}"
