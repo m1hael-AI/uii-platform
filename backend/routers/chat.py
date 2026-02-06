@@ -614,36 +614,7 @@ async def mark_chat_read(
     return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
 
 
-@router.post("/test/reset")
-async def reset_user_chats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    DEV TOOLS: Reset all chat history for the current user.
-    Used to test 'Cold Start' user experience.
-    """
-    # 1. Find all active sessions for this user
-    q = select(ChatSession.id).where(ChatSession.user_id == current_user.id)
-    result = await db.execute(q)
-    session_ids = result.scalars().all()
-    
-    if not session_ids:
-        return {"status": "ok", "message": "Nothing to reset"}
-        
-    # 2. Delete Messages first (FK constraint)
-    # Using delete() statement for bulk deletion
-    await db.execute(delete(Message).where(Message.session_id.in_(session_ids)))
-    
-    # 3. Delete Sessions
-    await db.execute(delete(ChatSession).where(ChatSession.id.in_(session_ids)))
-    
-    # 4. Clear Pending Actions (Proactivity)
-    await db.execute(delete(PendingAction).where(PendingAction.user_id == current_user.id))
-    
-    await db.commit()
-    
-    return {"status": "ok", "message": f"Reset complete. Deleted {len(session_ids)} sessions."}
+
 
 
 @router.get("/unread-status")
