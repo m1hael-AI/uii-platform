@@ -34,6 +34,16 @@ export default function AdminPage() {
                 </svg>
             )
         },
+        {
+            title: "Настройки Чата",
+            description: "Модели для общения, сжатие контекста, rate limit",
+            href: "/system-control/chat",
+            icon: (
+                <svg className="w-8 h-8 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+            )
+        },
         // Можно добавить карточку пользователей позже
         {
             title: "Список Пользователей",
