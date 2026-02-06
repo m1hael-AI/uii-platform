@@ -84,12 +84,12 @@ class ProactivitySettingsResponse(BaseModel):
     # Memory Update Settings
     memory_model: str
     memory_temperature: float
-    memory_max_tokens: int
+    memory_max_tokens: Optional[int]
     
     # Proactivity Trigger Settings
     trigger_model: str
     trigger_temperature: float
-    trigger_max_tokens: int
+    trigger_max_tokens: Optional[int]
     
     # Scheduler Settings
     enabled: bool

@@ -222,12 +222,12 @@ class ProactivitySettings(SQLModel, table=True):
     # === Memory Update Settings ===
     memory_model: str = Field(default="gpt-4.1-mini", description="Модель для обновления памяти")
     memory_temperature: float = Field(default=0.2, description="Temperature для извлечения фактов")
-    memory_max_tokens: int = Field(default=800, description="Макс. токенов для памяти")
+    memory_max_tokens: Optional[int] = Field(default=None, description="Макс. токенов для памяти (None = безлимит)")
     
     # === Proactivity Trigger Settings ===
     trigger_model: str = Field(default="gpt-4.1-mini", description="Модель для проверки триггера")
     trigger_temperature: float = Field(default=0.7, description="Temperature для решения о проактивности")
-    trigger_max_tokens: int = Field(default=500, description="Макс. токенов для триггера")
+    trigger_max_tokens: Optional[int] = Field(default=None, description="Макс. токенов для триггера (None = безлимит)")
     
     # === Scheduler Settings ===
     enabled: bool = Field(default=True, description="Включена ли проактивность")
