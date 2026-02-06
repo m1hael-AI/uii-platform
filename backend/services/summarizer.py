@@ -329,15 +329,23 @@ async def process_idle_chat(
         if chat_session.last_message_at and chat_session.last_message_at > last_mem:
             await process_memory_update(db, chat_session, user, settings)
             
-    # === 2. Proactivity Check ===
+     # === 2. Proactivity Check ===
     last_pro = chat_session.last_proactivity_check_at or datetime.min
     if (now - last_pro) > timedelta(hours=settings.proactivity_timeout):
-        # Проверяем, что чат реально молчит (а не только что говорили)
+        # 1. Проверяем, что чат реально молчит (а не только что говорили)
         # Тишина должна быть больше, чем таймаут
         if chat_session.last_message_at:
              silence_duration = now - chat_session.last_message_at
              if silence_duration > timedelta(hours=settings.proactivity_timeout):
-                  await check_proactivity_trigger(db, chat_session, user, settings)
+                 
+                 # 2. ОПТИМИЗАЦИЯ: Если мы уже проверяли этот диалог ПОСЛЕ последнего сообщения
+                 # значит, мы уже решили ничего не делать. Не тратим токены повторно.
+                 if chat_session.last_proactivity_check_at and chat_session.last_message_at:
+                     if chat_session.last_proactivity_check_at > chat_session.last_message_at:
+                         # logger.debug(f"Skipping proactivity for {chat_session.id}: already checked after last msg")
+                         return
+
+                 await check_proactivity_trigger(db, chat_session, user, settings)
 
 
 async def check_idle_conversations(db: AsyncSession) -> None:

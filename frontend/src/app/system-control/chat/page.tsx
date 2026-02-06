@@ -17,6 +17,7 @@ interface ChatSettings {
     compression_max_tokens: number | null;
     context_threshold: number;
     context_compression_keep_last: number;
+    compression_prompt: string;
     updated_at: string;
 }
 
@@ -395,6 +396,23 @@ export default function ChatSettingsPage() {
                                 Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита основной модели ({getChatModelMaxTokens().toLocaleString()}).
                             </p>
                         </div>
+                    </div>
+
+                    {/* Compression Prompt (Aggregated) */}
+                    <div className="mt-6 border-t border-gray-100 pt-6">
+                        <label className="block text-lg font-medium text-gray-900 mb-2">
+                            Промпт сжатия
+                        </label>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Инструкция для модели, как именно сжимать диалог при достижении лимита.
+                        </p>
+                        <textarea
+                            value={settings.compression_prompt || ""}
+                            onChange={(e) => setSettings({ ...settings, compression_prompt: e.target.value })}
+                            rows={12}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                            placeholder="Введите промпт для сжатия..."
+                        />
                     </div>
                 </div>
             </div>

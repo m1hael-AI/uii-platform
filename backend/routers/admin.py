@@ -143,6 +143,9 @@ class ChatSettingsUpdate(BaseModel):
     context_threshold: Optional[float] = None
     context_compression_keep_last: Optional[int] = None
     context_soft_limit: Optional[int] = None
+    
+    # Aggregated from Proactivity (UI convenience)
+    compression_prompt: Optional[str] = None
 
 
 class ChatSettingsResponse(BaseModel):
@@ -160,6 +163,9 @@ class ChatSettingsResponse(BaseModel):
     context_threshold: float
     context_compression_keep_last: int
     context_soft_limit: int
+    
+    # Aggregated from Proactivity (UI convenience)
+    compression_prompt: str
     
     updated_at: datetime
 
@@ -358,8 +364,27 @@ async def get_chat_settings(
         db.add(settings)
         await db.commit()
         await db.refresh(settings)
+
+    # Fetch compression_prompt from ProactivitySettings
+    proactivity_result = await db.execute(select(ProactivitySettings))
+    proactivity = proactivity_result.scalar_one_or_none()
     
-    return settings
+    compression_prompt_value = ""
+    if proactivity:
+        compression_prompt_value = proactivity.compression_prompt
+    else:
+        # Should ideally exist or be created, but for safety providing default
+        # If proactivity settings are missing, we might want to create them or just use empty string
+        compression_prompt_value = ProactivitySettings().compression_prompt
+
+    # Merge into response
+    # We construct the response manually or simply attach the attribute if Pydantic model allows it
+    # Pydantic models are strict, so we construct a dict or object that satisfies ChatSettingsResponse
+    
+    response_data = settings.dict() if hasattr(settings, 'dict') else {c.name: getattr(settings, c.name) for c in settings.__table__.columns}
+    response_data['compression_prompt'] = compression_prompt_value
+    
+    return response_data
 
 
 @router.patch("/chat-settings", response_model=ChatSettingsResponse)
@@ -405,9 +430,31 @@ async def update_chat_settings(
     # Update timestamp
     settings.updated_at = datetime.utcnow()
     
+    # Update compression_prompt in ProactivitySettings if provided
+    if update_data.compression_prompt is not None:
+        proactivity_result = await db.execute(select(ProactivitySettings))
+        proactivity = proactivity_result.scalar_one_or_none()
+        
+        if not proactivity:
+            proactivity = ProactivitySettings()
+            db.add(proactivity)
+            
+        proactivity.compression_prompt = update_data.compression_prompt
+        # Ensure we commit proactivity changes too
+        # They are in the same session, so one commit is enough
+    
     await db.commit()
     await db.refresh(settings)
-    return settings
+    
+    # Re-fetch proactivity prompt for response
+    proactivity_result = await db.execute(select(ProactivitySettings))
+    proactivity = proactivity_result.scalar_one_or_none()
+    promt_val = proactivity.compression_prompt if proactivity else ""
+    
+    response_data = settings.dict() if hasattr(settings, 'dict') else {c.name: getattr(settings, c.name) for c in settings.__table__.columns}
+    response_data['compression_prompt'] = promt_val
+    
+    return response_data
 
 # --- Users Management ---
 
