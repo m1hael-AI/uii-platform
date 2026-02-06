@@ -410,48 +410,7 @@ async def chat_completions(
         await db.commit()
         await db.refresh(chat_session)
         
-        # --- DELAYED AUTO GREETING (1 second) ---
-        # Send greeting AFTER frontend loads history to trigger notification
-        async def send_delayed_greeting():
-            await asyncio.sleep(1)  # Wait 1 second
-            
-            # Create new DB session for background task
-            async with AsyncSessionLocal() as bg_db:
-                agent_res = await bg_db.execute(select(Agent).where(Agent.slug == slug))
-                agent_obj = agent_res.scalar_one_or_none()
-                agent_name = agent_obj.name if agent_obj else "AI Assistant"
-                
-                # Priority: 1. DB Greeting, 2. Hardcoded Greeting, 3. Default
-                greeting_text = None
-                if agent_obj and agent_obj.greeting_message:
-                    greeting_text = agent_obj.greeting_message
-                
-                if not greeting_text:
-                    greeting_text = GREETINGS.get(slug, f"Привет! Я {agent_name}. Чем могу помочь?")
-                    
-                greeting_msg = Message(
-                    session_id=chat_session.id,
-                    role=MessageRole.ASSISTANT,
-                    content=greeting_text
-                )
-                bg_db.add(greeting_msg)
-                
-                # Update session timestamps
-                session_stmt = select(ChatSession).where(ChatSession.id == chat_session.id)
-                session_result = await bg_db.execute(session_stmt)
-                session = session_result.scalar_one_or_none()
-                if session:
-                    session.last_message_at = datetime.utcnow()
-                    session.last_read_at = datetime(2000, 1, 1)  # Mark as unread
-                
-                await bg_db.commit()
-                
-                # 🔔 Notify User (New Greeting Message)
-                await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
-        
-        # Start background task (don't await)
-        asyncio.create_task(send_delayed_greeting())
-        # ---------------------
+        # No delayed greeting here. Greeting is handled by get_chat_history or created synchronously if needed.
 
     # 3. Save User Message
     # 3. Save User Message
