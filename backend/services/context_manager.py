@@ -84,6 +84,10 @@ async def compress_context_task(
         try:
             logger.info(f"🧹 Starting context compression for session {session_id}...")
             
+            # Получаем настройки сжатия из ChatSettings
+            from services.settings_service import get_chat_settings
+            chat_settings = await get_chat_settings(db)
+            
             # 1. Получаем сообщения
             query = select(Message).where(Message.session_id == session_id).order_by(Message.created_at.asc())
             result = await db.execute(query)
@@ -137,8 +141,9 @@ async def compress_context_task(
     
             new_summary_text = await generate_chat_response(
                 messages=[{"role": "user", "content": prompt}],
-                model="gpt-4.1-mini", # Используем дешевую модель для сжатия
-                temperature=0.2
+                model=chat_settings.compression_model,  # Используем модель для сжатия из настроек
+                temperature=chat_settings.compression_temperature,  # Используем температуру для сжатия
+                max_tokens=chat_settings.compression_max_tokens  # Используем max_tokens для сжатия (может быть None)
             )
             
             final_summary_content = f"[SUMMARY] Краткое содержание предыдущего разговора:\n{new_summary_text}"

@@ -493,24 +493,24 @@ async def chat_completions(
         conversation.append({"role": m.role, "content": m.content})
         
     # --- Context Management Check ---
-    # Получаем настройки из БД
-    from services.settings_service import get_proactivity_settings
-    settings = await get_proactivity_settings(db)
+    # Получаем настройки чата из БД
+    from services.settings_service import get_chat_settings
+    chat_settings = await get_chat_settings(db)
     
-    current_model = settings.model # Используем модель из настроек!
+    current_model = chat_settings.user_chat_model # Используем модель для общения с пользователями
     
     # Проверяем переполнение
     if is_context_overflow(
         conversation, 
-        max_tokens=settings.context_soft_limit, 
-        threshold=settings.context_threshold, 
+        max_tokens=chat_settings.context_soft_limit, 
+        threshold=chat_settings.context_threshold, 
         model=current_model
     ):
         background_tasks.add_task(
             compress_context_task, 
             session_id=chat_session.id, 
-            keep_last_n=settings.context_compression_keep_last,
-            model=current_model
+            keep_last_n=chat_settings.context_compression_keep_last,
+            model=chat_settings.compression_model  # Используем модель для сжатия
         )
         
     # 5. Stream & Save
@@ -519,7 +519,9 @@ async def chat_completions(
         try:
             async for chunk in stream_chat_response(
                 conversation, 
-                max_tokens=1500,
+                model=chat_settings.user_chat_model,
+                temperature=chat_settings.user_chat_temperature,
+                max_tokens=chat_settings.user_chat_max_tokens,
                 user_id=current_user.id,
                 agent_slug=request.agent_id or "ai_tutor"
             ):
