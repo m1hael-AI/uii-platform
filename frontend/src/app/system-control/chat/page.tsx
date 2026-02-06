@@ -23,13 +23,20 @@ interface ChatSettings {
 
 // Limits referenced from Backend (context_manager.py)
 const MODEL_LIMITS: Record<string, number> = {
+    // GPT-4.1 Family
     "gpt-4.1": 1000000,
     "gpt-4.1-mini": 1000000,
+
+    // GPT-5 Family
     "gpt-5": 272000,
     "gpt-5-mini": 400000,
+
+    // Legacy / Stable
     "gpt-4o": 128000,
     "gpt-4o-mini": 128000,
 };
+
+const AVAILABLE_MODELS = Object.keys(MODEL_LIMITS);
 
 export default function ChatSettingsPage() {
     const router = useRouter();
@@ -37,7 +44,7 @@ export default function ChatSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -51,6 +58,7 @@ export default function ChatSettingsPage() {
                 return;
             }
 
+            // Using environment variable or fallback to match existing patterns
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
             const response = await fetch(`${API_URL}/admin/chat-settings`, {
                 headers: {
@@ -60,6 +68,10 @@ export default function ChatSettingsPage() {
 
             if (response.status === 403) {
                 setError('Доступ запрещён. Требуются права администратора.');
+                return;
+            }
+            if (response.status === 401) {
+                router.push('/login');
                 return;
             }
 
@@ -81,7 +93,7 @@ export default function ChatSettingsPage() {
 
         setSaving(true);
         setError(null);
-        setSuccess(false);
+        setSuccessMessage(null);
 
         try {
             const token = Cookies.get('token');
@@ -104,6 +116,10 @@ export default function ChatSettingsPage() {
                 setError('Доступ запрещён.');
                 return;
             }
+            if (response.status === 401) {
+                router.push('/login');
+                return;
+            }
 
             if (!response.ok) {
                 throw new Error('Ошибка сохранения настроек');
@@ -111,8 +127,8 @@ export default function ChatSettingsPage() {
 
             const updatedSettings = await response.json();
             setSettings(updatedSettings);
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setSuccessMessage('✅ Настройки успешно сохранены');
+            setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
         } finally {
@@ -122,6 +138,7 @@ export default function ChatSettingsPage() {
 
     const getModelMaxTokens = () => {
         if (!settings) return 128000;
+        // Limit determined by User Chat Model as it holds the context
         return MODEL_LIMITS[settings.user_chat_model] || 128000;
     };
 
@@ -171,9 +188,9 @@ export default function ChatSettingsPage() {
             </h1>
 
             {/* Success/Error Messages */}
-            {success && (
+            {successMessage && (
                 <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-                    ✅ Настройки успешно сохранены
+                    {successMessage}
                 </div>
             )}
             {error && (
@@ -183,13 +200,75 @@ export default function ChatSettingsPage() {
             )}
 
             <div className="space-y-6">
-                {/* Rate Limit Block */}
+
+                {/* Block 1: User User Chat Settings */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-xl font-semibold mb-4">Лимиты сообщений</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <h2 className="text-xl font-semibold mb-4">Общение с пользователями</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                        {/* Model Selector */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Сообщений в минуту (Rate Limit)
+                                Модель
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={settings.user_chat_model}
+                                    onChange={(e) => setSettings({ ...settings, user_chat_model: e.target.value })}
+                                    className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                >
+                                    {AVAILABLE_MODELS.map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                    {!AVAILABLE_MODELS.includes(settings.user_chat_model) && (
+                                        <option value={settings.user_chat_model}>{settings.user_chat_model} (Custom)</option>
+                                    )}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Temperature */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Температура
+                            </label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="2"
+                                value={settings.user_chat_temperature}
+                                onChange={(e) => setSettings({ ...settings, user_chat_temperature: parseFloat(e.target.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                        </div>
+
+                        {/* Max Tokens */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Max Tokens (Ответ)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                placeholder="Без лимита"
+                                value={settings.user_chat_max_tokens ?? ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSettings({ ...settings, user_chat_max_tokens: val === '' ? null : parseInt(val) });
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
+                        </div>
+
+                        {/* Rate Limit */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Rate Limit (сообщ/мин)
                             </label>
                             <input
                                 type="number"
@@ -205,89 +284,150 @@ export default function ChatSettingsPage() {
 
                 {/* Context Compression Settings -> Infinite Dialog */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start mb-6">
                         <div>
-                            <h2 className="text-xl font-semibold">Вечный диалог (Сжатие контекста)</h2>
-                            <p className="text-sm text-gray-500">Автоматически сжимает переписку при достижении лимита</p>
+                            <h2 className="text-xl font-semibold flex items-center gap-2">
+                                Вечный диалог (Сжатие контекста)
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${settings.context_soft_limit ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'}`}>
+                                    {settings.context_soft_limit ? 'Custom Limit' : 'Auto Limit'}
+                                </span>
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Стратегия управления памятью для <b>{settings.user_chat_model}</b>
+                            </p>
                         </div>
-                        <div className="text-right bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
-                            <div className="text-xs text-blue-600 font-semibold uppercase">Trigger Point</div>
-                            <div className="text-lg font-bold text-blue-800">
-                                ~{getEffectiveLimit().toLocaleString()} tokens
+                        <div className="text-right bg-blue-50 px-4 py-3 rounded-lg border border-blue-100 min-w-[200px]">
+                            <div className="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Trigger Point</div>
+                            <div className="text-2xl font-black text-blue-800 leading-none">
+                                ~{(getEffectiveLimit() / 1000).toFixed(1)}k
+                                <span className="text-sm font-medium text-blue-600 ml-1">tokens</span>
                             </div>
-                            <div className="text-xs text-blue-500">
-                                (Model Max: {getModelMaxTokens().toLocaleString()})
+                            <div className="text-xs text-blue-500 mt-1 font-medium">
+                                of {getModelMaxTokens().toLocaleString()} max
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        {/* Compression Model */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Лимит токенов (Override)
+                                Модель для сжатия
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={settings.compression_model}
+                                    onChange={(e) => setSettings({ ...settings, compression_model: e.target.value })}
+                                    className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                >
+                                    {AVAILABLE_MODELS.map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                    {!AVAILABLE_MODELS.includes(settings.compression_model) && (
+                                        <option value={settings.compression_model}>{settings.compression_model} (Custom)</option>
+                                    )}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Compression Temp */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Температура сжатия
                             </label>
                             <input
                                 type="number"
+                                step="0.1"
                                 min="0"
-                                max="1000000"
-                                step="1000"
-                                placeholder={`Auto (${getModelMaxTokens()})`}
-                                value={settings.context_soft_limit || ''}
-                                onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
+                                max="2"
+                                value={settings.compression_temperature}
+                                onChange={(e) => setSettings({ ...settings, compression_temperature: parseFloat(e.target.value) })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Укажите <b>0</b> или пусто, чтобы использовать аппаратный лимит ({getModelMaxTokens().toLocaleString()}).
-                            </p>
                         </div>
+
+                        {/* Compression Max Tokens */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Порог срабатывания (%)
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="range"
-                                    min="0.1"
-                                    max="1.0"
-                                    step="0.05"
-                                    value={settings.context_threshold || 0.9}
-                                    onChange={(e) => setSettings({ ...settings, context_threshold: parseFloat(e.target.value) })}
-                                    className="flex-1"
-                                />
-                                <span className="w-12 text-sm font-bold text-gray-700">
-                                    {Math.round((settings.context_threshold || 0.9) * 100)}%
-                                </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Сжимать, когда занято {Math.round((settings.context_threshold || 0.9) * 100)}% от лимита.
-                            </p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Оставлять сообщений (Keep Last)
+                                Max Tokens (Саммари)
                             </label>
                             <input
                                 type="number"
-                                min="5"
-                                max="100"
-                                value={settings.context_compression_keep_last || 20}
+                                min="1"
+                                placeholder="Без лимита"
+                                value={settings.compression_max_tokens ?? ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSettings({ ...settings, compression_max_tokens: val === '' ? null : parseInt(val) });
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Лимит длины самого саммари</p>
+                        </div>
+
+                        {/* Keep Last */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Keep Last (Msg)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={settings.context_compression_keep_last}
                                 onChange={(e) => setSettings({ ...settings, context_compression_keep_last: parseInt(e.target.value) })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                             />
-                            <p className="text-xs text-gray-500 mt-1">Сколько последних сообщений НЕ сжимать.</p>
+                            <p className="text-xs text-gray-500 mt-1">Сколько последних оставлять</p>
                         </div>
                     </div>
-                </div>
 
-                {/* Save Button */}
-                <div className="flex justify-end gap-4">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="px-6 py-3 bg-[#FF6B35] text-white font-semibold rounded-lg hover:bg-[#E55A2B] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                    >
-                        {saving ? 'Сохранение...' : 'Сохранить настройки'}
-                    </button>
+                    <div className="border-t border-gray-100 pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Порог срабатывания (Threshold)
+                            </label>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="1.0"
+                                    step="0.01"
+                                    value={settings.context_threshold || 0.9}
+                                    onChange={(e) => setSettings({ ...settings, context_threshold: parseFloat(e.target.value) })}
+                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#FF6B35]"
+                                />
+                                <span className="w-16 text-right font-bold text-gray-900 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                    {Math.round((settings.context_threshold || 0.9) * 100)}%
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Сжатие начнется, когда контекст заполнится на этот процент от лимита ({getModelMaxTokens().toLocaleString()}).
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Ручной лимит (Soft Limit Override)
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1000"
+                                    placeholder={`Auto (${getModelMaxTokens()})`}
+                                    value={settings.context_soft_limit || ''}
+                                    onChange={(e) => setSettings({ ...settings, context_soft_limit: parseInt(e.target.value) || 0 })}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                />
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                                Если 0 или пусто, используется полный размер контекста модели.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
