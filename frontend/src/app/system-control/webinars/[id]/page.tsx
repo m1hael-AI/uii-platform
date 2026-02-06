@@ -18,7 +18,7 @@ export default function EditWebinarPage({ params }: { params: Promise<{ id: stri
         scheduled_at: "",
         duration_minutes: 60,
         video_url: "",
-        is_published: true,
+        is_published: true, // Legacy field, keeping valid type
         is_upcoming: true
     });
 
@@ -44,7 +44,7 @@ export default function EditWebinarPage({ params }: { params: Promise<{ id: stri
                         scheduled_at: data.scheduled_at ? new Date(data.scheduled_at).toISOString().slice(0, 16) : "",
                         duration_minutes: data.duration_minutes || 60,
                         video_url: data.video_url || "",
-                        is_published: data.is_published,
+                        is_published: true, // Always consider published now
                         is_upcoming: data.is_upcoming
                     });
                 } else {
@@ -72,14 +72,23 @@ export default function EditWebinarPage({ params }: { params: Promise<{ id: stri
             const token = Cookies.get("token");
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
 
+            // Clean up video URL (handle raw iframe code)
+            let cleanVideoUrl = formData.video_url || null;
+            if (cleanVideoUrl && cleanVideoUrl.includes("<iframe")) {
+                const srcMatch = cleanVideoUrl.match(/src=["'](.*?)["']/);
+                if (srcMatch && srcMatch[1]) {
+                    cleanVideoUrl = srcMatch[1];
+                }
+            }
+
             const payload = {
                 title: formData.title,
                 description: formData.description || null,
                 speaker_name: formData.speaker_name || null,
                 scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
                 duration_minutes: formData.duration_minutes,
-                video_url: formData.video_url || null,
-                is_published: formData.is_published,
+                video_url: cleanVideoUrl,
+                is_published: true, // Always published
                 is_upcoming: formData.is_upcoming
             };
 
@@ -183,29 +192,32 @@ export default function EditWebinarPage({ params }: { params: Promise<{ id: stri
                     />
                 </div>
 
-                <div className="flex gap-6 pt-2 p-4 bg-gray-50 rounded-lg">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                            type="checkbox"
-                            checked={formData.is_published}
-                            onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
-                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Опубликовать (виден всем)</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                            type="checkbox"
-                            checked={formData.is_upcoming}
-                            onChange={e => setFormData({ ...formData, is_upcoming: e.target.checked })}
-                            className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Предстоящий (Upcoming)</span>
-                    </label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-900">Статус: {formData.is_upcoming ? "Предстоящий" : "Прошедший"}</h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {formData.is_upcoming
+                                    ? "Вкл: Ссылка ведет на трансляцию"
+                                    : "Выкл: Ссылка ведет на запись"}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, is_upcoming: !formData.is_upcoming })}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${formData.is_upcoming ? 'bg-purple-600' : 'bg-gray-300'
+                                }`}
+                        >
+                            <span
+                                className={`${formData.is_upcoming ? 'translate-x-6' : 'translate-x-1'
+                                    } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                            />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="pt-4 flex justify-end gap-3">
+                {/* Sticky Footer for stability */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 -mx-8 -mb-8 mt-4 flex justify-end gap-3 rounded-b-xl z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <button
                         type="button"
                         onClick={() => router.back()}

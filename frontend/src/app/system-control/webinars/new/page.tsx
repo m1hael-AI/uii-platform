@@ -25,12 +25,22 @@ export default function NewWebinarPage() {
             const token = Cookies.get("token");
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
 
+            // Clean up video URL (handle raw iframe code)
+            let cleanVideoUrl = formData.video_url || null;
+            if (cleanVideoUrl && cleanVideoUrl.includes("<iframe")) {
+                const srcMatch = cleanVideoUrl.match(/src=["'](.*?)["']/);
+                if (srcMatch && srcMatch[1]) {
+                    cleanVideoUrl = srcMatch[1];
+                }
+            }
+
             const payload = {
                 ...formData,
                 scheduled_at: formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null,
                 description: formData.description || null,
                 speaker_name: formData.speaker_name || null,
-                video_url: formData.video_url || null
+                video_url: cleanVideoUrl,
+                is_published: true // Always publish (removed draft logic)
             };
 
             const res = await fetch(`${API_URL}/webinars`, {
@@ -134,29 +144,32 @@ export default function NewWebinarPage() {
                     />
                 </div>
 
-                <div className="flex gap-6 pt-2 p-4 bg-gray-50 rounded-lg">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                            type="checkbox"
-                            checked={formData.is_published}
-                            onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
-                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Опубликовать (виден всем)</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                            type="checkbox"
-                            checked={formData.is_upcoming}
-                            onChange={e => setFormData({ ...formData, is_upcoming: e.target.checked })}
-                            className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Предстоящий (Upcoming)</span>
-                    </label>
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-medium text-gray-900">Статус: {formData.is_upcoming ? "Предстоящий" : "Прошедший"}</h3>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {formData.is_upcoming
+                                    ? "Вебинар еще не начался. Ссылка будет вести на трансляцию."
+                                    : "Вебинар завершен. Ссылка будет вести на запись."}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, is_upcoming: !formData.is_upcoming })}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${formData.is_upcoming ? 'bg-purple-600' : 'bg-gray-300'
+                                }`}
+                        >
+                            <span
+                                className={`${formData.is_upcoming ? 'translate-x-6' : 'translate-x-1'
+                                    } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                            />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="pt-4 flex justify-end gap-3">
+                {/* Sticky Footer for mobile/scroll issues */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 -mx-8 -mb-8 mt-4 flex justify-end gap-3 rounded-b-xl z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <button
                         type="button"
                         onClick={() => router.back()}

@@ -86,13 +86,13 @@ export default function WebinarsAdminPage() {
                                 </td>
                                 <td className="p-4">
                                     <div className="flex gap-2">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${w.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                                            }`}>
-                                            {w.is_published ? "PUBLISHED" : "DRAFT"}
-                                        </span>
-                                        {w.is_upcoming && (
+                                        {w.is_upcoming ? (
                                             <span className="px-2 py-1 rounded text-xs font-bold uppercase bg-purple-100 text-purple-700">
                                                 UPCOMING
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-1 rounded text-xs font-bold uppercase bg-gray-100 text-gray-500">
+                                                PAST
                                             </span>
                                         )}
                                     </div>
