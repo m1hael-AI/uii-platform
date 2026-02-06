@@ -180,8 +180,9 @@ export default function WebinarPage() {
 
                 if (res.ok) {
                     const hist = await res.json();
-                    if (hist && hist.length > 0) {
-                        const uiMsgs = hist.map((m: any) => ({
+                    // Backend returns {messages: [...], last_read_at: ...}
+                    if (hist?.messages && hist.messages.length > 0) {
+                        const uiMsgs = hist.messages.map((m: any) => ({
                             role: m.role,
                             text: m.content
                         }));
