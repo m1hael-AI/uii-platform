@@ -305,7 +305,9 @@ async def get_chat_history(
         else:
              # Look up agent name if needed
             agent_name = "AI Assistant"
-            if agent_id != "ai_tutor": # Optimization: skip DB lookup for known hardcoded
+            if agent_id == "ai_tutor":
+                agent_name = "AI Тьютор"
+            else:
                  agent_res = await db.execute(select(Agent).where(Agent.slug == agent_id))
                  agent_obj = agent_res.scalar_one_or_none()
                  if agent_obj: agent_name = agent_obj.name
@@ -351,16 +353,21 @@ async def get_chat_history(
     is_new_session = len(all_messages) == 0
     
     # If session exists but has NO messages (e.g. manually cleared), trigger sync greeting
-    if len(messages) == 0 and agent_id:
+    # CRITICAL: Check all_messages (total history), not just filters, to avoid duplicates on refresh
+    if len(all_messages) == 0 and agent_id:
          # Same logic as above but for existing session
         if agent_id == "main_assistant":
             greeting_text = "Здравствуйте! Я ваш AI-помощник. Я всегда под рукой в боковой панели, чтобы помочь с любым вопросом. С чего начнем?"
         else:
-            agent_name = "AI Assistant"
-            if agent_id != "ai_tutor":
+            agent_name = "AI AI Assistant" # Fallback
+            if agent_id == "ai_tutor":
+                agent_name = "AI Тьютор"
+            else:
+                 # Look up agent name if needed
                  agent_res = await db.execute(select(Agent).where(Agent.slug == agent_id))
                  agent_obj = agent_res.scalar_one_or_none()
                  if agent_obj: agent_name = agent_obj.name
+            
             greeting_text = GREETINGS.get(agent_id, f"Привет! Я {agent_name}. Чем могу помочь?")
             
         greeting_msg = Message(
