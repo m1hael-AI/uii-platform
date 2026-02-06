@@ -24,6 +24,7 @@ from models import (
     PendingAction, 
     ChatSession, 
     Message, 
+    MessageRole,
     User, 
     Agent, 
     ProactivitySettings,
@@ -37,9 +38,10 @@ openai_client = AsyncOpenAI(api_key=app_settings.openai_api_key)
 
 
 async def get_all_chat_messages(db: AsyncSession, session_id: int) -> list[Message]:
-    """Получить ВСЮ историю чата"""
+    """Получить ВСЮ историю чата (исключая архивные)"""
     query = select(Message).where(
-        Message.session_id == session_id
+        Message.session_id == session_id,
+        Message.is_archived == False
     ).order_by(Message.created_at.asc())
     
     result = await db.execute(query)
@@ -322,7 +324,7 @@ async def execute_proactive_message(
         # Сохраняем триггерное сообщение (от системы)
         trigger_message = Message(
             session_id=session.id,
-            role="user",
+            role=MessageRole.SYSTEM,
             content=f"[ПРОАКТИВНОЕ] {action.topic_context}",
             created_at=datetime.utcnow()
         )

@@ -57,8 +57,9 @@ def is_context_overflow(
 
 # === Logic for Compression ===
 
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, update, func
 from models import Message, MessageRole, ChatSession
 from services.openai_service import generate_chat_response
 from database import async_engine
@@ -88,8 +89,11 @@ async def compress_context_task(
             from services.settings_service import get_chat_settings
             chat_settings = await get_chat_settings(db)
             
-            # 1. Получаем сообщения
-            query = select(Message).where(Message.session_id == session_id).order_by(Message.created_at.asc())
+            # 1. Получаем сообщения (только НЕ архивные)
+            query = select(Message).where(
+                Message.session_id == session_id,
+                Message.is_archived == False  # Берём только актуальные
+            ).order_by(Message.created_at.asc())
             result = await db.execute(query)
             all_messages = result.scalars().all()
         
@@ -123,21 +127,21 @@ async def compress_context_task(
                 return
     
             # 2. Запрос к LLM
-            prompt = (
-                f"Ниже приведен фрагмент диалога между пользователем и AI-ассистентом.\n"
-                f"Твоя задача — создать ПОДРОБНОЕ структурированное саммари этого диалога.\n\n"
-                f"ТРЕБОВАНИЯ:\n"
-                f"1. Перечисли ВСЕ основные темы, которые обсуждались\n"
-                f"2. Сохрани ключевые вопросы пользователя и ответы AI\n"
-                f"3. Укажи важные факты, имена, даты, технические термины\n"
-                f"4. Структурируй по темам (используй маркеры или нумерацию)\n"
-                f"5. Игнорируй только приветствия и общие фразы\n"
-                f"6. Саммари должно быть достаточно детальным, чтобы AI мог продолжить разговор без потери контекста\n\n"
-                f"=== ДИАЛОГ ===\n"
-                f"{text_to_compress}\n"
-                f"=== КОНЕЦ ДИАЛОГА ===\n\n"
-                f"Создай подробное структурированное саммари:"
-            )
+            # Получаем промпт из ProactivitySettings
+            from models import ProactivitySettings
+            proactivity_settings_result = await db.execute(select(ProactivitySettings))
+            proactivity_settings = proactivity_settings_result.scalar_one_or_none()
+
+            prompt_template = proactivity_settings.compression_prompt if (proactivity_settings and proactivity_settings.compression_prompt) else """Ниже приведен фрагмент диалога между пользователем и AI-ассистентом.
+Твоя задача — создать ПОДРОБНОЕ структурированное саммари этого диалога.
+
+=== ДИАЛОГ ===
+{text_to_compress}
+=== КОНЕЦ ДИАЛОГА ===
+
+Создай подробное структурированное саммари:"""
+
+            prompt = prompt_template.format(text_to_compress=text_to_compress)
     
             new_summary_text = await generate_chat_response(
                 messages=[{"role": "user", "content": prompt}],
@@ -149,16 +153,15 @@ async def compress_context_task(
             final_summary_content = f"[SUMMARY] Краткое содержание предыдущего разговора:\n{new_summary_text}"
             
             # 3. Транзакция обновления БД
-            # Удаляем сжатые сообщения
-            ids_to_delete = [m.id for m in messages_to_compress]
+            # Вместо удаления делаем Soft Delete (архивацию)
+            ids_to_archive = [m.id for m in messages_to_compress]
             
-            # Проверяем, было ли у нас уже сообщение-саммари в начале?
-            # Если да, мы его удаляем вместе со всеми и создаем новое. 
-            # Или, если мы хотим сохранить ID, обновляем. 
-            # Проще: удалить всё старое, создать новое первое сообщение.
-            
-            # ВАЖНО: Удаляем аккуратно
-            await db.execute(delete(Message).where(Message.id.in_(ids_to_delete)))
+            # ВАЖНО: Обновляем статус is_archived = True
+            await db.execute(
+                update(Message)
+                .where(Message.id.in_(ids_to_archive))
+                .values(is_archived=True)
+            )
             
             # Создаем новое сообщение-саммари и вставляем его "в прошлое" 
             # (ставим время чуть раньше первого сохраненного сообщения)
@@ -174,7 +177,7 @@ async def compress_context_task(
             db.add(summary_msg)
             
             await db.commit()
-            logger.info(f"✅ Context compressed. Deleted {len(ids_to_delete)} msgs. New summary length: {len(final_summary_content)}")
+            logger.info(f"✅ Context compressed. Archived {len(ids_to_archive)} msgs. New summary length: {len(final_summary_content)}")
             
         except Exception as e:
             logger.error(f"❌ Error during context compression: {e}")

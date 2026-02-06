@@ -41,12 +41,24 @@ async def get_proactivity_settings(db: AsyncSession) -> ProactivitySettings:
     return settings
 
 
-async def get_all_messages(
+async def get_new_messages(
     db: AsyncSession,
-    session_id: int
+    session_id: int,
+    last_summary_at: Optional[datetime]
 ) -> List[Message]:
-    """Получить ВСЕ сообщения диалога"""
-    query = select(Message).where(Message.session_id == session_id).order_by(Message.created_at)
+    """
+    Получить новые сообщения диалога для обновления памяти.
+    Берём ВСЕ сообщения, созданные ПОСЛЕ последней суммаризации.
+    Игнорируем is_archived, чтобы не потерять сжатые, но не обработанные сообщения.
+    """
+    query = select(Message).where(
+        Message.session_id == session_id
+    )
+    
+    if last_summary_at:
+        query = query.where(Message.created_at > last_summary_at)
+        
+    query = query.order_by(Message.created_at)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -60,226 +72,108 @@ def format_messages_for_prompt(messages: List[Message]) -> str:
     return "\n".join(formatted)
 
 
-async def process_agent_memory(
+async def process_memory_update(
     db: AsyncSession,
     chat_session: ChatSession,
     user: User,
     settings: ProactivitySettings
 ) -> None:
     """
-    Обработка памяти обычного агента:
-    1. Извлечение фактов из диалога
-    2. Обновление local_summary
-    3. Детекция триггеров для проактивных задач
+    Только обновление памяти (Narrative Memory).
+    Запускается каждые 2 часа (memory_update_interval).
     """
-    # Получаем ВСЮ историю диалога
-    all_messages = await get_all_messages(db, chat_session.id)
+    # Получаем НОВЫЕ сообщения с момента последнего обновления
+    new_messages = await get_new_messages(db, chat_session.id, chat_session.summarized_at)
     
-    if not all_messages:
+    if not new_messages:
         return
-    
-    # Получаем биографию пользователя
-    user_memory_result = await db.execute(
-        select(UserMemory).where(UserMemory.user_id == user.id)
-    )
-    user_memory = user_memory_result.scalar_one_or_none()
-    user_profile = user_memory.narrative_summary if user_memory else "Нет данных"
-    
-    # Формируем промпт
-    full_chat_history = format_messages_for_prompt(all_messages)
-    current_memory = chat_session.local_summary or "Пусто"
-    
-    prompt = settings.agent_memory_prompt.format(
-        full_chat_history=full_chat_history,
-        current_memory=current_memory,
-        user_profile=user_profile
-    )
-    
-    # Генерируем обновление памяти
-    try:
-        llm_messages = [
-            {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе. Отвечай ТОЛЬКО валидным JSON."},
-            {"role": "user", "content": prompt}
-        ]
-        
-        start_time = time.time()
-        response = await openai_client.chat.completions.create(
-            model=settings.model,
-            messages=llm_messages,
-            temperature=settings.temperature,
-            max_tokens=800
-        )
-        
-        # LOGGING
-        if response.usage:
-             duration = int((time.time() - start_time) * 1000)
-             usage = response.usage
-             cached_tokens = 0
-             if getattr(usage, "prompt_tokens_details", None):
-                  cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
-             
-             fire_and_forget_audit(
-                 user_id=user.id,
-                 agent_slug=f"{chat_session.agent_slug}:memory",
-                 model=settings.model,
-                 messages=llm_messages,
-                 response_content=response.choices[0].message.content or "",
-                 input_tokens=usage.prompt_tokens,
-                 output_tokens=usage.completion_tokens,
-                 cached_tokens=cached_tokens,
-                 duration_ms=duration
-             )
-        
-        result_text = response.choices[0].message.content.strip()
-        
-        # Парсим JSON
-        if result_text.startswith("```"):
-            result_text = result_text.split("```")[1]
-            if result_text.startswith("json"):
-                result_text = result_text[4:]
-        
-        result = json.loads(result_text)
-        
-        # Обновляем память (убеждаемся что это строка)
-        memory_update = result.get("memory_update", current_memory)
-        if isinstance(memory_update, (dict, list)):
-            memory_update = json.dumps(memory_update, ensure_ascii=False)
-            
-        chat_session.local_summary = memory_update
-        chat_session.summarized_at = datetime.utcnow()
-        
-        logger.info(f"✅ Память агента обновлена: {str(chat_session.local_summary)[:100]}...")
-        
-        # Проверяем триггер
-        if result.get("create_task"):
-            topic = result.get("topic", "Продолжение диалога")
-            
-            # Проверяем, нет ли уже pending задачи
-            existing_action = await db.execute(
-                select(PendingAction)
-                .where(PendingAction.user_id == user.id)
-                .where(PendingAction.agent_slug == chat_session.agent_slug)
-                .where(PendingAction.status == "pending")
-            )
-            
-            if not existing_action.scalar_one_or_none():
-                pending_action = PendingAction(
-                    user_id=user.id,
-                    agent_slug=chat_session.agent_slug,
-                    topic_context=topic,
-                    status="pending"
-                )
-                db.add(pending_action)
-                logger.info(f"🎯 Создана проактивная задача: agent={chat_session.agent_slug}, topic={topic}")
-        
-        await db.commit()
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка обработки памяти агента: {e}")
 
-
-async def process_assistant_memory(
-    db: AsyncSession,
-    chat_session: ChatSession,
-    user: User,
-    settings: ProactivitySettings
-) -> None:
-    """
-    Обработка памяти AI Помощника:
-    1. Извлечение фактов из диалога
-    2. Обновление local_summary
-    3. Обновление глобальной биографии (UserMemory.narrative_summary)
-    4. Детекция триггеров
-    """
-    # Получаем ВСЮ историю диалога
-    all_messages = await get_all_messages(db, chat_session.id)
+    logger.info(f"🧠 Updating memory for session {chat_session.id} ({len(new_messages)} new msgs)")
     
-    if not all_messages:
-        return
-    
-    # Получаем биографию пользователя
+    # 1. Получаем/Создаем глобальную память
     user_memory_result = await db.execute(
         select(UserMemory).where(UserMemory.user_id == user.id)
     )
     user_memory = user_memory_result.scalar_one_or_none()
     
-    if not user_memory:
+    if not user_memory and chat_session.agent_slug == "main_assistant":
         user_memory = UserMemory(user_id=user.id, narrative_summary="")
         db.add(user_memory)
         await db.commit()
         await db.refresh(user_memory)
-    
-    user_profile = user_memory.narrative_summary or "Нет данных"
-    
-    # Получаем все локальные памяти других агентов
-    all_sessions_result = await db.execute(
-        select(ChatSession).where(ChatSession.user_id == user.id)
-    )
-    all_sessions = all_sessions_result.scalars().all()
-    
-    agent_memories = []
-    for session in all_sessions:
-        if session.local_summary and session.id != chat_session.id:
-            # Получаем имя агента
-            agent_result = await db.execute(
-                select(Agent).where(Agent.slug == session.agent_slug)
-            )
-            agent = agent_result.scalar_one_or_none()
-            agent_name = agent.name if agent else session.agent_slug
-            agent_memories.append(f"{agent_name}: {session.local_summary}")
-    
-    all_agent_memories = "\n\n".join(agent_memories) if agent_memories else "Нет данных"
-    
-    # Формируем промпт
-    full_chat_history = format_messages_for_prompt(all_messages)
+
+    user_profile = user_memory.narrative_summary if user_memory else "Нет данных"
     current_memory = chat_session.local_summary or "Пусто"
     
-    prompt = settings.assistant_memory_prompt.format(
-        full_chat_history=full_chat_history,
-        current_memory=current_memory,
-        user_profile=user_profile,
-        all_agent_memories=all_agent_memories
-    )
-    
-    # Генерируем обновление
-    # Генерируем обновление
+    # 2. Выбираем промпт и логику (Агент vs Ассистент)
+    if chat_session.agent_slug == "main_assistant":
+        # Логика AI Помощника (видит всех)
+        all_sessions_result = await db.execute(
+            select(ChatSession).where(ChatSession.user_id == user.id)
+        )
+        all_sessions = all_sessions_result.scalars().all()
+        
+        agent_memories = []
+        for session in all_sessions:
+            if session.local_summary and session.id != chat_session.id:
+                agent_result = await db.execute(select(Agent).where(Agent.slug == session.agent_slug))
+                agent = agent_result.scalar_one_or_none()
+                agent_name = agent.name if agent else session.agent_slug
+                agent_memories.append(f"{agent_name}: {session.local_summary}")
+        
+        all_agent_memories = "\n\n".join(agent_memories) if agent_memories else "Нет данных"
+        
+        prompt = settings.assistant_memory_prompt.format(
+            full_chat_history=format_messages_for_prompt(new_messages), # Важно: только новые!
+            current_memory=current_memory,
+            user_profile=user_profile,
+            all_agent_memories=all_agent_memories
+        )
+    else:
+        # Логика обычного агента
+        prompt = settings.agent_memory_prompt.format(
+            full_chat_history=format_messages_for_prompt(new_messages),
+            current_memory=current_memory,
+            user_profile=user_profile
+        )
+
+    # 3. Запрос к LLM для памяти
     try:
         llm_messages = [
-            {"role": "system", "content": "Ты — аналитик диалогов. Извлекай важные факты о пользователе и обновляй глобальный профиль. Отвечай ТОЛЬКО валидным JSON."},
+            {"role": "system", "content": "Ты — аналитик памяти. Точно следуй инструкциям. Верни валидный JSON."},
             {"role": "user", "content": prompt}
         ]
         
-        start_time = time.time()
+        # Call OpenAI
         response = await openai_client.chat.completions.create(
-            model=settings.model,
+            model=settings.memory_model,
             messages=llm_messages,
-            temperature=settings.temperature,
-            max_tokens=1000
+            temperature=settings.memory_temperature,
+            max_tokens=settings.memory_max_tokens
         )
         
-        # LOGGING
+        # Fire audit log
         if response.usage:
-             duration = int((time.time() - start_time) * 1000)
-             usage = response.usage
+             # Extract cached_tokens if available
              cached_tokens = 0
-             if getattr(usage, "prompt_tokens_details", None):
-                  cached_tokens = usage.prompt_tokens_details.cached_tokens or 0
+             if hasattr(response.usage, 'prompt_tokens_details'):
+                 details = response.usage.prompt_tokens_details
+                 if hasattr(details, 'cached_tokens'):
+                     cached_tokens = details.cached_tokens
              
              fire_and_forget_audit(
                  user_id=user.id,
-                 agent_slug="assistant:memory",
-                 model=settings.model,
+                 agent_slug=f"{chat_session.agent_slug}:memory_update",
+                 model=settings.memory_model,
                  messages=llm_messages,
                  response_content=response.choices[0].message.content or "",
-                 input_tokens=usage.prompt_tokens,
-                 output_tokens=usage.completion_tokens,
+                 input_tokens=response.usage.prompt_tokens,
+                 output_tokens=response.usage.completion_tokens,
                  cached_tokens=cached_tokens,
-                 duration_ms=duration
+                 duration_ms=0
              )
-        
+
         result_text = response.choices[0].message.content.strip()
-        
-        # Парсим JSON
         if result_text.startswith("```"):
             result_text = result_text.split("```")[1]
             if result_text.startswith("json"):
@@ -287,7 +181,7 @@ async def process_assistant_memory(
         
         result = json.loads(result_text)
         
-        # Обновляем локальную память AI Помощника
+        # 4. Сохраняем результаты
         memory_update = result.get("memory_update", current_memory)
         if isinstance(memory_update, (dict, list)):
             memory_update = json.dumps(memory_update, ensure_ascii=False)
@@ -295,44 +189,121 @@ async def process_assistant_memory(
         chat_session.local_summary = memory_update
         chat_session.summarized_at = datetime.utcnow()
         
-        # Обновляем глобальную биографию
-        profile_update = result.get("global_profile_update", user_profile)
-        if isinstance(profile_update, (dict, list)):
-            profile_update = json.dumps(profile_update, ensure_ascii=False)
+        if chat_session.agent_slug == "main_assistant":
+            profile_update = result.get("global_profile_update", user_profile)
+            if isinstance(profile_update, (dict, list)):
+                profile_update = json.dumps(profile_update, ensure_ascii=False)
+            if user_memory:
+                 user_memory.narrative_summary = profile_update
+                 user_memory.updated_at = datetime.utcnow()
+
+        await db.commit()
+        logger.info(f"✅ Memory updated for {chat_session.agent_slug}")
+
+    except Exception as e:
+        logger.error(f"❌ Error updating memory: {e}")
+
+
+async def check_proactivity_trigger(
+    db: AsyncSession,
+    chat_session: ChatSession,
+    user: User,
+    settings: ProactivitySettings
+) -> None:
+    """
+    Проверка на необходимость проактивного сообщения.
+    Запускается отдельно, если прошло > 24 часов (proactivity_timeout).
+    """
+    logger.info(f"🤔 Checking proactivity for session {chat_session.id}")
+    
+    # 1. Получаем контекст (последние сообщения для контекста)
+    # Берем последние 10, даже если они старые
+    recent_msgs = await db.execute(
+        select(Message)
+        .where(Message.session_id == chat_session.id)
+        .order_by(Message.created_at.desc())
+        .limit(10)
+    )
+    # 2. Проверка Anti-Spam: лимит сообщений подряд
+    max_consecutive = settings.max_consecutive_messages or 3
+    consecutive_assistant_msgs = 0
+    
+    # recent_msgs уже отсортированы DESC (от новых к старым)
+    # но нам нужно проверить их в этом порядке
+    recent_msgs_list = recent_msgs.scalars().all()
+    
+    for msg in recent_msgs_list:
+        if msg.role.value == "assistant":
+            consecutive_assistant_msgs += 1
+        else:
+            # Прерываемся на первом сообщении пользователя
+            break
             
-        user_memory.narrative_summary = profile_update
-        user_memory.updated_at = datetime.utcnow()
+    if consecutive_assistant_msgs >= max_consecutive:
+        logger.info(f"🛑 Proactivity STOP: {consecutive_assistant_msgs} consecutive assistant messages (Limit: {max_consecutive})")
+        # Обновляем timestamp проверки, чтобы не долбить этот чат постоянно, но не пишем
+        chat_session.last_proactivity_check_at = datetime.utcnow()
+        await db.commit()
+        return
+
+    recent_history = format_messages_for_prompt(list(reversed(recent_msgs_list)))
+    
+    # 3. Формируем промпт из настроек
+    prompt = settings.proactivity_trigger_prompt.format(
+        user_profile=user_profile,
+        recent_history=recent_history,
+        current_memory=current_memory,
+        hours_since_last_msg=hours_since
+    )
+    
+    # 3. Запрос к LLM
+    try:
+        llm_messages = [{"role": "user", "content": prompt}]
+        response = await openai_client.chat.completions.create(
+            model=settings.trigger_model, 
+            messages=llm_messages,
+            temperature=settings.trigger_temperature,
+            max_tokens=settings.trigger_max_tokens
+        )
         
-        logger.info(f"✅ Память AI Помощника обновлена")
-        logger.info(f"✅ Глобальная биография обновлена: {str(user_memory.narrative_summary)[:100]}...")
+        result_text = response.choices[0].message.content.strip()
+        if result_text.startswith("```"):
+             result_text = result_text.split("```")[1].replace("json", "").strip()
         
-        # Проверяем триггер
-        if result.get("create_task"):
-            topic = result.get("topic", "Продолжение диалога")
+        result = json.loads(result_text)
+        
+        if result.get("should_message"):
+            topic = result.get("topic_context", "Возврат к теме")
+            reason = result.get("reason", "")
             
-            # Проверяем, нет ли уже pending задачи
-            existing_action = await db.execute(
+            # Проверяем Anti-Spam (уже есть pending?)
+            existing = await db.scalar(
                 select(PendingAction)
                 .where(PendingAction.user_id == user.id)
                 .where(PendingAction.agent_slug == chat_session.agent_slug)
                 .where(PendingAction.status == "pending")
             )
             
-            if not existing_action.scalar_one_or_none():
-                pending_action = PendingAction(
+            if not existing:
+                action = PendingAction(
                     user_id=user.id,
                     agent_slug=chat_session.agent_slug,
                     topic_context=topic,
                     status="pending"
                 )
-                db.add(pending_action)
-                db.add(pending_action)
-                logger.info(f"🎯 Создана проактивная задача для AI Помощника: topic={topic}")
-        
+                db.add(action)
+                logger.info(f"🎯 Proactivity Triggered: {topic} ({reason})")
+            else:
+                 logger.info("⚠️ Proactivity skipped: Pending Action already exists")
+        else:
+            logger.info(f"💤 Proactivity decided not to act: {result.get('reason')}")
+
+        # Обновляем timestamp проверки
+        chat_session.last_proactivity_check_at = datetime.utcnow()
         await db.commit()
-        
+
     except Exception as e:
-        logger.error(f"❌ Ошибка обработки памяти AI Помощника: {e}")
+        logger.error(f"❌ Error checking proactivity: {e}")
 
 
 async def process_idle_chat(
@@ -340,60 +311,50 @@ async def process_idle_chat(
     chat_session: ChatSession
 ) -> None:
     """
-    Обработка "застывшего" чата:
-    - Для обычных агентов: извлечение памяти + детекция триггеров
-    - Для AI Помощника: извлечение памяти + глобальная биография + детекция триггеров
+    Разделенная логика обработки:
+    1. Память (каждые N часов)
+    2. Проактивность (каждые M часов)
     """
     settings = await get_proactivity_settings(db)
     
-    # Получаем пользователя
-    user_result = await db.execute(
-        select(User).where(User.id == chat_session.user_id)
-    )
-    user = user_result.scalar_one_or_none()
+    user = await db.scalar(select(User).where(User.id == chat_session.user_id))
+    if not user: return
     
-    if not user:
-        return
+    now = datetime.utcnow()
     
-    print(f"📊 Обработка чата: user_id={user.id}, agent={chat_session.agent_slug}")
-    
-    # Проверяем, это AI Помощник или обычный агент
-    if chat_session.agent_slug == "main_assistant":
-        await process_assistant_memory(db, chat_session, user, settings)
-    else:
-        await process_agent_memory(db, chat_session, user, settings)
+    # === 1. Memory Update ===
+    last_mem = chat_session.summarized_at or datetime.min
+    if (now - last_mem) > timedelta(hours=settings.memory_update_interval):
+        # Только если были сообщения с тех пор
+        if chat_session.last_message_at and chat_session.last_message_at > last_mem:
+            await process_memory_update(db, chat_session, user, settings)
+            
+    # === 2. Proactivity Check ===
+    last_pro = chat_session.last_proactivity_check_at or datetime.min
+    if (now - last_pro) > timedelta(hours=settings.proactivity_timeout):
+        # Проверяем, что чат реально молчит (а не только что говорили)
+        # Тишина должна быть больше, чем таймаут
+        if chat_session.last_message_at:
+             silence_duration = now - chat_session.last_message_at
+             if silence_duration > timedelta(hours=settings.proactivity_timeout):
+                  await check_proactivity_trigger(db, chat_session, user, settings)
 
 
 async def check_idle_conversations(db: AsyncSession) -> None:
     """
-    Cron задача: проверяет "застывшие" чаты.
-    Запускается каждые 2 минуты (настраивается в ProactivitySettings).
+    Cron: ищет чаты, требующие внимания.
     """
-    settings = await get_proactivity_settings(db)
+    # Для MVP берем чаты, где были сообщения за последние 7 дней
+    week_ago = datetime.utcnow() - timedelta(days=7)
     
-    # Вычисляем порог времени
-    idle_threshold = datetime.utcnow() - timedelta(minutes=settings.summarizer_idle_threshold)
-    
-    # Находим чаты, где:
-    # 1. Последнее сообщение было > N минут назад
-    # 2. Ещё не суммаризировали ИЛИ есть новые сообщения
-    query = select(ChatSession).where(
-        ChatSession.last_message_at < idle_threshold
-    ).where(
-        (ChatSession.summarized_at.is_(None)) |
-        (ChatSession.summarized_at < ChatSession.last_message_at)
-    )
+    # Filter: Chats updated recently
+    query = select(ChatSession).where(ChatSession.updated_at > week_ago)
     
     result = await db.execute(query)
-    idle_chats = result.scalars().all()
+    chats = result.scalars().all()
     
-    logger.info(f"🔍 Найдено {len(idle_chats)} застывших чатов")
-    
-    for chat in idle_chats:
+    for chat in chats:
         try:
             await process_idle_chat(db, chat)
         except Exception as e:
-            logger.error(f"❌ Ошибка обработки чата {chat.id}: {e}")
-            continue
-    
-    logger.info(f"✅ Обработка завершена")
+            logger.error(f"❌ Error processing chat {chat.id}: {e}")

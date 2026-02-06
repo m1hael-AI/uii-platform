@@ -266,12 +266,16 @@ async def get_chat_history(
     if not session:
         return HistoryResponse(messages=[])
         
-    # Get messages
-    msgs_q = select(Message).where(Message.session_id == session.id).order_by(Message.created_at)
+    # Get messages (exclude archived and system messages)
+    msgs_q = select(Message).where(
+        Message.session_id == session.id,
+        Message.is_archived == False,
+        Message.role != MessageRole.SYSTEM
+    ).order_by(Message.created_at)
     res = await db.execute(msgs_q)
     messages = res.scalars().all()
     
-    # If session exists but has NO messages, trigger delayed greeting
+    # If session exists but has NO messages (after filter), trigger delayed greeting
     if len(messages) == 0 and agent_id:
         # Trigger delayed greeting (1 second) for notification UX
         async def send_delayed_greeting():

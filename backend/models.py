@@ -219,10 +219,15 @@ class ProactivitySettings(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     
-    # === OpenAI Settings ===
-    model: str = Field(default="gpt-4.1-mini", description="Модель OpenAI для генерации")
-    temperature: float = Field(default=0.7, description="Temperature для генерации")
-    max_tokens: int = Field(default=2000, description="Максимум токенов в ответе")
+    # === Memory Update Settings ===
+    memory_model: str = Field(default="gpt-4.1-mini", description="Модель для обновления памяти")
+    memory_temperature: float = Field(default=0.2, description="Temperature для извлечения фактов")
+    memory_max_tokens: int = Field(default=800, description="Макс. токенов для памяти")
+    
+    # === Proactivity Trigger Settings ===
+    trigger_model: str = Field(default="gpt-4.1-mini", description="Модель для проверки триггера")
+    trigger_temperature: float = Field(default=0.7, description="Temperature для решения о проактивности")
+    trigger_max_tokens: int = Field(default=500, description="Макс. токенов для триггера")
     
     # === Scheduler Settings ===
     enabled: bool = Field(default=True, description="Включена ли проактивность")
@@ -237,6 +242,11 @@ class ProactivitySettings(SQLModel, table=True):
     # === Summarizer Settings ===
     summarizer_check_interval: int = Field(default=2, description="Интервал проверки Cron (минуты)")
     summarizer_idle_threshold: int = Field(default=5, description="Диалог завершён через N минут молчания")
+    
+    # === Architecture v2 Settings ===
+    memory_update_interval: int = Field(default=2, description="Интервал обновления памяти (в часах молчания)")
+    proactivity_timeout: int = Field(default=24, description="Тайм-аут для проактивности (в часах молчания)")
+    max_consecutive_messages: int = Field(default=3, description="Макс. сообщений подряд без ответа")
     
     # === Context Compression Settings (Вечный диалог) ===
     # Делаем Optional для миграции, но с дефолтами для логики
@@ -332,6 +342,62 @@ class ProactivitySettings(SQLModel, table=True):
   "create_task": false
 }}""",
         description="Промпт для AI Помощника (обновляет глобальный профиль)"
+    )
+
+    compression_prompt: str = Field(
+        default="""Ниже приведен фрагмент диалога между пользователем и AI-ассистентом.
+Твоя задача — создать ПОДРОБНОЕ структурированное саммари этого диалога.
+
+ТРЕБОВАНИЯ:
+1. Перечисли ВСЕ основные темы, которые обсуждались
+2. Сохрани ключевые вопросы пользователя и ответы AI
+3. Укажи важные факты, имена, даты, технические термины
+4. Структурируй по темам (используй маркеры или нумерацию)
+5. Игнорируй только приветствия и общие фразы
+6. Саммари должно быть достаточно детальным, чтобы AI мог продолжить разговор без потери контекста
+
+=== ДИАЛОГ ===
+{text_to_compress}
+=== КОНЕЦ ДИАЛОГА ===
+
+Создай подробное структурированное саммари:""",
+        description="Промпт для сжатия контекста (Summarizer)"
+    )
+
+    proactivity_trigger_prompt: str = Field(
+        default="""Ты — AI-ассистент, который заботится о пользователе.
+Твоя задача — определить, стоит ли написать проактивное сообщение, чтобы вернуть пользователя к диалогу.
+
+=== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ===
+{user_profile}
+
+=== ПОСЛЕДНИЕ СООБЩЕНИЯ ===
+{recent_history}
+
+=== ТЕКУЩАЯ ПАМЯТЬ ===
+{current_memory}
+
+=== ТВОЯ ЗАДАЧА ===
+1. Проанализируй контекст. Прошло {hours_since_last_msg} часов молчания.
+2. Определи, есть ли НЕЗАВЕРШЕННАЯ тема или ПОВОД написать?
+   - Не пиши просто "Привет, как дела?".
+   - Предложи продолжить конкретную тему.
+   - Или предложи новый материал, релевантный интересам.
+   - Если повода нет — не пиши.
+
+Верни JSON:
+{{
+  "should_message": true,
+  "reason": "Почему мы пишем (для логов)",
+  "topic_context": "Сжатый контекст темы, которую нужно поднять (это пойдет в промпт генерации сообщения)"
+}}
+
+Если писать НЕ надо:
+{{
+  "should_message": false,
+  "reason": "Нет явной темы для разговора"
+}}""",
+        description="Промпт триггера проактивности"
     )
     
     # Timestamps
@@ -483,6 +549,7 @@ class ChatSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_message_at: Optional[datetime] = Field(default=None, description="Время последнего сообщения (для debounce)")
     summarized_at: Optional[datetime] = Field(default=None, description="Время последней суммаризации (для проактивности)")
+    last_proactivity_check_at: Optional[datetime] = Field(default=None, description="Время последней проверки проактивности")
     
     # Локальная суммаризация для агента (проактивность)
     local_summary: Optional[str] = Field(default=None, description="Локальная суммаризация диалога с этим агентом")
@@ -513,6 +580,9 @@ class Message(SQLModel, table=True):
     
     # Метаданные (например, tokens used, model)
     message_metadata: Optional[str] = Field(default=None, description="JSON с метаданными сообщения")
+
+    # Soft Delete for Context Compression
+    is_archived: bool = Field(default=False, description="Архивировано ли сообщение (скрыто из контекста)")
     
     # Timestamp
     created_at: datetime = Field(default_factory=datetime.utcnow)
