@@ -179,7 +179,7 @@ async def process_pending_actions(db: AsyncSession) -> None:
                 continue
             
             # Проверяем тихие часы
-            user_time = get_user_local_time(user)
+            user_time = await get_user_local_time(user)
             if is_quiet_hours(user_time, settings):
                 logger.debug(f"🌙 Тихие часы для пользователя {user.id} ({user_time.strftime('%H:%M')}), пропускаем")
                 skipped += 1
