@@ -48,6 +48,9 @@ class ProactivitySettingsUpdate(BaseModel):
     # Limits
     max_messages_per_day_agents: Optional[int] = None
     max_messages_per_day_assistant: Optional[int] = None
+
+    # Rate Limiter
+    rate_limit_per_minute: Optional[int] = None
     
     # Summarizer Settings
     summarizer_check_interval: Optional[int] = None
@@ -78,6 +81,9 @@ class ProactivitySettingsResponse(BaseModel):
     # Limits
     max_messages_per_day_agents: int
     max_messages_per_day_assistant: int
+
+    # Rate Limiter
+    rate_limit_per_minute: int
     
     # Summarizer Settings
     summarizer_check_interval: int
@@ -209,6 +215,13 @@ async def update_proactivity_settings(
         settings.max_messages_per_day_agents = update_data.max_messages_per_day_agents
     if update_data.max_messages_per_day_assistant is not None:
         settings.max_messages_per_day_assistant = update_data.max_messages_per_day_assistant
+    
+    if update_data.max_messages_per_day_assistant is not None:
+        settings.max_messages_per_day_assistant = update_data.max_messages_per_day_assistant
+    
+    # Update Rate Limiter
+    if update_data.rate_limit_per_minute is not None:
+        settings.rate_limit_per_minute = update_data.rate_limit_per_minute
     
     # Update Summarizer settings
     if update_data.summarizer_check_interval is not None:

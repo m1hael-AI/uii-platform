@@ -244,6 +244,9 @@ class ProactivitySettings(SQLModel, table=True):
     context_threshold: Optional[float] = Field(default=0.9, description="Порог срабатывания сжатия (0.9 = 90% от лимита)")
     context_compression_keep_last: Optional[int] = Field(default=20, description="Сколько последних сообщений оставлять при сжатии")
     
+    # === Rate Limiter ===
+    rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
+    
     
     # === Prompts ===
     agent_memory_prompt: str = Field(
