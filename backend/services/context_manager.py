@@ -44,10 +44,14 @@ def is_context_overflow(
     soft_limit = limit * threshold
     total_tokens = count_tokens_from_messages(messages, model)
     
+    # DEBUG: Always log the check
+    logger.info(f"🔍 Context Check: {total_tokens} tokens | Soft Limit: {int(soft_limit)} ({threshold*100}% of {limit}) | Model: {model}")
+    
     if total_tokens > soft_limit:
         logger.info(f"⚠️ Context Overflow: {total_tokens}/{limit} tokens (Threshold: {int(soft_limit)})")
         return True
-        
+    
+    logger.info(f"✅ Context OK: {total_tokens} < {int(soft_limit)}")    
     return False
 
 
