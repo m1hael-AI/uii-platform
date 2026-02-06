@@ -172,7 +172,7 @@ export default function WebinarPage() {
             try {
                 const url = new URL(`${API_URL}/chat/history`);
                 url.searchParams.append("webinar_id", id);
-                url.searchParams.append("agent_id", "mentor");
+                url.searchParams.append("agent_id", "ai_tutor");
 
                 const res = await fetch(url.toString(), {
                     headers: { Authorization: `Bearer ${token}` }
@@ -223,7 +223,7 @@ export default function WebinarPage() {
                 },
                 body: JSON.stringify({
                     messages: [...messages, { role: 'user' as const, text: userText }].map(m => ({ role: m.role, content: m.text })),
-                    agent_id: "mentor",
+                    agent_id: "ai_tutor",
                     webinar_id: parseInt(id)
                 })
             });
