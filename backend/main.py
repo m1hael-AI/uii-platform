@@ -18,18 +18,18 @@ from config import settings
 from bot.loader import bot, dp
 from routers import users, chat, auth, password_reset, admin, webinars
 from database import init_db
-
+from utils.redis_client import redis_client # Import
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     События при старте и остановке приложения.
-    Startup: создаём таблицы БД, устанавливаем webhook для Telegram, запускаем scheduler
-    Shutdown: удаляем webhook, останавливаем scheduler
     """
     logger.info("Запуск AI University Backend...")
     
-    # Инициализация БД (создание таблиц)
+    # Подключаем Redis (для Rate Limiter)
+    await redis_client.connect()
+
     # Инициализация БД (создание таблиц)
     # try:
     #     await init_db()
@@ -37,17 +37,11 @@ async def lifespan(app: FastAPI):
     # except Exception as e:
     #     logger.error(f"Ошибка инициализации БД: {e}")
     
-    # Telegram webhook setup DISABLED (Using Polling in separate service)
-    # if settings.telegram_bot_token and settings.telegram_webhook_url:
-    #     try:
-    #         webhook_url = f"{settings.telegram_webhook_url}/webhook"
-    #         await bot.set_webhook(
-    #             url=webhook_url,
-    #             secret_token=settings.telegram_webhook_secret,
-    #             drop_pending_updates=True
-    #         )
-    #         logger.info(f"Telegram webhook установлен: {webhook_url}")
-    #     except Exception as e:
+    yield
+    
+    # Отключаем Redis
+    await redis_client.disconnect()
+    logger.info("Остановка AI University Backend...")
     #         logger.error(f"Ошибка установки webhook: {e}")
     # else:
     logger.info("Telegram Webhook отключен (используется Polling в отдельном контейнере)")

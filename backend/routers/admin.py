@@ -30,6 +30,17 @@ class AgentResponse(BaseModel):
     greeting_message: Optional[str] = None
     avatar_url: Optional[str] = None
 
+class AdminUserResponse(BaseModel):
+    id: int
+    tg_id: Optional[int] = None
+    username: Optional[str]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: str
+    created_at: datetime
+    is_onboarded: bool
+
+
 class ProactivitySettingsUpdate(BaseModel):
     # OpenAI Settings
     model: Optional[str] = None
@@ -293,4 +304,23 @@ async def update_system_config(
     await db.commit()
     await db.refresh(existing)
     return existing
+
+@router.get("/users", response_model=List[AdminUserResponse])
+async def list_users(
+    q: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all users with optional search by username"""
+    verify_admin(current_user)
+    
+    stmt = select(User)
+    
+    if q:
+        stmt = stmt.where(User.username.ilike(f"%{q}%"))
+        
+    stmt = stmt.order_by(User.created_at.desc()).limit(50)
+    
+    result = await db.execute(stmt)
+    return result.scalars().all()
 

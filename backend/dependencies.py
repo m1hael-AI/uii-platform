@@ -9,6 +9,7 @@ from database import async_session_factory
 from models import User
 from services.auth import decode_access_token
 from config import settings
+from utils.redis_client import get_redis
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -41,3 +42,30 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: An
     if user is None:
         raise credentials_exception
     return user
+
+async def rate_limiter(user: User = Depends(get_current_user)):
+    """
+    Лимит: 15 сообщений в минуту на пользователя.
+    """
+    limit = 15
+    window = 60
+    
+    redis = await get_redis()
+    if not redis:
+        return # Skip if Redis unavailable
+        
+    key = f"rate_limit:chat:{user.id}"
+    
+    try:
+        current_count = await redis.incr(key)
+        if current_count == 1:
+            await redis.expire(key, window)
+            
+        if current_count > limit:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Слишком много запросов. Пожалуйста, подождите минуту."
+            )
+    except Exception as e:
+        # Fallback if Redis fails
+        print(f"Rate limiter error: {e}")

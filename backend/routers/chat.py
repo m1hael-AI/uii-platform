@@ -12,7 +12,7 @@ import logging
 
 from services.openai_service import generate_chat_response, stream_chat_response
 from services.context_manager import is_context_overflow, compress_context_task
-from dependencies import get_db, get_current_user
+from dependencies import get_db, get_current_user, rate_limiter
 from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule
 from config import settings
 
@@ -317,7 +317,8 @@ async def chat_completions(
     request: ChatRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    _: None = Depends(rate_limiter)
 ):
     # 1. Get Webinar Context
     webinar_context = ""
