@@ -1,10 +1,32 @@
 "use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 import { APP_CONFIG } from "@/lib/config";
-
 import Image from "next/image";
-import Link from "next/link";
 
 export default function Home() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const token = Cookies.get("token");
+    if (token) {
+      router.push("/platform");
+    } else {
+      setIsChecking(false);
+    }
+  }, [router]);
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        {/* Simple loading state/spinner or blank to prevent flicker */}
+        <div className="w-8 h-8 border-4 border-[#206ecf] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center">
