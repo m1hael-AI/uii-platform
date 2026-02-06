@@ -26,6 +26,10 @@ def upgrade():
     op.alter_column('proactivity_settings', 'trigger_max_tokens',
                existing_type=sa.INTEGER(),
                nullable=True)
+    
+    # Reset existing default values to NULL (for unlimited)
+    op.execute("UPDATE proactivity_settings SET memory_max_tokens = NULL WHERE memory_max_tokens = 800")
+    op.execute("UPDATE proactivity_settings SET trigger_max_tokens = NULL WHERE trigger_max_tokens = 500")
 
 
 def downgrade():
