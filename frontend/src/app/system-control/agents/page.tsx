@@ -48,7 +48,15 @@ export default function AgentsControlPage() {
 
                 if (res.ok) {
                     const data = await res.json();
-                    setAgents(data);
+
+                    // Sort: main_assistant first, then by ID
+                    const sorted = data.sort((a: any, b: any) => {
+                        if (a.slug === 'main_assistant' || a.slug === 'assistant') return -1;
+                        if (b.slug === 'main_assistant' || b.slug === 'assistant') return 1;
+                        return a.id - b.id;
+                    });
+
+                    setAgents(sorted);
                 }
             } catch (e) {
                 console.error("Failed to fetch agents", e);

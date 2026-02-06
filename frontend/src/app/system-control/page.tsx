@@ -37,7 +37,7 @@ export default function AdminPage() {
         // Можно добавить карточку пользователей позже
         {
             title: "Список Пользователей",
-            description: "Просмотр и управление пользователями (Пока не реализовано UI)",
+            description: "Просмотр и управление пользователями",
             href: "/system-control/users",
             icon: (
                 <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

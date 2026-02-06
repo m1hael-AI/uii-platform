@@ -62,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
 
                 <div className="flex items-center gap-6">
-                    <div className="text-xs font-mono text-gray-400">SECURE_CTX_ACTIVE</div>
+
                     <button
                         onClick={() => router.push("/platform")}
                         className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-black hover:bg-gray-100 rounded-md transition-colors"

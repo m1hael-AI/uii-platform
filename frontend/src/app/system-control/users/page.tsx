@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 interface User {
     id: number;
+    tg_id?: number;
     username?: string;
-    first_name?: string;
-    last_name?: string;
+    tg_first_name?: string;
+    tg_last_name?: string;
     role: string;
     created_at: string;
     is_onboarded: boolean;
@@ -83,6 +84,7 @@ export default function UsersAdminPage() {
                     <thead>
                         <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                             <th className="p-4 font-semibold">ID</th>
+                            <th className="p-4 font-semibold">TG ID</th>
                             <th className="p-4 font-semibold">Пользователь</th>
                             <th className="p-4 font-semibold">Имя (TG)</th>
                             <th className="p-4 font-semibold">Роль</th>
@@ -112,11 +114,12 @@ export default function UsersAdminPage() {
                             users.map(user => (
                                 <tr key={user.id} className="hover:bg-blue-50/50 transition-colors">
                                     <td className="p-4 text-gray-400 font-mono text-xs">{user.id}</td>
+                                    <td className="p-4 text-gray-800 font-mono text-sm">{user.tg_id}</td>
                                     <td className="p-4 font-medium text-gray-800">
                                         @{user.username || "no_username"}
                                     </td>
                                     <td className="p-4 text-gray-600">
-                                        {user.first_name} {user.last_name}
+                                        {user.tg_first_name} {user.tg_last_name}
                                     </td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'
