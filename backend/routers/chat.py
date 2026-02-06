@@ -413,7 +413,9 @@ async def chat_completions(
         
         # --- DELAYED AUTO GREETING (1 second) ---
         # Send greeting AFTER frontend loads history to trigger notification
-        async def send_delayed_greeting():
+        # BUT NOT for ai_tutor (frontend handles it)
+        if slug != "ai_tutor":
+            async def send_delayed_greeting():
             await asyncio.sleep(1)  # Wait 1 second
             
             # Create new DB session for background task
@@ -450,8 +452,8 @@ async def chat_completions(
                 # 🔔 Notify User (New Greeting Message)
                 await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
         
-        # Start background task (don't await)
-        asyncio.create_task(send_delayed_greeting())
+            # Start background task (don't await)
+            asyncio.create_task(send_delayed_greeting())
         # ---------------------
 
     # 3. Save User Message
