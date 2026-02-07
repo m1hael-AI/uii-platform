@@ -153,7 +153,7 @@ export default function RightSidebar() {
     }, []);
 
     // 🔔 UNIFIED NOTIFICATION LOGIC
-    // Only notifies on COMPLETED messages
+    // Uses localStorage to track seen messages (prevent nagging but allow persistent notification)
     useEffect(() => {
         if (isOpen) {
             // SCENARIO 1: Sidebar is OPEN. 
@@ -161,44 +161,36 @@ export default function RightSidebar() {
             if (hasUnreadMessages) setHasUnreadMessages(false);
             if (showTooltip) setShowTooltip(false);
 
-            // Mark all current COMMITTED messages as seen
+            // Mark all current COMMITTED messages as seen in LocalStorage
             if (messages.length > 0) {
+                const lastMsg = messages[messages.length - 1];
                 setLastTooltipMessageIndex(messages.length - 1);
+
+                // Save ID to prevent future alerts for this message
+                if (lastMsg.created_at) {
+                    localStorage.setItem("lastSeenTooltipMessageId", lastMsg.created_at);
+                }
             }
         } else {
             // SCENARIO 2: Sidebar is CLOSED.
-            // 🆕 VARIANT 1: Allow notification if history was empty (new user)
-            console.log("🔍 DEBUG Notification Check:", {
-                isInitialLoad: isInitialLoad.current,
-                wasHistoryEmpty: wasHistoryEmpty.current,
-                messagesLength: messages.length,
-                isOpen
-            });
-
-            if (isInitialLoad.current && !wasHistoryEmpty.current) {
-                console.log("❌ Blocked: isInitialLoad=true and history was NOT empty");
-                return;
-            }
-
-            // Trigger: New COMMITTED message (finished)
             const currentIndex = messages.length - 1;
             const lastMessage = messages[currentIndex];
 
-            console.log("🔍 Last Message:", lastMessage);
-            console.log("🔍 lastTooltipMessageIndex:", lastTooltipMessageIndex);
+            // Check if we have a valid assistant message with timestamp (ID)
+            if (lastMessage && lastMessage.role === 'assistant' && lastMessage.created_at) {
+                const msgId = lastMessage.created_at;
+                const seenMsgId = localStorage.getItem("lastSeenTooltipMessageId");
 
-            // Allow notification ONLY if it's a new, untracked message
-            // AND it's not a temporary user optimistic message (wait for assistant)
-            const isNewCommitted = lastMessage && lastMessage.role === 'assistant' && currentIndex > lastTooltipMessageIndex;
-
-            console.log("🔍 isNewCommitted:", isNewCommitted);
-
-            if (isNewCommitted) {
-                if (!hasUnreadMessages) {
-                    console.log("✅ SHOWING TOOLTIP!");
+                // Logic: Show tooltip IF:
+                // 1. Message ID is different from what we last saw (New message for us)
+                // 2. AND the message is actually Unread (Red dot is active)
+                if (msgId !== seenMsgId && hasUnreadMessages) {
+                    console.log("✅ SHOWING TOOLTIP (Smart Notification)");
                     setShowTooltip(true);
                     setLastTooltipMessageIndex(currentIndex);
-                    setHasUnreadMessages(true);
+
+                    // Mark as "Seen Notification" immediately so we don't nag on refresh
+                    localStorage.setItem("lastSeenTooltipMessageId", msgId);
 
                     // Auto-hide tooltip
                     const timer = setTimeout(() => setShowTooltip(false), 5000);
