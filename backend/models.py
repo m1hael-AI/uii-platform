@@ -229,7 +229,6 @@ class ProactivitySettings(SQLModel, table=True):
 
 КОНТЕКСТ:
 - Текущая память агента: {current_memory}
-- Глобальный профиль пользователя: {user_profile}
 - Новые сообщения: {full_chat_history}
 
 ЗАДАЧА:

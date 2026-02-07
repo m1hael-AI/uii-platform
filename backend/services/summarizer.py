@@ -143,8 +143,7 @@ async def process_memory_update(
         # Логика обычного агента
         prompt = settings.agent_memory_prompt.format(
             full_chat_history=format_messages_for_prompt(new_messages),
-            current_memory=current_memory,
-            user_profile=user_profile
+            current_memory=current_memory
         )
 
     # 3. Запрос к LLM для памяти
