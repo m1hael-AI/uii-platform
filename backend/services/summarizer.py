@@ -294,6 +294,7 @@ async def check_proactivity_trigger(
     prompt = settings.proactivity_trigger_prompt.format(
         user_profile=user_profile,
         agent_memory=agent_memory,
+        current_memory=agent_memory, # ALIAS: Fix legacy prompt variable
         full_chat_history=full_chat_history,
         recent_history=full_chat_history, # ALIAS: Fix legacy prompt variable
         silence_hours=silence_hours
