@@ -11,7 +11,10 @@ async def get_proactivity_settings(db: AsyncSession) -> ProactivitySettings:
     
     if not settings:
         logger.info("⚡ Creating default ProactivitySettings")
-        settings = ProactivitySettings()
+        settings = ProactivitySettings(
+            memory_max_tokens=2000,
+            trigger_max_tokens=1000
+        )
         db.add(settings)
         await db.commit()
         await db.refresh(settings)
@@ -26,7 +29,10 @@ async def get_chat_settings(db: AsyncSession) -> ChatSettings:
     
     if not settings:
         logger.info("⚡ Creating default ChatSettings")
-        settings = ChatSettings()
+        settings = ChatSettings(
+            user_chat_max_tokens=2000,
+            compression_max_tokens=1000
+        )
         db.add(settings)
         await db.commit()
         await db.refresh(settings)
