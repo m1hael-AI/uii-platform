@@ -115,11 +115,28 @@ async def process_memory_update(
     user_profile = user_memory.narrative_summary if user_memory else "Нет данных"
     current_memory = chat_session.user_agent_profile or "Пусто"
     
+    # Получаем контекст (последние 8 сообщений ДО новых)
+    # Если new_messages пуст, мы сюда не дойдем (фильтр выше)
+    first_new_msg_id = new_messages[0].id
+    
+    context_msgs_result = await db.execute(
+        select(Message)
+        .where(Message.session_id == chat_session.id)
+        .where(Message.id < first_new_msg_id)
+        .where(Message.is_archived == False)
+        .order_by(Message.id.desc())
+        .limit(8)
+    )
+    context_msgs = context_msgs_result.scalars().all()
+    # Разворачиваем обратно в хронологический порядок
+    context_history = format_messages_for_prompt(list(reversed(context_msgs)))
+
     # 2. Выбираем промпт и логику (Агент vs Ассистент)
     if chat_session.agent_slug == "main_assistant":
         # Логика AI Помощника (видит всех)
         all_sessions_result = await db.execute(
             select(ChatSession).where(ChatSession.user_id == user.id)
+        )
         # Получаем память всех других агентов для контекста
         other_memories = await db.execute(
              select(ChatSession.agent_slug, ChatSession.user_agent_profile)
@@ -132,12 +149,13 @@ async def process_memory_update(
             user_profile=user_profile,
             all_agent_memories=memories_text,
             current_memory=current_memory,
-            full_chat_history=format_messages_for_prompt(new_messages)
+            context_history=context_history,
+            new_messages_text=format_messages_for_prompt(new_messages)
         )
     else:
         # Логика обычного агента
         prompt = settings.agent_memory_prompt.format(
-            full_chat_history=format_messages_for_prompt(new_messages),
+            new_messages_text=format_messages_for_prompt(new_messages),
             current_memory=current_memory,
             context_history=context_history
         )
