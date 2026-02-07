@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import PromptTooltip from '@/components/PromptTooltip';
 
 interface ChatSettings {
     id: number;
@@ -400,9 +401,12 @@ export default function ChatSettingsPage() {
 
                     {/* Compression Prompt (Aggregated) */}
                     <div className="mt-6 border-t border-gray-100 pt-6">
-                        <label className="block text-lg font-medium text-gray-900 mb-2">
-                            Промпт сжатия
-                        </label>
+                        <div className="flex items-center mb-2">
+                            <label className="block text-lg font-medium text-gray-900 mr-2">
+                                Промпт сжатия
+                            </label>
+                            <PromptTooltip content={`Переменные:\n\n{previous_summary} - Старое саммари.\n{text_to_compress} - Старые сообщения для сжатия.\n\nЗадача: Создать ТЕХНИЧЕСКОЕ сжатое саммари.`} />
+                        </div>
                         <p className="text-sm text-gray-500 mb-4">
                             Инструкция для модели, как именно сжимать диалог при достижении лимита.
                         </p>

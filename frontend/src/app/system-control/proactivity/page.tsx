@@ -419,22 +419,7 @@ export default function ProactivityAdminPage() {
                             />
                         </div>
 
-                        {/* Compression Prompt */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center mb-2">
-                                <h2 className="text-xl font-semibold">Промпт для сжатия (Summarization)</h2>
-                                <PromptTooltip content={`Переменные:\n\n{previous_summary} - Старое саммари.\n{text_to_compress} - Старые сообщения для сжатия.\n\nЗадача: Создать ТЕХНИЧЕСКОЕ сжатое саммари.`} />
-                            </div>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Используется при переполнении контекста для технического сжатия
-                            </p>
-                            <textarea
-                                value={settings.compression_prompt}
-                                onChange={(e) => setSettings({ ...settings, compression_prompt: e.target.value })}
-                                rows={15}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                            />
-                        </div>
+
                     </div >
                 )
             }

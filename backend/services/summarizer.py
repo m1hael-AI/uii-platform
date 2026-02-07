@@ -348,7 +348,24 @@ async def check_proactivity_trigger(
         .order_by(Message.created_at.asc())
     )
     
-    # 2. Проверка Anti-Spam: лимит сообщений подряд
+    
+    # 2. FILTER: Skip if no messages from USER
+    # We check if there are ANY user messages in the history.
+    # If the user has never sent a message, we should NOT trigger proactivity.
+    has_user_messages = await db.scalar(
+        select(Message)
+        .where(Message.session_id == chat_session.id)
+        .where(Message.role == MessageRole.USER)
+        .limit(1)
+    )
+    
+    if not has_user_messages:
+        # logger.info(f"⏭️ Skipping proactivity for {chat_session.id}: no user messages ever")
+        chat_session.last_proactivity_check_at = datetime.utcnow()
+        await db.commit()
+        return
+
+    # 3. Проверка Anti-Spam: лимит сообщений подряд
     max_consecutive = settings.max_consecutive_messages or 3
     consecutive_assistant_msgs = 0
     
