@@ -151,16 +151,21 @@ async def process_memory_update(
         
         prompt = settings.assistant_memory_prompt.format(
             user_profile=user_profile,
+            user_summary=user_profile, # ALIAS
             all_agent_memories=memories_text,
             current_memory=current_memory,
+            agent_memory=current_memory, # ALIAS
             context_history=context_history,
-            new_messages_text=format_messages_for_prompt(new_messages)
+            new_messages_text=format_messages_for_prompt(new_messages),
+            full_chat_history=format_messages_for_prompt(new_messages) # ALIAS
         )
     else:
         # Логика обычного агента
         prompt = settings.agent_memory_prompt.format(
             new_messages_text=format_messages_for_prompt(new_messages),
+            full_chat_history=format_messages_for_prompt(new_messages), # ALIAS
             current_memory=current_memory,
+            agent_memory=current_memory, # ALIAS
             context_history=context_history
         )
 
@@ -291,13 +296,17 @@ async def check_proactivity_trigger(
     full_chat_history = format_messages_for_prompt(list(reversed(recent_msgs_list)))
     
     # 3. Формируем промпт из настроек
+    # Добавляем ВСЕ возможные алиасы для старых версий промптов в БД
     prompt = settings.proactivity_trigger_prompt.format(
         user_profile=user_profile,
+        user_summary=user_profile, # ALIAS
         agent_memory=agent_memory,
-        current_memory=agent_memory, # ALIAS: Fix legacy prompt variable
+        current_memory=agent_memory, # ALIAS
         full_chat_history=full_chat_history,
-        recent_history=full_chat_history, # ALIAS: Fix legacy prompt variable
-        silence_hours=silence_hours
+        recent_history=full_chat_history, # ALIAS
+        last_messages=full_chat_history, # ALIAS
+        silence_hours=silence_hours,
+        hours_since_last_msg=silence_hours # ALIAS
     )
     
     # 3. Запрос к LLM
