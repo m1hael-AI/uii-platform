@@ -267,19 +267,19 @@ async def check_proactivity_trigger(
     recent_msgs = await db.execute(
         select(Message)
         .where(Message.session_id == chat_session.id)
-        .order_by(Message.created_at.desc())
-        .limit(10)
+        .where(Message.is_archived == False)
+        .order_by(Message.created_at.asc())
     )
     
     # 2. Проверка Anti-Spam: лимит сообщений подряд
     max_consecutive = settings.max_consecutive_messages or 3
     consecutive_assistant_msgs = 0
     
-    # recent_msgs уже отсортированы DESC (от новых к старым)
-    # но нам нужно проверить их в этом порядке
+    # recent_msgs уже отсортированы ASC (от старых к новым)
     recent_msgs_list = recent_msgs.scalars().all()
     
-    for msg in recent_msgs_list:
+    # Проверяем с конца (reversed), так как нам нужны ПОСЛЕДНИЕ сообщения
+    for msg in reversed(recent_msgs_list):
         if msg.role.value == "assistant":
             consecutive_assistant_msgs += 1
         else:
@@ -293,7 +293,8 @@ async def check_proactivity_trigger(
         await db.commit()
         return
 
-    full_chat_history = format_messages_for_prompt(list(reversed(recent_msgs_list)))
+    # Передаем весь контекст (ASC порядок уже правильный для промпта)
+    full_chat_history = format_messages_for_prompt(recent_msgs_list)
     
     # 3. Формируем промпт из настроек
     # Добавляем ВСЕ возможные алиасы для старых версий промптов в БД
@@ -324,14 +325,14 @@ async def check_proactivity_trigger(
              result_text = result_text.split("```")[1].replace("json", "").strip()
         
         # Audit
-        await fire_and_forget_audit(
-             db_session=db,
+        fire_and_forget_audit(
              user_id=user.id,
              agent_slug=f"{chat_session.agent_slug}:proactivity",
-             prompt=prompt,
-             response=result_text,
              model=settings.trigger_model,
-             tokens_used=response.usage.total_tokens,
+             messages=llm_messages,
+             response_content=result_text,
+             input_tokens=response.usage.prompt_tokens,
+             output_tokens=response.usage.completion_tokens,
              duration_ms=0
          )
 
