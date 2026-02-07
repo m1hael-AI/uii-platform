@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from openai import AsyncOpenAI
 from loguru import logger
+from pydantic import BaseModel, Field, validator
 import json
 import time
 from services.audit_service import fire_and_forget_audit
@@ -24,6 +25,28 @@ from models import (
     LLMAudit
 )
 from config import settings as app_settings
+
+
+# Pydantic models for LLM response validation
+class ProactivityDecision(BaseModel):
+    """Validated response from proactivity trigger LLM."""
+    create_task: bool = Field(description="Whether to create a proactive message task")
+    reasoning: str = Field(min_length=3, description="Explanation for the decision")
+    topic: str = Field(default="", description="Topic for the proactive message if create_task=true")
+    
+    @validator('topic')
+    def topic_required_if_create_task(cls, v, values):
+        """Ensure topic is provided when creating a task."""
+        if values.get('create_task') and not v:
+            raise ValueError('topic is required when create_task is true')
+        return v
+
+
+class MemoryUpdate(BaseModel):
+    """Validated response from memory update LLM."""
+    memory_update: str = Field(min_length=5, description="Updated memory about the user")
+    global_profile_update: Optional[str] = Field(default=None, description="Global profile update (main assistant only)")
+
 
 
 # Инициализация OpenAI клиента
@@ -310,14 +333,42 @@ async def check_proactivity_trigger(
         hours_since_last_msg=silence_hours # ALIAS
     )
     
-    # 3. Запрос к LLM
+    # 3. Запрос к LLM с Structured Outputs
     try:
         llm_messages = [{"role": "user", "content": prompt}]
+        
+        # Use OpenAI Structured Outputs for guaranteed valid JSON
         response = await openai_client.chat.completions.create(
             model=settings.trigger_model, 
             messages=llm_messages,
             temperature=settings.trigger_temperature,
-            max_tokens=settings.trigger_max_tokens
+            max_tokens=settings.trigger_max_tokens,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "proactivity_decision",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "create_task": {
+                                "type": "boolean",
+                                "description": "Whether to create a proactive message task"
+                            },
+                            "reasoning": {
+                                "type": "string",
+                                "description": "Explanation for the decision"
+                            },
+                            "topic": {
+                                "type": "string",
+                                "description": "Topic for the proactive message if create_task is true"
+                            }
+                        },
+                        "required": ["create_task", "reasoning", "topic"],
+                        "additionalProperties": False
+                    }
+                }
+            }
         )
         
         result_text = response.choices[0].message.content.strip()
@@ -334,22 +385,13 @@ async def check_proactivity_trigger(
             duration_ms=0
         )
 
-        # Extract JSON from markdown code blocks if present
-        result_text_clean = result_text.strip()
-        if result_text_clean.startswith("```"):
-            # Remove markdown code block markers
-            lines = result_text_clean.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]  # Remove opening ```json or ```
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]  # Remove closing ```
-            result_text_clean = "\n".join(lines).strip()
+        # Parse and validate with Pydantic
+        result_dict = json.loads(result_text)
+        decision = ProactivityDecision(**result_dict)
         
-        result = json.loads(result_text_clean)
-        
-        if result.get("create_task", False):
-            topic = result.get("topic", "Возврат к теме")
-            reasoning = result.get("reasoning", "No reasoning provided")
+        if decision.create_task:
+            topic = decision.topic
+            reasoning = decision.reasoning
             reason = f"Proactivity triggered after {silence_hours}h silence. Reasoning: {reasoning}"
             
             # Проверяем Anti-Spam (уже есть pending?)
@@ -372,15 +414,23 @@ async def check_proactivity_trigger(
             else:
                  logger.info("⚠️ Proactivity skipped: Pending Action already exists")
         else:
-            reasoning = result.get("reasoning", "No reasoning provided")
+            reasoning = decision.reasoning
             logger.info(f"💤 Proactivity decided not to act (create_task=false). Reason: {reasoning}")
 
         # Обновляем timestamp проверки
         chat_session.last_proactivity_check_at = datetime.utcnow()
         await db.commit()
 
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON parsing error in proactivity check for session {chat_session.id}: {e}")
+        # Update timestamp to prevent infinite retries
+        chat_session.last_proactivity_check_at = datetime.utcnow()
+        await db.commit()
     except Exception as e:
-        logger.error(f"❌ Error checking proactivity: {e}")
+        logger.error(f"❌ Unexpected error checking proactivity for session {chat_session.id}: {e}", exc_info=True)
+        # Update timestamp to prevent infinite retries
+        chat_session.last_proactivity_check_at = datetime.utcnow()
+        await db.commit()
 
 
 async def process_idle_chat(
