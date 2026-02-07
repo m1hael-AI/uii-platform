@@ -216,14 +216,29 @@ async def check_proactivity_trigger(
     """
     logger.info(f"🤔 Checking proactivity for session {chat_session.id}")
     
-    # 1. Получаем контекст (последние сообщения для контекста)
-    # Берем последние 10, даже если они старые
+    # 1. Получаем контекст
+    user_memory_result = await db.execute(
+        select(UserMemory).where(UserMemory.user_id == user.id)
+    )
+    user_memory = user_memory_result.scalar_one_or_none()
+    user_profile = user_memory.narrative_summary if user_memory and user_memory.narrative_summary else "Нет данных"
+    agent_memory = chat_session.user_agent_profile or "Нет данных"
+    
+    # Вычисляем время молчания
+    if chat_session.last_message_at:
+        silence_duration = datetime.utcnow() - chat_session.last_message_at
+        silence_hours = round(silence_duration.total_seconds() / 3600, 1)
+    else:
+        silence_hours = 0
+    
+    # Получаем последние сообщения для контекста
     recent_msgs = await db.execute(
         select(Message)
         .where(Message.session_id == chat_session.id)
         .order_by(Message.created_at.desc())
         .limit(10)
     )
+    
     # 2. Проверка Anti-Spam: лимит сообщений подряд
     max_consecutive = settings.max_consecutive_messages or 3
     consecutive_assistant_msgs = 0
@@ -246,14 +261,14 @@ async def check_proactivity_trigger(
         await db.commit()
         return
 
-    recent_history = format_messages_for_prompt(list(reversed(recent_msgs_list)))
+    full_chat_history = format_messages_for_prompt(list(reversed(recent_msgs_list)))
     
     # 3. Формируем промпт из настроек
     prompt = settings.proactivity_trigger_prompt.format(
         user_profile=user_profile,
-        recent_history=recent_history,
-        current_memory=current_memory,
-        hours_since_last_msg=hours_since
+        agent_memory=agent_memory,
+        full_chat_history=full_chat_history,
+        silence_hours=silence_hours
     )
     
     # 3. Запрос к LLM
@@ -272,9 +287,9 @@ async def check_proactivity_trigger(
         
         result = json.loads(result_text)
         
-        if result.get("should_message"):
-            topic = result.get("topic_context", "Возврат к теме")
-            reason = result.get("reason", "")
+        if result.get("create_task", False):
+            topic = result.get("topic", "Возврат к теме")
+            reason = f"Proactivity triggered after {silence_hours}h silence"
             
             # Проверяем Anti-Spam (уже есть pending?)
             existing = await db.scalar(
@@ -296,7 +311,7 @@ async def check_proactivity_trigger(
             else:
                  logger.info("⚠️ Proactivity skipped: Pending Action already exists")
         else:
-            logger.info(f"💤 Proactivity decided not to act: {result.get('reason')}")
+            logger.info(f"💤 Proactivity decided not to act (create_task=false)")
 
         # Обновляем timestamp проверки
         chat_session.last_proactivity_check_at = datetime.utcnow()
