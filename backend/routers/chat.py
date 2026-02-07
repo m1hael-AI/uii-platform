@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, delete, or_, update
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import asyncio
 import json
