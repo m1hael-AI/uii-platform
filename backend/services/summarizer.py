@@ -192,19 +192,59 @@ async def process_memory_update(
             context_history=context_history
         )
 
-    # 3. Запрос к LLM для памяти
+    # 3. Запрос к LLM для памяти с Structured Outputs
     try:
         llm_messages = [
             {"role": "system", "content": "Ты — аналитик памяти. Точно следуй инструкциям. Верни валидный JSON."},
             {"role": "user", "content": prompt}
         ]
         
-        # Call OpenAI
+        # Determine schema based on agent type
+        if chat_session.agent_slug == "main_assistant":
+            # Main assistant needs both memory_update and global_profile_update
+            schema = {
+                "type": "object",
+                "properties": {
+                    "memory_update": {
+                        "type": "string",
+                        "description": "Updated memory about the user for this agent"
+                    },
+                    "global_profile_update": {
+                        "type": "string",
+                        "description": "Global profile update across all agents"
+                    }
+                },
+                "required": ["memory_update", "global_profile_update"],
+                "additionalProperties": False
+            }
+        else:
+            # Regular agents only need memory_update
+            schema = {
+                "type": "object",
+                "properties": {
+                    "memory_update": {
+                        "type": "string",
+                        "description": "Updated memory about the user"
+                    }
+                },
+                "required": ["memory_update"],
+                "additionalProperties": False
+            }
+        
+        # Call OpenAI with Structured Outputs
         response = await openai_client.chat.completions.create(
             model=settings.memory_model,
             messages=llm_messages,
             temperature=settings.memory_temperature,
-            max_tokens=settings.memory_max_tokens
+            max_tokens=settings.memory_max_tokens,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "memory_update",
+                    "strict": True,
+                    "schema": schema
+                }
+            }
         )
         
         # Fire audit log
@@ -229,15 +269,14 @@ async def process_memory_update(
              )
 
         result_text = response.choices[0].message.content.strip()
-        if result_text.startswith("```"):
-            result_text = result_text.split("```")[1]
-            if result_text.startswith("json"):
-                result_text = result_text[4:]
         
-        result = json.loads(result_text)
+        # Parse and validate with Pydantic
+        result_dict = json.loads(result_text)
+        memory_data = MemoryUpdate(**result_dict)
+        
         
         # 4. Сохраняем результаты
-        memory_update = result.get("memory_update", current_memory)
+        memory_update = memory_data.memory_update
         if isinstance(memory_update, (dict, list)):
             memory_update = json.dumps(memory_update, ensure_ascii=False)
             
@@ -245,18 +284,21 @@ async def process_memory_update(
         chat_session.summarized_at = datetime.utcnow()
         
         if chat_session.agent_slug == "main_assistant":
-            profile_update = result.get("global_profile_update", user_profile)
+            profile_update = memory_data.global_profile_update or user_profile
             if isinstance(profile_update, (dict, list)):
                 profile_update = json.dumps(profile_update, ensure_ascii=False)
             if user_memory:
                  user_memory.narrative_summary = profile_update
                  user_memory.updated_at = datetime.utcnow()
 
+
         await db.commit()
         logger.info(f"✅ Memory updated for {chat_session.agent_slug}")
 
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON parsing error in memory update for session {chat_session.id}: {e}")
     except Exception as e:
-        logger.error(f"❌ Error updating memory: {e}")
+        logger.error(f"❌ Unexpected error updating memory for session {chat_session.id}: {e}", exc_info=True)
 
 
 async def check_proactivity_trigger(
