@@ -321,22 +321,31 @@ async def check_proactivity_trigger(
         )
         
         result_text = response.choices[0].message.content.strip()
-        if result_text.startswith("```"):
-             result_text = result_text.split("```")[1].replace("json", "").strip()
         
         # Audit
         fire_and_forget_audit(
-             user_id=user.id,
-             agent_slug=f"{chat_session.agent_slug}:proactivity",
-             model=settings.trigger_model,
-             messages=llm_messages,
-             response_content=result_text,
-             input_tokens=response.usage.prompt_tokens,
-             output_tokens=response.usage.completion_tokens,
-             duration_ms=0
-         )
+            user_id=user.id,
+            agent_slug=f"{chat_session.agent_slug}:proactivity",
+            model=settings.trigger_model,
+            messages=llm_messages,
+            response_content=result_text,
+            input_tokens=response.usage.prompt_tokens,
+            output_tokens=response.usage.completion_tokens,
+            duration_ms=0
+        )
 
-        result = json.loads(result_text)
+        # Extract JSON from markdown code blocks if present
+        result_text_clean = result_text.strip()
+        if result_text_clean.startswith("```"):
+            # Remove markdown code block markers
+            lines = result_text_clean.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]  # Remove opening ```json or ```
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]  # Remove closing ```
+            result_text_clean = "\n".join(lines).strip()
+        
+        result = json.loads(result_text_clean)
         
         if result.get("create_task", False):
             topic = result.get("topic", "Возврат к теме")
