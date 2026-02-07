@@ -18,7 +18,11 @@ import json
 import time
 from services.audit_service import fire_and_forget_audit
 
-from models import ChatSession, Message, UserMemory, PendingAction, ProactivitySettings, User, Agent
+from models import (
+    User, ChatSession, Message, MessageRole,
+    UserMemory, ProactivitySettings, PendingAction, Agent,
+    LLMAudit
+)
 from config import settings as app_settings
 
 
