@@ -327,7 +327,8 @@ async def check_proactivity_trigger(
         
         if result.get("create_task", False):
             topic = result.get("topic", "Возврат к теме")
-            reason = f"Proactivity triggered after {silence_hours}h silence"
+            reasoning = result.get("reasoning", "No reasoning provided")
+            reason = f"Proactivity triggered after {silence_hours}h silence. Reasoning: {reasoning}"
             
             # Проверяем Anti-Spam (уже есть pending?)
             existing = await db.scalar(
@@ -349,7 +350,8 @@ async def check_proactivity_trigger(
             else:
                  logger.info("⚠️ Proactivity skipped: Pending Action already exists")
         else:
-            logger.info(f"💤 Proactivity decided not to act (create_task=false)")
+            reasoning = result.get("reasoning", "No reasoning provided")
+            logger.info(f"💤 Proactivity decided not to act (create_task=false). Reason: {reasoning}")
 
         # Обновляем timestamp проверки
         chat_session.last_proactivity_check_at = datetime.utcnow()
