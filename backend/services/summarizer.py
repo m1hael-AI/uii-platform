@@ -323,6 +323,18 @@ async def check_proactivity_trigger(
         if result_text.startswith("```"):
              result_text = result_text.split("```")[1].replace("json", "").strip()
         
+        # Audit
+        await fire_and_forget_audit(
+             db_session=db,
+             user_id=user.id,
+             agent_slug=f"{chat_session.agent_slug}:proactivity",
+             prompt=prompt,
+             response=result_text,
+             model=settings.trigger_model,
+             tokens_used=response.usage.total_tokens,
+             duration_ms=0
+         )
+
         result = json.loads(result_text)
         
         if result.get("create_task", False):
