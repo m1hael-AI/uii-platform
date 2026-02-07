@@ -270,6 +270,9 @@ async def process_memory_update(
 
         result_text = response.choices[0].message.content.strip()
         
+        # Log raw response for debugging
+        logger.info(f"🔍 Raw LLM response for memory update (session {chat_session.id}): {result_text[:200]}...")
+        
         # Parse and validate with Pydantic
         result_dict = json.loads(result_text)
         memory_data = MemoryUpdate(**result_dict)

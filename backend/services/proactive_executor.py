@@ -162,7 +162,7 @@ async def generate_proactive_message(
         )
     )
     session = session_result.scalar_one_or_none()
-    agent_summary = session.local_summary if session else ""
+    agent_summary = session.user_agent_profile if session else ""
     
     # Заменяем плейсхолдеры в системном промпте
     system_prompt = replace_placeholders(

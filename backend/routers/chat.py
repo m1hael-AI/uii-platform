@@ -138,6 +138,7 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
             agent_obj = agent_res.scalar_one_or_none()
             if not agent_obj: continue
         
+        session_created = False
         try:
             # Create Session
             new_session = ChatSession(
@@ -148,23 +149,17 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
             db.add(new_session)
             await db.commit()
             await db.refresh(new_session)
+            session_created = True
         except IntegrityError:
             # Race condition: another request already created this session
             await db.rollback()
             logger.warning(f"Session for user {user_id}, agent {slug} already exists (race condition)")
-            # Query for existing session to continue with greeting
-            existing_q = select(ChatSession).where(
-                ChatSession.user_id == user_id,
-                ChatSession.agent_slug == slug
-            )
-            existing_res = await db.execute(existing_q)
-            new_session = existing_res.scalar_one_or_none()
-            if not new_session:
-                logger.error(f"Failed to find session after IntegrityError for user {user_id}, agent {slug}")
-                continue
+            # Skip creating greeting message - it was already created by the first request
+            continue
         
         # Create greeting message for AGENTS (not for main_assistant)
-        if slug != "main_assistant":
+        # Only if we just created the session in this request
+        if session_created and slug != "main_assistant":
             welcome_text = agent_obj.greeting_message if agent_obj.greeting_message else GREETINGS.get(slug, "Привет! Чем могу помочь?")
             
             msg = Message(
