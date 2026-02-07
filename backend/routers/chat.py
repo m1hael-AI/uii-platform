@@ -552,29 +552,93 @@ async def chat_completions(
     # C. Prepare System Prompt
     system_prompt = "You are a helpful AI Assistant."
     
-    if webinar_context:
-        system_prompt = (
-            f"Ты — виртуальный ассистент по вебинару.\n"
-            f"Используй ТОЛЬКО следующий текст для ответа на вопросы:\n"
-            f"--- НАЧАЛО ТЕКСТА ---\n"
-            f"{webinar_context[:150000]}\n" # Safety truncation
-            f"--- КОНЕЦ ТЕКСТА ---\n"
-            f"Если ответа нет в тексте, скажи об этом вежливо."
-        )
+    # C. Prepare System Prompt (Unified Logic)
+    # Always load from DB first
+    agent_slug = request.agent_id or "ai_tutor"
+    agent_res = await db.execute(select(Agent).where(Agent.slug == agent_slug))
+    agent_obj = agent_res.scalar_one_or_none()
+    
+    if agent_obj and agent_obj.system_prompt:
+        system_prompt = agent_obj.system_prompt
     else:
-        # Load agent from DB
-        agent_slug = request.agent_id or "ai_tutor"
-        agent_res = await db.execute(select(Agent).where(Agent.slug == agent_slug))
-        agent_obj = agent_res.scalar_one_or_none()
-        if agent_obj and agent_obj.system_prompt:
-            system_prompt = agent_obj.system_prompt
+        system_prompt = "You are a helpful AI Assistant." # Fallback
+
+    # D. INJECTION
+    
+    # 1. Webinar Context Injection
+    
+    # D. INJECTION
+    
+    # 1. Memory Injection (FIRST)
+    # We rely on specific placeholders in the prompt text: {user_profile}, {user_agent_profile}
+    system_prompt = system_prompt.replace("{user_profile}", global_profile)
+    system_prompt = system_prompt.replace("{user_agent_profile}", local_profile)
+    system_prompt = system_prompt.replace("{local_summary}", local_profile) # Legacy support
+
+    # 2. Webinar Context Injection (SECOND - Dynamic Size)
+    if webinar_context:
+        from config import settings # Lazy import
+        from services.context_manager import get_model_limit
+        from utils.token_counter import count_string_tokens, count_tokens_from_messages, get_encoding
+        
+        model_name = settings.openai_model
+        max_model_tokens = get_model_limit(model_name)
+        
+        # Calculate Used Tokens
+        # A. System Prompt (so far)
+        system_prompt_tokens = count_string_tokens(system_prompt, model=model_name)
+        
+        # B. Chat History
+        # Convert history_messages (DB objects) to dicts for counting
+        history_dicts = [{"role": m.role.value, "content": m.content} for m in history_messages]
+        history_tokens = count_tokens_from_messages(history_dicts, model=model_name)
+        
+        # C. Response Buffer (Reserve space for answer)
+        RESPONSE_BUFFER = 4000 # Safe default for long answers
+        
+        # Calculate Available Space
+        used_tokens = system_prompt_tokens + history_tokens + RESPONSE_BUFFER
+        available_context_tokens = max(1000, max_model_tokens - used_tokens)
+        
+        # Measure context
+        context_tokens = count_string_tokens(webinar_context, model=model_name)
+        
+        safe_context = webinar_context
+        if context_tokens > available_context_tokens:
+            from loguru import logger
+            logger.warning(f"⚠️ Webinar context too large ({context_tokens} tokens). Truncating to {available_context_tokens} tokens (Model Limit: {max_model_tokens} - Used: {used_tokens}).")
             
-        # D. INJECTION
-        # Inject Memory into placeholders
-        # We rely on specific placeholders in the prompt text: {user_profile}, {user_agent_profile}
-        system_prompt = system_prompt.replace("{user_profile}", global_profile)
-        system_prompt = system_prompt.replace("{user_agent_profile}", local_profile)
-        system_prompt = system_prompt.replace("{local_summary}", local_profile) # Legacy support
+            # Smart Truncation via tiktoken
+            encoding = get_encoding(model_name)
+            encoded = encoding.encode(webinar_context)
+            truncated_encoded = encoded[:available_context_tokens]
+            safe_context = encoding.decode(truncated_encoded)
+
+        formatted_context = (
+            f"\n=== КОНТЕКСТ ВЕБИНАРА (ТРАНСКРИПЦИЯ) ===\n"
+            f"Используй ТОЛЬКО следующий текст для ответов на вопросы пользователя:\n"
+            f"--- НАЧАЛО ТЕКСТА ---\n"
+            f"{safe_context}\n"
+            f"--- КОНЕЦ ТЕКСТА ---\n"
+            f"==========================================\n"
+        )
+        
+        # Inject into placeholder
+        if "{webinar_context}" in system_prompt:
+            system_prompt = system_prompt.replace("{webinar_context}", formatted_context)
+        else:
+            # If agent doesn't have placeholder but context exists -> that's weird but not fatal.
+            pass
+            
+    else:
+        # NO CONTEXT PROVIDED
+        # Check if it was supposed to be AI Tutor?
+        if agent_slug == "ai_tutor":
+            from loguru import logger
+            logger.error(f"🚨 AI Tutor invoked without webinar_context! Agent will be blind.")
+            
+        # Clean up placeholder
+        system_prompt = system_prompt.replace("{webinar_context}", "")
 
     # E. Construct Conversation
     conversation = [{"role": "system", "content": system_prompt}]
