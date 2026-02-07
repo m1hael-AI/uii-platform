@@ -120,30 +120,26 @@ async def process_memory_update(
         # Логика AI Помощника (видит всех)
         all_sessions_result = await db.execute(
             select(ChatSession).where(ChatSession.user_id == user.id)
+        # Получаем память всех других агентов для контекста
+        other_memories = await db.execute(
+             select(ChatSession.agent_slug, ChatSession.user_agent_profile)
+             .where(ChatSession.user_id == user.id)
+             .where(ChatSession.agent_slug != "main_assistant")
         )
-        all_sessions = all_sessions_result.scalars().all()
-        
-        agent_memories = []
-        for session in all_sessions:
-            if session.user_agent_profile and session.id != chat_session.id:
-                agent_result = await db.execute(select(Agent).where(Agent.slug == session.agent_slug))
-                agent = agent_result.scalar_one_or_none()
-                agent_name = agent.name if agent else session.agent_slug
-                agent_memories.append(f"{agent_name}: {session.user_agent_profile}")
-        
-        all_agent_memories = "\n\n".join(agent_memories) if agent_memories else "Нет данных"
+        memories_text = "\n".join([f"- {slug}: {profile}" for slug, profile in other_memories.all() if profile])
         
         prompt = settings.assistant_memory_prompt.format(
-            full_chat_history=format_messages_for_prompt(new_messages), # Важно: только новые!
-            current_memory=current_memory,
             user_profile=user_profile,
-            all_agent_memories=all_agent_memories
+            all_agent_memories=memories_text,
+            current_memory=current_memory,
+            full_chat_history=format_messages_for_prompt(new_messages)
         )
     else:
         # Логика обычного агента
         prompt = settings.agent_memory_prompt.format(
             full_chat_history=format_messages_for_prompt(new_messages),
-            current_memory=current_memory
+            current_memory=current_memory,
+            context_history=context_history
         )
 
     # 3. Запрос к LLM для памяти
