@@ -17,6 +17,7 @@ from services.context_manager import is_context_overflow, compress_context_task
 from dependencies import get_db, get_current_user, rate_limiter
 from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule, UserMemory
 from config import settings
+from loguru import logger
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -262,7 +263,16 @@ async def get_chat_history(
         q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
         
     result = await db.execute(q)
-    session = result.scalar_one_or_none()
+    sessions = result.scalars().all()
+    
+    # Handle race condition: if multiple sessions exist, use the first one
+    if len(sessions) > 1:
+        logger.warning(f"Multiple sessions found for user {current_user.id}, agent {agent_id}. Using first one.")
+        session = sessions[0]
+    elif len(sessions) == 1:
+        session = sessions[0]
+    else:
+        session = None
     
     if not session:
         # ✅ 1. Auto-create session if it doesn't exist (Lazy Load)
@@ -285,18 +295,29 @@ async def get_chat_history(
                 if sch:
                      schedule_id = sch.id
         
-        session = ChatSession(
-            user_id=current_user.id,
-            agent_slug=agent_id,
-            schedule_id=schedule_id,
-            library_id=library_id,
-            is_active=True,
-            last_message_at=datetime.utcnow(),
-            last_read_at=datetime(2000, 1, 1) # Mark as unread
-        )
-        db.add(session)
-        await db.flush() # Flush to get session.id
-        await db.refresh(session)
+        try:
+            session = ChatSession(
+                user_id=current_user.id,
+                agent_slug=agent_id,
+                schedule_id=schedule_id,
+                library_id=library_id,
+                is_active=True,
+                last_message_at=datetime.utcnow(),
+                last_read_at=datetime(2000, 1, 1) # Mark as unread
+            )
+            db.add(session)
+            await db.flush() # Flush to get session.id
+            await db.refresh(session)
+        except Exception as e:
+            # Race condition: another request created the session
+            # Roll back and re-query
+            await db.rollback()
+            result = await db.execute(q)
+            session = result.scalars().first()
+            if not session:
+                # Still not found? Re-raise the error
+                raise e
+        
         
         # ✅ 2. Create Synchronous Greeting
         # Get greeting text
