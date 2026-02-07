@@ -476,3 +476,91 @@ async def list_users(
     result = await db.execute(stmt)
     return result.scalars().all()
 
+
+# --- LLM Audit Logs ---
+
+from models import LLMAudit
+from sqlalchemy import func
+
+class LLMAuditResponse(BaseModel):
+    id: int
+    user_id: int
+    agent_slug: str
+    model: str
+    
+    # Stats
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cost_usd: float
+    duration_ms: int
+    
+    # Content (Full Log)
+    request_json: str
+    response_json: str
+    
+    # Metadata
+    status: str
+    error_message: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LLMAuditListResponse(BaseModel):
+    items: List[LLMAuditResponse]
+    total: int
+    page: int
+    limit: int
+
+@router.get("/llm-audit", response_model=LLMAuditListResponse)
+async def list_llm_audit_logs(
+    page: int = 1,
+    limit: int = 20,
+    user_id: Optional[int] = None,
+    agent_slug: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List LLM Audit Logs with pagination and filtering (Admin only)"""
+    verify_admin(current_user)
+    
+    offset = (page - 1) * limit
+    
+    # Base query
+    stmt = select(LLMAudit)
+    count_stmt = select(func.count()).select_from(LLMAudit)
+    
+    # Apply filters
+    if user_id:
+        stmt = stmt.where(LLMAudit.user_id == user_id)
+        count_stmt = count_stmt.where(LLMAudit.user_id == user_id)
+    
+    if agent_slug:
+        stmt = stmt.where(LLMAudit.agent_slug.ilike(f"%{agent_slug}%"))
+        count_stmt = count_stmt.where(LLMAudit.agent_slug.ilike(f"%{agent_slug}%"))
+        
+    if status:
+        stmt = stmt.where(LLMAudit.status == status)
+        count_stmt = count_stmt.where(LLMAudit.status == status)
+        
+    # Order by newest first
+    stmt = stmt.order_by(LLMAudit.created_at.desc())
+    
+    # Pagination
+    stmt = stmt.offset(offset).limit(limit)
+    
+    # Execute
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+    
+    result = await db.execute(stmt)
+    items = result.scalars().all()
+    
+    return LLMAuditListResponse(
+        items=items,
+        total=total,
+        page=page,
+        limit=limit
+    )

@@ -1,8 +1,13 @@
 """
 Суммаризатор для проактивности AI University.
 
+Терминология:
+1. Long-Term Memory (Profile) — Долговременная память о пользователе (факты, интересы).
+2. Context Fragment — Фрагмент переписки (Overlap) для контекста при обновлении памяти.
+3. Summarization — Техническое сжатие истории при переполнении контекста.
+
 Компоненты:
-1. Извлечение памяти — обновляет ChatSession.user_agent_profile (память о пользователе)
+1. Извлечение памяти — обновляет ChatSession.user_agent_profile (Long-Term Memory)
 2. Детекция триггеров — создаёт PendingAction для проактивных сообщений
 3. Глобальная биография — обновляет UserMemory.narrative_summary (только для AI Помощника)
 4. Cron задача — проверяет "застывшие" чаты каждые 2 минуты
@@ -146,6 +151,8 @@ async def process_memory_update(
     # Если new_messages пуст, мы сюда не дойдем (фильтр выше)
     first_new_msg_id = new_messages[0].id
     
+    # Получаем Context Fragment (Overlap) - последние 8 сообщений ДО новых
+    # Это нужно, чтобы LLM понимала контекст ответов (на что было сказано "Да")
     context_msgs_result = await db.execute(
         select(Message)
         .where(Message.session_id == chat_session.id)
@@ -155,7 +162,7 @@ async def process_memory_update(
         .limit(8)
     )
     context_msgs = context_msgs_result.scalars().all()
-    # Разворачиваем обратно в хронологический порядок
+    # Разворачиваем обратно в хронологический порядок: [Oldest ... Newest]
     context_history = format_messages_for_prompt(list(reversed(context_msgs)))
 
     # 2. Выбираем промпт и логику (Агент vs Ассистент)
@@ -179,14 +186,16 @@ async def process_memory_update(
             current_memory=current_memory,
             agent_memory=current_memory, # ALIAS
             context_history=context_history,
-            new_messages_text=format_messages_for_prompt(new_messages),
-            full_chat_history=format_messages_for_prompt(new_messages) # ALIAS
+            new_messages_fragment=format_messages_for_prompt(new_messages),
+            full_chat_history=format_messages_for_prompt(new_messages), # ALIAS (Backwards compatibility)
+            new_messages_text=format_messages_for_prompt(new_messages) # ALIAS
         )
     else:
         # Логика обычного агента
         prompt = settings.agent_memory_prompt.format(
-            new_messages_text=format_messages_for_prompt(new_messages),
+            new_messages_fragment=format_messages_for_prompt(new_messages),
             full_chat_history=format_messages_for_prompt(new_messages), # ALIAS
+            new_messages_text=format_messages_for_prompt(new_messages), # ALIAS
             current_memory=current_memory,
             agent_memory=current_memory, # ALIAS
             context_history=context_history

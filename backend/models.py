@@ -222,7 +222,7 @@ class ProactivitySettings(SQLModel, table=True):
     # === Memory Update Settings ===
     memory_model: str = Field(default="gpt-4o-mini", description="Модель для обновления памяти")
     memory_temperature: float = Field(default=0.2, description="Temperature для извлечения фактов")
-    memory_max_tokens: Optional[int] = Field(default=2000, description="Макс. токенов для памяти (2000 = запас)")
+    memory_max_tokens: Optional[int] = Field(default=2000, description="Макс. токенов для памяти")
     
     # Prompts Defaults
     agent_memory_prompt: str = Field(default="""Ты — аналитик памяти агента.
@@ -316,8 +316,8 @@ class ProactivitySettings(SQLModel, table=True):
     
     # === Proactivity Trigger Settings ===
     trigger_model: str = Field(default="gpt-4o-mini", description="Модель для проверки триггера")
-    trigger_temperature: float = Field(default=0.7, description="Temperature для решения о проактивности")
-    trigger_max_tokens: Optional[int] = Field(default=1000, description="Макс. токенов для триггера (1000 = запас)")
+    trigger_temperature: float = Field(default=0.2, description="Temperature для решения о проактивности")
+    trigger_max_tokens: Optional[int] = Field(default=2000, description="Макс. токенов для триггера")
     
     # === Scheduler Settings ===
     enabled: bool = Field(default=True, description="Включена ли проактивность")
@@ -346,52 +346,43 @@ class ProactivitySettings(SQLModel, table=True):
     
     # === Rate Limiter ===
     rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
-    
-    
+
     # === Prompts ===
     agent_memory_prompt: str = Field(
-        default="""Проанализируй ВЕСЬ диалог и извлеки важную информацию о пользователе.
+        default="""Проанализируй фрагмент диалога (новые сообщения) и извлеки важную информацию о пользователе.
 
-=== ПОЛНАЯ ИСТОРИЯ ДИАЛОГА ===
-{full_chat_history}
+=== НОВЫЕ СООБЩЕНИЯ (Фрагмент) ===
+{new_messages_fragment}
 
 === ТЕКУЩАЯ ПАМЯТЬ О ПОЛЬЗОВАТЕЛЕ (для этого агента) ===
 {current_memory}
 
-=== ЗАДАЧИ ===
-1. ИЗВЛЕКИ новые важные факты о пользователе из диалога:
+=== КОНТЕКСТ (для связности) ===
+{context_history}
+
+=== ЗАДАЧА ===
+1. ИЗВЛЕКИ новые важные факты о пользователе из новых сообщений:
    - Интересы, цели, навыки
    - Прогресс в обучении
    - Проблемы, с которыми столкнулся
    - Планы на будущее
 
-2. ДОБАВЬ эти факты к текущей памяти (НЕ заменяй, а ДОПОЛНИ)
-
-3. Определи, нужно ли создать проактивную задачу:
-   - Есть ли незавершённые темы?
-   - Проявил ли пользователь интерес, но не получил полного ответа?
-   - Стоит ли напомнить о чём-то?
+2. ДОБАВЬ эти факты к текущей памяти (НЕ заменяй, а ДОПОЛНИ и ОБНОВИ).
+   - Если факты ус  тарели или противоречат новым, обнови их.
+   - Сохраняй структуру и стиль изложения.
 
 Верни ТОЛЬКО валидный JSON:
 {{
-  "memory_update": "Обновлённая память с новыми фактами, добавленными к старым",
-  "create_task": true,
-  "topic": "Конкретная тема для проактивного сообщения"
-}}
-
-Если задача не нужна:
-{{
-  "memory_update": "Обновлённая память...",
-  "create_task": false
+  "memory_update": "Обновлённая память с новыми фактами, добавленными к старым"
 }}""",
         description="Промпт для извлечения памяти агентов"
     )
     
     assistant_memory_prompt: str = Field(
-        default="""Проанализируй ВЕСЬ диалог и извлеки важную информацию о пользователе.
+        default="""Проанализируй фрагмент диалога (новые сообщения) и извлеки важную информацию о пользователе.
 
-=== ПОЛНАЯ ИСТОРИЯ ДИАЛОГА ===
-{full_chat_history}
+=== НОВЫЕ СООБЩЕНИЯ (Фрагмент) ===
+{new_messages_fragment}
 
 === ТЕКУЩАЯ ПАМЯТЬ О ПОЛЬЗОВАТЕЛЕ (для AI Помощника) ===
 {current_memory}
@@ -402,38 +393,28 @@ class ProactivitySettings(SQLModel, table=True):
 === ВСЕ ЛОКАЛЬНЫЕ ПАМЯТИ ДРУГИХ АГЕНТОВ ===
 {all_agent_memories}
 
-=== ЗАДАЧИ ===
-1. ИЗВЛЕКИ новые важные факты о пользователе из диалога
+=== ЗАДАЧА ===
+1. ИЗВЛЕКИ новые важные факты о пользователе из новых сообщений.
 
-2. ДОБАВЬ их к текущей памяти AI Помощника (НЕ заменяй, а ДОПОЛНИ)
+2. ДОБАВЬ их к текущей памяти AI Помощника (НЕ заменяй, а ДОПОЛНИ).
 
 3. ОБНОВИ глобальную биографию пользователя, объединив:
    - Локальную память AI Помощника
    - Все локальные памяти других агентов
-   - Создай единый профиль пользователя
-
-4. Определи, нужно ли создать проактивную задачу
+   - Создай единый целостный профиль пользователя.
 
 Верни ТОЛЬКО валидный JSON:
 {{
   "memory_update": "Обновлённая локальная память AI Помощника",
-  "global_profile_update": "Обновлённая глобальная биография пользователя",
-  "create_task": true,
-  "topic": "Тема для проактивного сообщения"
-}}
-
-Если задача не нужна:
-{{
-  "memory_update": "...",
-  "global_profile_update": "...",
-  "create_task": false
+  "global_profile_update": "Обновлённая глобальная биография пользователя"
 }}""",
         description="Промпт для AI Помощника (обновляет глобальный профиль)"
     )
 
     compression_prompt: str = Field(
-        default="""Ниже приведен фрагмент диалога между пользователем и AI-ассистентом.
-Твоя задача — создать ПОДРОБНОЕ структурированное саммари этого диалога.
+        default="""Ниже приведен фрагмент диалога (старые сообщения).
+Твоя задача — создать сжатое техническое саммари (Summarization), чтобы освободить контекст.
+Не теряй важные факты, но сокращай воду.
 
 ТРЕБОВАНИЯ:
 1. Перечисли ВСЕ основные темы, которые обсуждались
@@ -443,11 +424,13 @@ class ProactivitySettings(SQLModel, table=True):
 5. Игнорируй только приветствия и общие фразы
 6. Саммари должно быть достаточно детальным, чтобы AI мог продолжить разговор без потери контекста
 
-=== ДИАЛОГ ===
-{text_to_compress}
-=== КОНЕЦ ДИАЛОГА ===
+Создай новое объединенное и подробное саммари:
 
-Создай подробное структурированное саммари:""",
+=== ПРЕДЫДУЩЕЕ САММАРИ ===
+{previous_summary}
+
+=== ФРАГМЕНТ ДИАЛОГА (Context to Compress) ===
+{text_to_compress}""",
         description="Промпт для сжатия контекста (Summarizer)"
     )
 
@@ -458,10 +441,10 @@ class ProactivitySettings(SQLModel, table=True):
 === ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ===
 {user_profile}
 
-=== ПОСЛЕДНИЕ СООБЩЕНИЯ ===
+=== ПОСЛЕДНИЕ СООБЩЕНИЯ (Контекст) ===
 {recent_history}
 
-=== ТЕКУЩАЯ ПАМЯТЬ ===
+=== ТЕКУЩАЯ ПАМЯТЬ АГЕНТА ===
 {current_memory}
 
 === ТВОЯ ЗАДАЧА ===
@@ -474,15 +457,16 @@ class ProactivitySettings(SQLModel, table=True):
 
 Верни JSON:
 {{
-  "should_message": true,
-  "reason": "Почему мы пишем (для логов)",
-  "topic_context": "Сжатый контекст темы, которую нужно поднять (это пойдет в промпт генерации сообщения)"
+  "create_task": true,
+  "reasoning": "Почему мы пишем (для логов)",
+  "topic": "Сжатый контекст темы, которую нужно поднять (это пойдет в промпт генерации сообщения)"
 }}
 
 Если писать НЕ надо:
 {{
-  "should_message": false,
-  "reason": "Нет явной темы для разговора"
+  "create_task": false,
+  "reasoning": "Нет явной темы для разговора",
+  "topic": ""
 }}""",
         description="Промпт триггера проактивности"
     )
@@ -501,15 +485,15 @@ class ChatSettings(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     
     # === Блок 1: Общение с пользователями ===
-    user_chat_model: str = Field(default="gpt-4o", description="Модель для общения с пользователями")
-    user_chat_temperature: float = Field(default=0.7, description="Температура для общения")
+    user_chat_model: str = Field(default="gpt-4o-mini", description="Модель для общения с пользователями")
+    user_chat_temperature: float = Field(default=0.2, description="Температура для общения")
     user_chat_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для ответов (2000 = запас)")
     rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
     
     # === Блок 2: Вечный диалог (Сжатие контекста) ===
-    compression_model: str = Field(default="gpt-4.1-mini", description="Модель для сжатия контекста")
+    compression_model: str = Field(default="gpt-4o-mini", description="Модель для сжатия контекста")
     compression_temperature: float = Field(default=0.2, description="Температура для сжатия")
-    compression_max_tokens: Optional[int] = Field(default=1000, description="Max tokens для саммари (1000 = запас)")
+    compression_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для саммари (1000 = запас)")
     context_threshold: float = Field(default=0.9, description="Порог срабатывания сжатия (0.9 = 90%)")
     context_compression_keep_last: int = Field(default=20, description="Сколько последних сообщений оставлять")
     context_soft_limit: int = Field(default=350000, description="Мягкий лимит токенов для срабатывания")

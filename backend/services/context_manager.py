@@ -78,7 +78,8 @@ async def compress_context_task(
     model: str = "gpt-4o"
 ):
     """
-    Фоновая задача для сжатия истории диалога.
+    Фоновая задача для технического сжатия истории (Context Compression / Summarization).
+    Запускается при переполнении контекста (Context Overflow).
     Создает СОБСТВЕННУЮ сессию БД.
     """
     async with AsyncSessionLocal() as db:
@@ -112,13 +113,21 @@ async def compress_context_task(
             logger.info(f"Compressing {len(messages_to_compress)} messages...")
     
             # Формируем текст для саммаризатора
+            previous_summary = "Нет предыдущего саммари."
             text_to_compress = ""
-            user_name_heuristic = "User"
             
             for msg in messages_to_compress:
                 role = "AI" if msg.role == MessageRole.ASSISTANT else "User"
+                
+                # Check for existing summary in the first message(s)
                 if msg.role == MessageRole.SYSTEM and "[SUMMARY]" in msg.content:
-                     text_to_compress += f"ПРЕДЫДУЩЕЕ КРАТКОЕ СОДЕРЖАНИЕ:\n{msg.content}\n\n"
+                     # Extract content after standard prefix or take whole content
+                     content = msg.content
+                     prefix = "[SUMMARY] Краткое содержание предыдущего разговора:\n"
+                     if prefix in content:
+                         previous_summary = content.replace(prefix, "")
+                     else:
+                         previous_summary = content
                      continue
                 
                 text_to_compress += f"{role}: {msg.content}\n"
@@ -132,16 +141,21 @@ async def compress_context_task(
             proactivity_settings_result = await db.execute(select(ProactivitySettings))
             proactivity_settings = proactivity_settings_result.scalar_one_or_none()
 
-            prompt_template = proactivity_settings.compression_prompt if (proactivity_settings and proactivity_settings.compression_prompt) else """Ниже приведен фрагмент диалога между пользователем и AI-ассистентом.
-Твоя задача — создать ПОДРОБНОЕ структурированное саммари этого диалога.
+            if not proactivity_settings or not proactivity_settings.compression_prompt:
+                logger.error("❌ ProactivitySettings or compression_prompt missing in DB! Cannot compress context.")
+                return
 
-=== ДИАЛОГ ===
-{text_to_compress}
-=== КОНЕЦ ДИАЛОГА ===
+            prompt_template = proactivity_settings.compression_prompt
 
-Создай подробное структурированное саммари:"""
-
-            prompt = prompt_template.format(text_to_compress=text_to_compress)
+            # Format the prompt with both parts
+            try:
+                prompt = prompt_template.format(
+                    previous_summary=previous_summary,
+                    text_to_compress=text_to_compress
+                )
+            except KeyError:
+                logger.error("❌ Prompt format mismatch in compression! The prompt in DB doesn't match the code variables.")
+                return
     
             new_summary_text = await generate_chat_response(
                 messages=[{"role": "user", "content": prompt}],

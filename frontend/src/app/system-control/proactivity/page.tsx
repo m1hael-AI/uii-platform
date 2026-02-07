@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import PromptTooltip from '@/components/PromptTooltip';
 
 // Limits referenced from Backend (context_manager.py)
 const MODEL_LIMITS: Record<string, number> = {
@@ -287,7 +288,10 @@ export default function ProactivityAdminPage() {
 
                     {/* Agent Memory Prompt */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для агентов</h2>
+                        <div className="flex items-center mb-2">
+                            <h2 className="text-xl font-semibold">Промпт для агентов</h2>
+                            <PromptTooltip content={`Переменные:\n\n{new_messages_fragment} - Новые сообщения (Context Fragment).\n{context_history} - 8 предыдущих сообщений (Overlap).\n{user_profile} - Текущий профиль пользователя.\n\nЗадача: Извлечь факты о пользователе.`} />
+                        </div>
                         <p className="text-sm text-gray-600 mb-4">
                             Используется для извлечения памяти обычных агентов (Data Analyst, Career Mentor и т.д.)
                         </p>
@@ -301,7 +305,10 @@ export default function ProactivityAdminPage() {
 
                     {/* Assistant Memory Prompt */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для ассистента</h2>
+                        <div className="flex items-center mb-2">
+                            <h2 className="text-xl font-semibold">Промпт для ассистента</h2>
+                            <PromptTooltip content={`Переменные:\n\n{new_messages_fragment} - Новые сообщения (Context Fragment).\n{context_history} - 8 предыдущих сообщений (Overlap).\n{user_profile} - Текущий профиль.\n\nЗадача: Извлечь факты + обновить Нарратив.`} />
+                        </div>
                         <p className="text-sm text-gray-600 mb-4">
                             Используется для извлечения памяти главного ассистента
                         </p>
@@ -397,13 +404,33 @@ export default function ProactivityAdminPage() {
 
                         {/* Proactivity Trigger Prompt */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h2 className="text-xl font-semibold mb-2">Промпт для проверки проактивности</h2>
+                            <div className="flex items-center mb-2">
+                                <h2 className="text-xl font-semibold">Промпт для проверки проактивности</h2>
+                                <PromptTooltip content={`Переменные:\n\n{user_profile} - Профиль.\n{recent_history} - Последние сообщения.\n{hours_since_last_msg} - Часов молчания.\n\nЗадача: Решить, нужно ли писать (Intent).`} />
+                            </div>
                             <p className="text-sm text-gray-600 mb-4">
                                 Используется для принятия решения о необходимости проактивного сообщения
                             </p>
                             <textarea
                                 value={settings.proactivity_trigger_prompt}
                                 onChange={(e) => setSettings({ ...settings, proactivity_trigger_prompt: e.target.value })}
+                                rows={15}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                            />
+                        </div>
+
+                        {/* Compression Prompt */}
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                            <div className="flex items-center mb-2">
+                                <h2 className="text-xl font-semibold">Промпт для сжатия (Summarization)</h2>
+                                <PromptTooltip content={`Переменные:\n\n{previous_summary} - Старое саммари.\n{text_to_compress} - Старые сообщения для сжатия.\n\nЗадача: Создать ТЕХНИЧЕСКОЕ сжатое саммари.`} />
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Используется при переполнении контекста для технического сжатия
+                            </p>
+                            <textarea
+                                value={settings.compression_prompt}
+                                onChange={(e) => setSettings({ ...settings, compression_prompt: e.target.value })}
                                 rows={15}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
                             />
