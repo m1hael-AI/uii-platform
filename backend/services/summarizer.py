@@ -88,6 +88,16 @@ async def process_memory_update(
     if not new_messages:
         return
 
+    # FILTER: Skip if no messages from USER
+    has_user_messages = any(msg.role == MessageRole.USER for msg in new_messages)
+    if not has_user_messages:
+        # Если новых сообщений от пользователя нет (только бот), то и фактов новых быть не может.
+        # Просто обновляем timestamp, чтобы не проверять постоянно
+        chat_session.summarized_at = datetime.utcnow()
+        await db.commit()
+        # logger.info(f"⏭️ Skipping memory update for {chat_session.id}: no user messages")
+        return
+
     logger.info(f"🧠 Updating memory for session {chat_session.id} ({len(new_messages)} new msgs)")
     
     # 1. Получаем/Создаем глобальную память
