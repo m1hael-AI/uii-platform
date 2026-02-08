@@ -19,6 +19,7 @@ from dependencies import get_db, get_current_user, rate_limiter
 from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule, UserMemory
 from config import settings
 from loguru import logger
+from services.chat_session_service import get_or_create_chat_session
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -138,26 +139,12 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
             agent_obj = agent_res.scalar_one_or_none()
             if not agent_obj: continue
         
-        session_created = False
         try:
-            # Use nested transaction (SAVEPOINT) so rollback doesn't affect outer session
-            async with db.begin_nested():
-                # Create Session
-                new_session = ChatSession(
-                    user_id=user_id,
-                    agent_slug=slug,
-                    is_active=True
-                )
-                db.add(new_session)
-                await db.flush() # Flush to check constraints within nested transaction
-            
-            await db.commit()
-            await db.refresh(new_session)
+            # Use atomic get_or_create
+            await get_or_create_chat_session(db, user_id, slug)
             session_created = True
-        except IntegrityError:
-            # Race condition: another request already created this session.
-            # Nested transaction automatically rolled back (to savepoint).
-            # We don't need to do db.rollback() manually here.
+        except Exception as e:
+            logger.error(f"Error creating initial session for {slug}: {e}")
             logger.warning(f"Session for user {user_id}, agent {slug} already exists (race condition)")
             continue
         
@@ -289,49 +276,14 @@ async def get_chat_history(
     else:
         session = None
     
-    if not session:
         # ✅ 1. Auto-create session if it doesn't exist (Lazy Load)
         # This ensures we have a place to put the greeting immediately
-        
-        # Determine IDs based on query params (re-using logic from completions)
-        schedule_id = None
-        library_id = None
-        
-        if webinar_id:
-             # Look up library first
-            res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == webinar_id))
-            lib = res.scalar_one_or_none()
-            if lib:
-                library_id = lib.id
-            else:
-                # Check Schedule
-                res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == webinar_id))
-                sch = res_sch.scalar_one_or_none()
-                if sch:
-                     schedule_id = sch.id
-        
-        try:
-            session = ChatSession(
-                user_id=current_user.id,
-                agent_slug=agent_id,
-                schedule_id=schedule_id,
-                library_id=library_id,
-                is_active=True,
-                last_message_at=datetime.utcnow(),
-                last_read_at=datetime(2000, 1, 1) # Mark as unread
-            )
-            db.add(session)
-            await db.flush() # Flush to get session.id
-            await db.refresh(session)
-        except Exception as e:
-            # Race condition: another request created the session
-            # Roll back and re-query
-            await db.rollback()
-            result = await db.execute(q)
-            session = result.scalars().first()
-            if not session:
-                # Still not found? Re-raise the error
-                raise e
+        session = await get_or_create_chat_session(
+            db=db,
+            user_id=current_user.id,
+            agent_slug=agent_id,
+            webinar_id=webinar_id
+        )
         
         
         # ✅ 2. Create Synchronous Greeting
@@ -454,52 +406,12 @@ async def chat_completions(
                  webinar_context = w_sch.transcript_context
 
     # 2. Get or Create Session
-    q = select(ChatSession).where(ChatSession.user_id == current_user.id)
-    if request.webinar_id is not None:
-        # Try to match either
-        q = q.where(or_(ChatSession.library_id == request.webinar_id, ChatSession.schedule_id == request.webinar_id))
-    else:
-        slug = request.agent_id or "ai_tutor"
-        q = q.where(ChatSession.agent_slug == slug).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
-        
-    result = await db.execute(q)
-    chat_session = result.scalar_one_or_none()
-    
-    if not chat_session:
-        # Create new session
-        slug = request.agent_id or "ai_tutor"
-        
-        # Determine strict type for creation
-        schedule_id = None
-        library_id = None
-        
-        if request.webinar_id:
-            # We already did lookup in step 1. Check which context was found.
-            # However, step 1 var 'webinar_context' doesn't tell us WHICH one was found.
-            # Let's re-verify to be safe for foreign keys.
-            
-            # Check Library first (as per Step 1 precedence)
-            res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
-            lib = res.scalar_one_or_none()
-            if lib:
-                library_id = lib.id
-            else:
-                # Check Schedule
-                res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
-                sch = res_sch.scalar_one_or_none()
-                if sch:
-                    schedule_id = sch.id
-        
-        chat_session = ChatSession(
-            user_id=current_user.id,
-            agent_slug=slug,
-            schedule_id=schedule_id,
-            library_id=library_id,
-            is_active=True
-        )
-        db.add(chat_session)
-        await db.commit()
-        await db.refresh(chat_session)
+    chat_session = await get_or_create_chat_session(
+        db=db,
+        user_id=current_user.id,
+        agent_slug=request.agent_id or "ai_tutor",
+        webinar_id=request.webinar_id
+    )
         
         # No delayed greeting here. Greeting is handled by get_chat_history or created synchronously if needed.
 

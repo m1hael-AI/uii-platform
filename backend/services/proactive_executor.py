@@ -18,6 +18,8 @@ from sqlalchemy import select
 from openai import AsyncOpenAI
 from loguru import logger
 import time
+from services.openai_service import generate_chat_response
+from services.chat_session_service import get_or_create_chat_session
 from services.audit_service import fire_and_forget_audit
 
 from models import (
@@ -48,33 +50,6 @@ async def get_all_chat_messages(db: AsyncSession, session_id: int) -> list[Messa
     return result.scalars().all()
 
 
-async def get_or_create_chat_session(
-    db: AsyncSession,
-    user_id: int,
-    agent_slug: str
-) -> ChatSession:
-    """Получить или создать сессию чата"""
-    query = select(ChatSession).where(
-        ChatSession.user_id == user_id,
-        ChatSession.agent_slug == agent_slug,
-        ChatSession.is_active == True
-    )
-    
-    result = await db.execute(query)
-    session = result.scalar_one_or_none()
-    
-    if not session:
-        session = ChatSession(
-            user_id=user_id,
-            agent_slug=agent_slug,
-            is_active=True,
-            last_message_at=datetime.utcnow()
-        )
-        db.add(session)
-        await db.commit()
-        await db.refresh(session)
-    
-    return session
 
 
 def format_chat_history(messages: list[Message]) -> str:

@@ -6,7 +6,7 @@
 
 from datetime import datetime
 from typing import Optional, List, Any, Dict
-from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from sqlalchemy import JSON, Column, BigInteger, Text
 from enum import Enum
 
@@ -518,6 +518,12 @@ class ChatSession(SQLModel, table=True):
     Может быть привязана к предстоящему вебинару или записи в библиотеке.
     """
     __tablename__ = "chat_sessions"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "agent_slug", "schedule_id", "library_id", 
+            name="uq_chat_session_user_agent_context"
+        ),
+    )
     
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
