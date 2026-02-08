@@ -77,47 +77,7 @@ def seed_proactivity(op):
     
     print("SEEDING PROACTIVITY...")
     
-    # 1. Ensure global settings exist
-    op.execute("""
-        INSERT INTO proactivity_settings (
-            enabled,
-            memory_update_interval,
-            proactivity_timeout,
-            check_interval,
-            max_messages_per_day_agents,
-            max_messages_per_day_assistant,
-            summarizer_check_interval,
-            summarizer_idle_threshold,
-            context_soft_limit,
-            context_threshold,
-            context_compression_keep_last,
-            rate_limit_per_minute,
-            cron_expression,
-            quiet_hours_start,
-            quiet_hours_end,
-            updated_at
-        )
-        SELECT 
-            true,  -- enabled
-            2.0,   -- memory_update_interval (hours)
-            24.0,  -- proactivity_timeout (hours)
-            2,     -- check_interval (minutes)
-            3,     -- max_messages_per_day_agents
-            3,     -- max_messages_per_day_assistant
-            2,     -- summarizer_check_interval
-            5,     -- summarizer_idle_threshold
-            350000, -- context_soft_limit
-            0.9,    -- context_threshold
-            20,     -- context_compression_keep_last
-            15,     -- rate_limit_per_minute
-            '0 */2 * * *', -- cron_expression
-            '22:00', -- quiet_hours_start
-            '10:00', -- quiet_hours_end
-            NOW()
-        WHERE NOT EXISTS (SELECT 1 FROM proactivity_settings);
-    """)
-    
-    # 2. Read Prompts from YAML
+    # 1. Read Prompts from YAML
     yaml_path = Path(__file__).parent.parent.parent / "resources" / "default_prompts.yaml"
     
     if not yaml_path.exists():
@@ -135,21 +95,65 @@ def seed_proactivity(op):
     missing_keys = [key for key in required_keys if key not in proactivity_prompts]
     
     if missing_keys:
-         # FALLBACK or ERROR? User asked for Error preferably or Fallback.
-         # Let's error since this is initial migration and we expect file to be correct.
          raise ValueError(f"CRITICAL: Missing proactivity prompts in YAML: {missing_keys}")
 
-    print("UPDATING PROACTIVITY PROMPTS from YAML...")
+    print("INSERTING PROACTIVITY SETTINGS with YAML prompts...")
     
-    # Update DB
-    # We use parameters to avoid SQL injection even though it's trusted source
+    # 2. Insert with ALL mandatory fields in one go
+    # Using bind parameters for prompts
     sql = sa.text("""
-        UPDATE proactivity_settings SET
-            agent_memory_prompt = :agent_memory_prompt,
-            assistant_memory_prompt = :assistant_memory_prompt,
-            proactivity_trigger_prompt = :proactivity_trigger_prompt,
-            compression_prompt = :compression_prompt
-        WHERE (SELECT count(*) FROM proactivity_settings) > 0;
+        INSERT INTO proactivity_settings (
+            memory_model,
+            memory_temperature,
+            trigger_model,
+            trigger_temperature,
+            enabled,
+            cron_expression,
+            quiet_hours_start,
+            quiet_hours_end,
+            max_messages_per_day_agents,
+            max_messages_per_day_assistant,
+            summarizer_check_interval,
+            summarizer_idle_threshold,
+            memory_update_interval,
+            proactivity_timeout,
+            max_consecutive_messages,
+            rate_limit_per_minute,
+            context_soft_limit,
+            context_threshold,
+            context_compression_keep_last,
+            agent_memory_prompt,
+            assistant_memory_prompt,
+            proactivity_trigger_prompt,
+            compression_prompt,
+            updated_at
+        )
+        SELECT 
+            'gpt-4o-mini', -- memory_model
+            0.2,           -- memory_temperature
+            'gpt-4o-mini',      -- trigger_model
+            0.2,           -- trigger_temperature
+            true,          -- enabled
+            '0 */2 * * *', -- cron_expression
+            '22:00',       -- quiet_hours_start
+            '10:00',       -- quiet_hours_end
+            3,             -- max_messages_per_day_agents
+            3,             -- max_messages_per_day_assistant
+            2,             -- summarizer_check_interval
+            5,             -- summarizer_idle_threshold
+            2.0,           -- memory_update_interval
+            24.0,          -- proactivity_timeout
+            3,             -- max_consecutive_messages
+            15,            -- rate_limit_per_minute
+            350000,        -- context_soft_limit
+            0.9,           -- context_threshold
+            20,            -- context_compression_keep_last
+            :agent_memory_prompt,
+            :assistant_memory_prompt,
+            :proactivity_trigger_prompt,
+            :compression_prompt,
+            NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM proactivity_settings);
     """)
     
     op.get_bind().execute(sql, proactivity_prompts)
