@@ -29,6 +29,7 @@ export default function AgentChatPage() {
   const currentAgentIdRef = useRef(agentId);
 
   useEffect(() => {
+    console.log(`[AgentPage] Mounted/Updated: ${agentId}`);
     isMounted.current = true;
     currentAgentIdRef.current = agentId;
     return () => {
@@ -116,7 +117,10 @@ export default function AgentChatPage() {
       }));
 
       // 🔥 SMART READ RECEIPT: Only if user still here AND on the same agent
+      console.log(`[Stream End] Checking Read: IsMounted=${isMounted.current}, RefAgent=${currentAgentIdRef.current}, StreamAgent=${streamAgentId}`);
+
       if (isMounted.current && currentAgentIdRef.current === streamAgentId) {
+        console.log(`[Stream End] Marking READ: ${streamAgentId}`);
         try {
           const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
           await fetch(`${API_URL}/chat/read?agent_id=${streamAgentId}`, {
@@ -125,6 +129,8 @@ export default function AgentChatPage() {
           });
           window.dispatchEvent(new Event("chatStatusUpdate"));
         } catch (e) { console.error("Auto-read failed", e); }
+      } else {
+        console.log(`[Stream End] SKIPPED Read (Navigated Away)`);
       }
     }
   };
