@@ -243,11 +243,11 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
         
         # Truncate for preview (avoid "wall of text")
         preview_text = message_text
-        if len(preview_text) > 200:
-            preview_text = preview_text[:200] + "..."
+        if len(preview_text) > 50:
+            preview_text = preview_text[:50] + "..."
         
         # Markdown Link
-        text = f"💬 *{agent.name}*\n\n{preview_text}\n\n👉 [Перейти в диалог]({chat_url})"
+        text = f"🔔 Вам пришло новое сообщение от *{agent.name}*\n\n{preview_text}\n\n👉 [Перейти в диалог]({chat_url})"
         
         await bot.send_message(
             chat_id=user.tg_id,
