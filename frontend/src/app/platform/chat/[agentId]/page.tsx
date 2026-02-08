@@ -18,12 +18,13 @@ export default function AgentChatPage() {
   const agentId = params.agentId as string;
   const agent = AGENTS_DATA[agentId] || { name: "AI Агент", role: "Bot", status: "Онлайн" };
 
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string, created_at?: string }[]>([]);
   const [streamingMessage, setStreamingMessage] = useState("");
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
+  const isGeneratingRef = useRef(false);
 
   useEffect(() => {
     isMounted.current = true;
@@ -32,9 +33,16 @@ export default function AgentChatPage() {
 
   // Helper: Stream Response (Extracted for re-use)
   const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
+    // Prevent concurrent generations
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
+
     setIsTyping(true);
     const token = Cookies.get("token");
-    if (!token) return;
+    if (!token) {
+      isGeneratingRef.current = false;
+      return;
+    }
 
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
@@ -87,6 +95,7 @@ export default function AgentChatPage() {
       setMessages(prev => [...prev, { role: 'assistant', text: "Извините, произошла ошибка подключения к серверу. Пожалуйста, обновите страницу." }]);
     } finally {
       setIsTyping(false);
+      isGeneratingRef.current = false;
       // 🔔 Dispatch Typing event OFF (end)
       window.dispatchEvent(new CustomEvent("chatTypingStatus", {
         detail: { agentId, isTyping: false }
@@ -120,12 +129,13 @@ export default function AgentChatPage() {
 
         if (res.ok) {
           const history = await res.json();
-          let loadedMessages: { role: 'user' | 'assistant', text: string }[] = [];
+          let loadedMessages: { role: 'user' | 'assistant', text: string, created_at?: string }[] = [];
 
           if (history.messages && history.messages.length > 0) {
             loadedMessages = history.messages.map((h: any) => ({
               role: h.role,
-              text: h.content
+              text: h.content,
+              created_at: h.created_at
             }));
             setMessages(loadedMessages);
           } else {
@@ -145,10 +155,22 @@ export default function AgentChatPage() {
           // Here we are just marking as read.
           window.dispatchEvent(new Event("chatReadUpdate"));
 
-          // 🚀 SMART RESUME: RESTORED
+          // 🚀 SMART RESUME: RESTORED (With Loop Protection)
+          // 🚀 SMART RESUME: RESTORED (ONE-SHOT RETRY)
           if (loadedMessages.length > 0) {
             const lastMsg = loadedMessages[loadedMessages.length - 1];
-            if (lastMsg.role === 'user') {
+
+            // Check One-Shot Retry
+            const msgId = lastMsg.created_at || "unknown";
+            const retryKey = `smart_resume_attempt_${msgId}`;
+            const alreadyRetried = sessionStorage.getItem(retryKey);
+
+            if (lastMsg.role === 'user' && !isGeneratingRef.current && !alreadyRetried) {
+              console.log("🚀 [Smart Resume] Crash recovery triggered. Attempt 1/1.");
+              try {
+                sessionStorage.setItem(retryKey, "true");
+              } catch (e) { }
+
               streamResponse(loadedMessages, false);
             }
           }

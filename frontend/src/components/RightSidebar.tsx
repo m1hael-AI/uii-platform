@@ -90,10 +90,17 @@ export default function RightSidebar() {
         }
     };
 
+    // Ref to track generation status (prevents loops)
+    const isGeneratingRef = useRef(false);
+
     // --- STREAMING HELPER (SMART RESUME) ---
     const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
         const token = Cookies.get("token");
         if (!token) return;
+
+        // Prevent concurrent generations
+        if (isGeneratingRef.current) return;
+        isGeneratingRef.current = true;
 
         setIsTyping(true);
         setStreamingMessage("");
@@ -148,6 +155,7 @@ export default function RightSidebar() {
         } finally {
             setIsTyping(false);
             setStreamingMessage("");
+            isGeneratingRef.current = false;
         }
     };
 
@@ -193,11 +201,30 @@ export default function RightSidebar() {
                             setHasUnreadMessages(false);
                         }
 
-                        // 🚀 SMART RESUME: RESTORED
+                        // 🚀 SMART RESUME: RESTORED (ONE-SHOT RETRY)
+                        // Logic: If the server crashed, we try to resume ONCE.
+                        // We use sessionStorage to act as a "Retry Counter = 1".
                         const lastMsg = uiMsgs[uiMsgs.length - 1];
-                        if (lastMsg.role === 'user') {
-                            console.log("🚀 [Smart Resume Sidebar] Last message was User. Resuming...");
-                            streamResponse(uiMsgs, false);
+
+                        // Check if we already tried to recover this specific message
+                        const msgId = lastMsg.created_at || "unknown";
+                        const retryKey = `smart_resume_attempt_${msgId}`;
+                        const alreadyRetried = sessionStorage.getItem(retryKey);
+
+                        // Condition: Last is User AND Not Generating AND Initial Load AND Not Retried yet
+                        if (lastMsg.role === 'user' && !isGeneratingRef.current && isInitialLoad.current) {
+                            if (!alreadyRetried) {
+                                console.log("🚀 [Smart Resume] Crash recovery triggered. Attempt 1/1.");
+
+                                // Mark as retried immediately
+                                try {
+                                    sessionStorage.setItem(retryKey, "true");
+                                } catch (e) { /* ignore storage errors */ }
+
+                                streamResponse(uiMsgs, false);
+                            } else {
+                                console.log("⚠️ [Smart Resume] Skipped. Max retries (1) reached for this message.");
+                            }
                         }
 
                     } else {
