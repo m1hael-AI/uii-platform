@@ -85,8 +85,8 @@ export default function UsersAdminPage() {
                         <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
                             <th className="p-4 font-semibold">ID</th>
                             <th className="p-4 font-semibold">TG ID</th>
-                            <th className="p-4 font-semibold">Пользователь</th>
-                            <th className="p-4 font-semibold">Имя (TG)</th>
+                            <th className="p-4 font-semibold">Username</th>
+                            <th className="p-4 font-semibold">Name</th>
                             <th className="p-4 font-semibold">Роль</th>
                             <th className="p-4 font-semibold">Onboarded</th>
                             <th className="p-4 font-semibold">Дата регистрации</th>
@@ -114,12 +114,20 @@ export default function UsersAdminPage() {
                             users.map(user => (
                                 <tr key={user.id} className="hover:bg-blue-50/50 transition-colors">
                                     <td className="p-4 text-gray-400 font-mono text-xs">{user.id}</td>
-                                    <td className="p-4 text-gray-800 font-mono text-sm">{user.tg_id}</td>
+                                    <td className="p-4 text-gray-800 font-mono text-sm">{user.tg_id || "-"}</td>
                                     <td className="p-4 font-medium text-gray-800">
-                                        @{user.username || "no_username"}
+                                        {user.username ? (
+                                            <span className="text-blue-600">@{user.username}</span>
+                                        ) : (
+                                            <span className="text-gray-400">-</span>
+                                        )}
                                     </td>
                                     <td className="p-4 text-gray-600">
-                                        {user.tg_first_name} {user.tg_last_name}
+                                        {user.tg_first_name || user.tg_last_name ? (
+                                            <span>
+                                                {user.tg_first_name} {user.tg_last_name}
+                                            </span>
+                                        ) : "-"}
                                     </td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'

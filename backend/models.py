@@ -399,13 +399,13 @@ class ChatSettings(SQLModel, table=True):
     # === Блок 1: Общение с пользователями ===
     user_chat_model: str = Field(default="gpt-4o-mini", description="Модель для общения с пользователями")
     user_chat_temperature: float = Field(default=0.2, description="Температура для общения")
-    user_chat_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для ответов (2000 = запас)")
+    user_chat_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для ответов")
     rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
     
     # === Блок 2: Вечный диалог (Сжатие контекста) ===
     compression_model: str = Field(default="gpt-4o-mini", description="Модель для сжатия контекста")
     compression_temperature: float = Field(default=0.2, description="Температура для сжатия")
-    compression_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для саммари (1000 = запас)")
+    compression_max_tokens: Optional[int] = Field(default=None, description="Max tokens для саммари")
     context_threshold: float = Field(default=0.9, description="Порог срабатывания сжатия (0.9 = 90%)")
     context_compression_keep_last: int = Field(default=20, description="Сколько последних сообщений оставлять")
     context_soft_limit: int = Field(default=350000, description="Мягкий лимит токенов для срабатывания")

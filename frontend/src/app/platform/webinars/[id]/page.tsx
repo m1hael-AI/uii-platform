@@ -324,7 +324,7 @@ export default function WebinarPage() {
                     );
                 })}
 
-                {isTyping && (
+                {isTyping && (messages.length === 0 || messages[messages.length - 1].role !== 'assistant' || !messages[messages.length - 1].text) && (
                     <div className="flex justify-start w-full">
                         <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center gap-1">
                             <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
