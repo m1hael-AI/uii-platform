@@ -15,7 +15,7 @@ from sqlalchemy import select, func
 import pytz
 from loguru import logger
 
-from models import PendingAction, User, ProactivitySettings, Message, ChatSession
+from models import PendingAction, User, ProactivitySettings, Message, ChatSession, MessageRole
 
 
 async def get_user_local_time(user: User) -> datetime:
@@ -185,9 +185,10 @@ async def process_pending_actions(db: AsyncSession) -> None:
                 skipped += 1
                 continue
             
-            # Проверяем лимиты
+            # --- Daily Limit (Rate Limit) ---
+            # Проверяем лимиты в день
             if not await can_send_proactive_message(db, user.id, action.agent_slug, settings):
-                logger.debug(f"🚫 Лимит сообщений исчерпан для пользователя {user.id}, agent={action.agent_slug}")
+                logger.debug(f"🚫 Лимит сообщений В ДЕНЬ исчерпан для пользователя {user.id}. Задача остаётся PENDING.")
                 skipped += 1
                 continue
             

@@ -106,7 +106,7 @@ export default function AgentChatPage() {
     }
   };
 
-  // Fetch History on Mount
+  // Fetch History on Mount & Real-time Updates
   useEffect(() => {
     const fetchHistory = async () => {
       const token = Cookies.get("token");
@@ -137,7 +137,13 @@ export default function AgentChatPage() {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` }
           });
-          window.dispatchEvent(new Event("chatStatusUpdate"));
+          // Dispatch event to update sidebar/header UNREAD counts
+          // We use a custom event name or a flag to avoid infinite loops if this component also listens
+          // But here, this component listens to 'chatStatusUpdate' to RELOAD.
+          // Dispatching it here might cause a loop if we are not careful.
+          // 'chatStatusUpdate' is usually fired by the sidebar or websocket when NEW data arrives.
+          // Here we are just marking as read.
+          window.dispatchEvent(new Event("chatReadUpdate"));
 
           // 🚀 SMART RESUME: If last message was USER, try to complete it
           if (loadedMessages.length > 0) {
@@ -154,6 +160,16 @@ export default function AgentChatPage() {
     };
 
     fetchHistory();
+
+    // 🔔 REAL-TIME LISTENER
+    const handleUpdate = () => {
+      console.log("🔔 Chat update received, reloading history...");
+      fetchHistory();
+    };
+
+    window.addEventListener("chatStatusUpdate", handleUpdate);
+    return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentId, agent.name]);
 

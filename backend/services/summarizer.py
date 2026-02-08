@@ -390,8 +390,9 @@ async def check_proactivity_trigger(
     for msg in reversed(recent_msgs_list):
         if msg.role.value == "assistant":
             consecutive_assistant_msgs += 1
-        else:
-            # Прерываемся на первом сообщении пользователя
+        elif msg.role.value == "user":
+            # Прерываемся ТОЛЬКО на сообщении пользователя!
+            # (System messages, like trigger logs, should be ignored)
             break
             
     if consecutive_assistant_msgs >= max_consecutive:
