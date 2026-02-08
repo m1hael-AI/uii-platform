@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, delete, or_, update
+from sqlalchemy import select, delete, or_, update, func
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import asyncio
@@ -437,7 +437,19 @@ async def chat_completions(
         # 🔪 Kill Switch: Delete pending proactive tasks for this agent
         # If user initiates conversation, we don't need to send proactive message
         agent_slug = request.agent_id or "ai_tutor"
-        await db.execute(
+        
+        # Check how many pending tasks exist before deletion
+        pending_count = await db.scalar(
+            select(func.count(PendingAction.id))
+            .where(PendingAction.user_id == current_user.id)
+            .where(PendingAction.agent_slug == agent_slug)
+            .where(PendingAction.status == "pending")
+        )
+        
+        if pending_count and pending_count > 0:
+            logger.info(f"🔪 Kill Switch: Deleting {pending_count} pending task(s) for user={current_user.id}, agent={agent_slug}")
+        
+        result = await db.execute(
             delete(PendingAction)
             .where(PendingAction.user_id == current_user.id)
             .where(PendingAction.agent_slug == agent_slug)
@@ -445,6 +457,10 @@ async def chat_completions(
         )
         
         await db.commit()
+        
+        # Log successful deletion
+        if pending_count and pending_count > 0:
+            logger.info(f"✅ Kill Switch: Successfully deleted {pending_count} pending task(s)")
 
     # 4. Building Context (Memory v2)
     # =========================================================================
