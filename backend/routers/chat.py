@@ -545,7 +545,6 @@ async def chat_completions(
         
         safe_context = webinar_context
         if context_tokens > available_context_tokens:
-            from loguru import logger
             logger.warning(f"⚠️ Webinar context too large ({context_tokens} tokens). Truncating to {available_context_tokens} tokens (Model Limit: {max_model_tokens} - Used: {used_tokens}).")
             
             # Smart Truncation via tiktoken
@@ -574,7 +573,6 @@ async def chat_completions(
         # NO CONTEXT PROVIDED
         # Check if it was supposed to be AI Tutor?
         if agent_slug == "ai_tutor":
-            from loguru import logger
             logger.error(f"🚨 AI Tutor invoked without webinar_context! Agent will be blind.")
             
         # Clean up placeholder
