@@ -117,7 +117,7 @@ export default function AgentChatPage() {
 
   // Fetch History on Mount & Real-time Updates
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchHistory = async (shouldMarkRead = true) => {
       const token = Cookies.get("token");
       if (!token) return;
 
@@ -142,18 +142,15 @@ export default function AgentChatPage() {
             setMessages([]);
           }
 
-          // Mark as read
-          await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // Dispatch event to update sidebar/header UNREAD counts
-          // We use a custom event name or a flag to avoid infinite loops if this component also listens
-          // But here, this component listens to 'chatStatusUpdate' to RELOAD.
-          // Dispatching it here might cause a loop if we are not careful.
-          // 'chatStatusUpdate' is usually fired by the sidebar or websocket when NEW data arrives.
-          // Here we are just marking as read.
-          window.dispatchEvent(new Event("chatReadUpdate"));
+          // Mark as read ONLY if requested (prevents infinite SSE loops)
+          if (shouldMarkRead) {
+            await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            // Dispatch event to update sidebar/header UNREAD counts
+            window.dispatchEvent(new Event("chatReadUpdate"));
+          }
 
           // 🚀 SMART RESUME: RESTORED (With Loop Protection)
           // 🚀 SMART RESUME: RESTORED (ONE-SHOT RETRY)
@@ -180,12 +177,12 @@ export default function AgentChatPage() {
       }
     };
 
-    fetchHistory();
+    fetchHistory(true); // Initial Load: Mark as read
 
     // 🔔 REAL-TIME LISTENER
     const handleUpdate = () => {
       console.log("🔔 Chat update received, reloading history...");
-      fetchHistory();
+      fetchHistory(false); // Revalidation: DO NOT mark as read (avoids loop)
     };
 
     window.addEventListener("chatStatusUpdate", handleUpdate);

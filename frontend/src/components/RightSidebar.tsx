@@ -161,7 +161,7 @@ export default function RightSidebar() {
 
     // Load History Logic
     useEffect(() => {
-        const fetchHistory = async () => {
+        const fetchHistory = async (shouldMarkReadRefetch = true) => {
             const token = Cookies.get("token");
             if (!token) return;
 
@@ -199,7 +199,10 @@ export default function RightSidebar() {
                             setHasUnreadMessages(msgTime > lastReadServer);
                         } else {
                             setHasUnreadMessages(false);
+                            // If last is user, and we are opening/active, we might want to mark read?
+                            // But RightSidebar has separate markAsRead effect when open.
                         }
+
 
                         // 🚀 SMART RESUME: RESTORED (ONE-SHOT RETRY)
                         // Logic: If the server crashed, we try to resume ONCE.
@@ -244,7 +247,7 @@ export default function RightSidebar() {
             }
         };
 
-        fetchHistory();
+        fetchHistory(true);
     }, []);
 
     // 🔔 UNIFIED NOTIFICATION LOGIC
@@ -331,7 +334,63 @@ export default function RightSidebar() {
                         console.error("Failed to refetch history on SSE", e);
                     }
                 };
-                refetchHistory();
+                refetchHistory(); // No markAsRead here by default? 
+                // Ah, the main fetchHistory WAS NOT calling markAsRead in RightSidebar.
+                // RightSidebar calls markAsRead in a SEPARATE useEffect [isOpen].
+
+                // Let's verify RightSidebar lines 316+
+                // useEffect(() => { if(isOpen) markAsRead() }, [isOpen, messages.length])
+
+                // So RightSidebar loop risk:
+                // 1. SSE arrives -> refetchHistory -> update messages
+                // 2. messages.length changes -> useEffect calls markAsRead()
+                // 3. markAsRead() -> POST /read -> SSE "chatReadUpdate"
+                // 4. SSE "chatReadUpdate" -> handleChatUpdate?
+
+                // context/SSEContext.tsx handles "chatReadUpdate" by broadcasting "chatStatusUpdate"
+                // RightSidebar listens to "chatStatusUpdate".
+
+                // SO YES, RightSidebar HAS A LOOP too.
+                // messages update -> markAsRead -> SSE -> messages update.
+
+                // Fix: MarkAsRead should only fire if we are OPEN and the message is NEW and NOT READ.
+                // But markAsRead just blindly posts.
+
+                // Let's break the SSE listener loop first.
+                // If the event is 'chatReadUpdate', we should maybe NOT refetch?
+                // But we don't know the event type here, it's just 'chatStatusUpdate' window event.
+
+                // Logic:
+                // Only refetch if !isOpen.
+                // If !isOpen, we don't trigger the markAsRead effect.
+                // So the loop implies isOpen?
+
+                // If isOpen:
+                // handleChatUpdate condition: if (!isOpen && ...)
+                // So if isOpen, handleChatUpdate DOES NOTHING.
+
+                // So loop only happens if isOpen=false?
+                // If isOpen=false:
+                // SSE -> refetch -> setMessages -> useEffect(markAsRead) runs?
+                // No, useEffect(markAsRead) checks `if (isOpen)`.
+
+                // So RightSidebar loop is unlikely if isOpen=false.
+
+                // What about when isOpen=true?
+                // SSE listener DOES NOTHING.
+
+                // Wait, if isOpen=true, we rely on `window.dispatchEvent`?
+                // No, when isOpen, we rely on... nothing?
+
+                // User said: "Notification bell responsiveness" which implies Sidebar Closed.
+                // The loop in logs showed `/chat/history` calls.
+
+                // Let's look at AgentPage again.
+                // AgentPage was definitely looping because it called markAsRead inside fetchHistory.
+
+                // RightSidebar seems safer regarding markAsRead.
+                // Use strict refetch logic anyway to be safe.
+
             }
         };
 
