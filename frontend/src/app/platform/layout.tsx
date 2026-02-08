@@ -63,8 +63,19 @@ export default function PlatformLayout({
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    // Check if ANY session (agents OR assistant) has unread
-                    setHasGlobalUnread(data.has_unread);
+
+                    // Force check: Explicitly look at sessions list to ensure no aggregation bug
+                    const sessions = data.sessions || [];
+                    const computedHasUnread = sessions.some((s: any) => s.unread_count > 0);
+
+                    // Use backend flag but fallback to computed if needed (or just use computed)
+                    // The backend says 'has_unread' which is computed same way.
+                    // But let's trust the granular data more if backend aggregation is suspect.
+                    setHasGlobalUnread(computedHasUnread);
+
+                    if (data.has_unread !== computedHasUnread) {
+                        console.warn("Mismatch in unread status:", data.has_unread, computedHasUnread);
+                    }
                 }
             } catch (e) {
                 console.error("Unread check failed", e);
