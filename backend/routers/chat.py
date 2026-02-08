@@ -140,21 +140,25 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
         
         session_created = False
         try:
-            # Create Session
-            new_session = ChatSession(
-                user_id=user_id,
-                agent_slug=slug,
-                is_active=True
-            )
-            db.add(new_session)
+            # Use nested transaction (SAVEPOINT) so rollback doesn't affect outer session
+            async with db.begin_nested():
+                # Create Session
+                new_session = ChatSession(
+                    user_id=user_id,
+                    agent_slug=slug,
+                    is_active=True
+                )
+                db.add(new_session)
+                await db.flush() # Flush to check constraints within nested transaction
+            
             await db.commit()
             await db.refresh(new_session)
             session_created = True
         except IntegrityError:
-            # Race condition: another request already created this session
-            await db.rollback()
+            # Race condition: another request already created this session.
+            # Nested transaction automatically rolled back (to savepoint).
+            # We don't need to do db.rollback() manually here.
             logger.warning(f"Session for user {user_id}, agent {slug} already exists (race condition)")
-            # Skip creating greeting message - it was already created by the first request
             continue
         
         # Create greeting message for AGENTS (not for main_assistant)
