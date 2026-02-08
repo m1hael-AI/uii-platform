@@ -666,7 +666,10 @@ async def mark_chat_read(
     await db.commit()
     
     # 🔔 Notify User (Read Status Changed)
-    await manager.broadcast(current_user.id, {"type": "chatStatusUpdate"})
+    # 🔔 Notify User (Read Status Changed)
+    # FIX: Use specific event 'chatReadUpdate' instead of generic 'chatStatusUpdate' 
+    # to avoid infinite loop (Frontend reloads history on statusUpdate -> calls read -> triggers statusUpdate)
+    await manager.broadcast(current_user.id, {"type": "chatReadUpdate"})
     
     return {"status": "ok", "last_read_at": session.last_read_at.isoformat()}
 
