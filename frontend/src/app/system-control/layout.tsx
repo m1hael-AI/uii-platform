@@ -63,13 +63,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 <div className="flex items-center gap-6">
                     <button
-                        onClick={() => router.push("/admin/llm-audit")}
-                        className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 rounded-md transition-colors flex items-center gap-2"
-                    >
-                        LLM Audit
-                    </button>
-
-                    <button
                         onClick={() => router.push("/platform")}
                         className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-black hover:bg-gray-100 rounded-md transition-colors"
                     >

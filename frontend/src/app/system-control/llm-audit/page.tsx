@@ -9,6 +9,7 @@ interface LLMAuditLog {
     agent_slug: string;
     model: string;
     input_tokens: number;
+    cached_tokens: number;
     output_tokens: number;
     total_tokens: number;
     cost_usd: number;
@@ -148,6 +149,9 @@ export default function LLMAuditPage() {
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col">
                                                 <span className="text-xs text-gray-400">In: {log.input_tokens}</span>
+                                                {log.cached_tokens > 0 && (
+                                                    <span className="text-xs text-blue-600">Cached: {log.cached_tokens}</span>
+                                                )}
                                                 <span className="text-xs text-green-600">Out: {log.output_tokens}</span>
                                                 <span className="font-medium">Total: {log.total_tokens}</span>
                                             </div>
