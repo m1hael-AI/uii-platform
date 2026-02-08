@@ -52,7 +52,13 @@ def seed_agents():
                     agent = Agent(**agent_data)
                     session.add(agent)
                 else:
-                    print(f"Agent exists: {agent_data['slug']}")
+                    print(f"Updating agent: {agent_data['slug']}...")
+                    existing_agent.name = agent_data["name"]
+                    existing_agent.description = agent_data["description"]
+                    existing_agent.system_prompt = agent_data["system_prompt"]
+                    existing_agent.avatar_url = agent_data.get("avatar_url")
+                    existing_agent.greeting_message = agent_data.get("greeting")
+                    session.add(existing_agent)
             
             session.commit()
         print("SEEDING DONE SUCCESS.")
