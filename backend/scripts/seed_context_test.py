@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from models import Message, MessageRole, ChatSession, User
 from database import async_session_factory
+from services.chat_session_service import get_or_create_chat_session
 from datetime import datetime, timedelta
 import json
 
@@ -89,29 +90,14 @@ async def seed_chat_history():
 
         print(f"✅ Пользователь найден: ID {user.id} ({user.email})")
 
-        # 2. Найти или создать сессию
-        res = await db.execute(
-            select(ChatSession).where(
-                ChatSession.user_id == user.id,
-                ChatSession.agent_slug == TARGET_AGENT_SLUG,
-                ChatSession.library_id == None,
-                ChatSession.schedule_id == None
-            )
+        # 2. Найти или создать сессию (атомарно)
+        print(f"📝 Получаю или создаю сессию для агента '{TARGET_AGENT_SLUG}'...")
+        session = await get_or_create_chat_session(
+            db=db,
+            user_id=user.id,
+            agent_slug=TARGET_AGENT_SLUG
         )
-        session = res.scalar_one_or_none()
-        
-        if not session:
-            print(f"📝 Создаю новую сессию для агента '{TARGET_AGENT_SLUG}'...")
-            session = ChatSession(
-                user_id=user.id,
-                agent_slug=TARGET_AGENT_SLUG,
-                is_active=True
-            )
-            db.add(session)
-            await db.commit()
-            await db.refresh(session)
-        else:
-            print(f"✅ Найдена существующая сессия: ID {session.id}")
+        print(f"✅ Сессия ID {session.id} готова.")
             # Опционально: очистить старую историю
             # from sqlalchemy import delete
             # await db.execute(delete(Message).where(Message.session_id == session.id))
