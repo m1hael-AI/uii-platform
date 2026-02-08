@@ -251,30 +251,58 @@ export default function WebinarsPage() {
                                 >
                                     {/* Thumbnail: Real Iframe behind a glass layer or Image */}
                                     <div className="aspect-video bg-black relative">
-                                        {webinar.thumbnail_url && webinar.thumbnail_url.length > 10 ? (
-                                            // If thumbnail exists, use it as cover
-                                            <img
-                                                src={webinar.thumbnail_url}
-                                                alt={webinar.title}
-                                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                            />
-                                        ) : (
-                                            // Fallback to Iframe preview or placeholder
-                                            webinar.video_url ? (
-                                                <div
-                                                    className="w-full h-full pointer-events-none [&>iframe]:!w-full [&>iframe]:!h-full"
-                                                    dangerouslySetInnerHTML={{ __html: getCardIframe(webinar.video_url) || "" }}
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gray-100">
-                                                    🎬
+                                        {/* Пытаемся получить картинку превью (Thumbnail) */}
+                                        {(() => {
+                                            // 1. Если есть явная картинка с бэкенда
+                                            if (webinar.thumbnail_url && webinar.thumbnail_url.length > 10) {
+                                                return (
+                                                    <img
+                                                        src={webinar.thumbnail_url}
+                                                        alt={webinar.title}
+                                                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                                    />
+                                                );
+                                            }
+
+                                            // 2. Пытаемся достать картинку из URL видео (YouTube / VK)
+                                            // VK Video: https://vk.com/video_ext.php?oid=...&id=...
+                                            // VK Thumb format: https://assets.vk.com/images/video/thumbs/default.jpg (Generic) - hard to guess real one without API
+                                            // BUT we can use a placeholder for VK to avoid loading heavyweight iframe
+
+                                            // YouTube
+                                            if (webinar.video_url?.includes("youtube.com") || webinar.video_url?.includes("youtu.be")) {
+                                                let vidId = "";
+                                                if (webinar.video_url.includes("v=")) vidId = webinar.video_url.split("v=")[1]?.split("&")[0];
+                                                else if (webinar.video_url.includes("embed/")) vidId = webinar.video_url.split("embed/")[1]?.split("?")[0];
+                                                else if (webinar.video_url.includes("youtu.be/")) vidId = webinar.video_url.split("youtu.be/")[1]?.split("?")[0];
+
+                                                if (vidId) {
+                                                    return (
+                                                        <img
+                                                            src={`https://img.youtube.com/vi/${vidId}/hqdefault.jpg`}
+                                                            alt={webinar.title}
+                                                            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                                        />
+                                                    );
+                                                }
+                                            }
+
+                                            // Fallback for VK/Other: Show generic placeholder instead of IFRAME
+                                            // Loading 20 iframes kills the page and causes 403.
+                                            return (
+                                                <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gray-100 flex-col gap-2">
+                                                    <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
+                                                        <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M8 5v14l11-7z" />
+                                                        </svg>
+                                                    </div>
+                                                    <span className="text-xs font-medium text-gray-400">Смотреть запись</span>
                                                 </div>
-                                            )
-                                        )}
+                                            );
+                                        })()}
 
                                         {/* Overlay (Glass) */}
                                         <div className="absolute inset-0 bg-transparent z-10 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                            {/* Play Icon removed to reduce visual noise */}
                                         </div>
                                     </div>
 
