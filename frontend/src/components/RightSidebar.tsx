@@ -90,6 +90,67 @@ export default function RightSidebar() {
         }
     };
 
+    // --- STREAMING HELPER (SMART RESUME) ---
+    const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        setIsTyping(true);
+        setStreamingMessage("");
+
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+            // Prepare context
+            // Note: 'messages' in state has 'created_at', but API expects clean {role, content}
+            const contextMessages = currentMessages.map(m => ({ role: m.role, content: m.text }));
+
+            const res = await fetch(`${API_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    messages: contextMessages,
+                    agent_id: "main_assistant",
+                    webinar_id: null,
+                    save_user_message: saveUserMessage // 🚀 Key Param
+                })
+            });
+
+            if (!res.ok) throw new Error("API Error");
+            if (!res.body) throw new Error("No response body");
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedText = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedText += chunk;
+                setStreamingMessage(accumulatedText);
+            }
+
+            // Order important: Add to history -> Clear stream
+            setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText, created_at: new Date().toISOString() }]);
+            setStreamingMessage("");
+
+        } catch (e: any) {
+            console.error("Chat Error:", e);
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                text: `Прошу прощения, произошла ошибка соединения. (${e.message || "Unknown error"})`
+            }]);
+        } finally {
+            setIsTyping(false);
+            setStreamingMessage("");
+        }
+    };
+
     // Load History Logic
     useEffect(() => {
         const fetchHistory = async () => {
@@ -122,7 +183,7 @@ export default function RightSidebar() {
                         }));
                         setMessages(uiMsgs);
                         setLastTooltipMessageIndex(uiMsgs.length - 1);
-                        wasHistoryEmpty.current = false; // History was NOT empty
+                        wasHistoryEmpty.current = false;
 
                         const lastAssistantMsg = uiMsgs[uiMsgs.length - 1];
                         if (lastAssistantMsg.role === 'assistant') {
@@ -131,13 +192,20 @@ export default function RightSidebar() {
                         } else {
                             setHasUnreadMessages(false);
                         }
+
+                        // 🚀 SMART RESUME LOGIC (Sidebar)
+                        const lastMsg = uiMsgs[uiMsgs.length - 1];
+                        if (lastMsg.role === 'user') {
+                            console.log("🚀 [Smart Resume Sidebar] Last message was User. Resuming...");
+                            streamResponse(uiMsgs, false);
+                        }
+
                     } else {
                         // History was EMPTY (new user)
                         setHasUnreadMessages(false);
                         wasHistoryEmpty.current = true;
                     }
                 } else {
-                    // Request failed - assume empty
                     wasHistoryEmpty.current = true;
                 }
             } catch (e) {
@@ -276,63 +344,11 @@ export default function RightSidebar() {
         setInput("");
 
         // 1. Add User Message Immediately
-        const tempUserMsg = { role: 'user' as const, text: userText };
+        const tempUserMsg = { role: 'user' as const, text: userText, created_at: new Date().toISOString() };
         setMessages(prev => [...prev, tempUserMsg]);
-        setIsTyping(true);
-        setStreamingMessage(""); // Reset stream
 
-        try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-
-            // Prepare context (include user's new message)
-            const contextMessages = [...messages, tempUserMsg].map(m => ({ role: m.role, content: m.text }));
-
-            const res = await fetch(`${API_URL}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    messages: contextMessages,
-                    agent_id: "main_assistant",
-                    webinar_id: null
-                })
-            });
-
-            if (!res.ok) throw new Error("API Error");
-            if (!res.body) throw new Error("No response body");
-
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let accumulatedText = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                accumulatedText += chunk;
-
-                // 2. Update STREAMING state (cheap render)
-                setStreamingMessage(accumulatedText);
-            }
-
-            // 3. DONE: Commit to history
-            // Order important: Add to history -> Clear stream
-            // This ensures no flickering (or minimal)
-            setMessages(prev => [...prev, { role: 'assistant', text: accumulatedText }]);
-            setStreamingMessage("");
-
-        } catch (e: any) {
-            console.error("Chat Error:", e);
-            setMessages(prev => [...prev, {
-                role: 'assistant',
-                text: `Прошу прощения, произошла ошибка соединения. (${e.message || "Unknown error"})`
-            }]);
-        } finally {
-            setIsTyping(false);
-        }
+        // 2. Trigger Smart Response (Clean separate function)
+        await streamResponse([...messages, tempUserMsg], true);
     };
 
     return (

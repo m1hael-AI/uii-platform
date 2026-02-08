@@ -38,7 +38,7 @@ class ClientSafeLogger {
             if (level !== 'debug') {
                 console.log(`[ClientLogger] Attempting to send ${level} log to server...`);
                 try {
-                    fetch('/_ingest/logs', {
+                    fetch('/api/logs', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

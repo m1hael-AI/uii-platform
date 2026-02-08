@@ -18,17 +18,22 @@ interface Webinar {
     date?: string;
     scheduled_at?: string;
     connection_link?: string;
-    is_upcoming: boolean; // Ensure this is mapped!
+    is_upcoming: boolean;
     category?: string;
     speaker?: string;
     duration?: string;
 }
 
 // --- Helper Functions ---
-// ... (keep usage same if possible, but replace tool matches exactly)
 const getIframeHtml = (iframeString?: string) => {
     if (!iframeString) return null;
-    if (iframeString.includes("<iframe")) return iframeString;
+    if (iframeString.includes("<iframe")) {
+        // Inject referrerPolicy if not present
+        if (!iframeString.includes("referrerPolicy")) {
+            return iframeString.replace("<iframe", '<iframe referrerpolicy="no-referrer"');
+        }
+        return iframeString;
+    }
 
     let src = iframeString;
     const vkMatch = iframeString.match(/video(-?\d+)_(\d+)/);
@@ -40,18 +45,10 @@ const getIframeHtml = (iframeString?: string) => {
         src = iframeString.replace("youtu.be/", "youtube.com/embed/");
     }
 
-    return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+    return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
 };
 
-// ... (VideoPlayer omitted for brevity, Assuming I target interface separately?)
-// I will split into multiple chunks in next turn if I can't match big block.
-// Let's try matching interface first.
-
-// Oh, I need to match specific block.
-// I will specific replacing interface and then fetchLogic.
-
-
-// --- Memoized Video Player to prevent re-renders on Chat Input ---
+// --- Memoized Video Player ---
 const VideoPlayer = memo(({ iframe }: { iframe?: string }) => {
     return (
         <div className="w-full aspect-video bg-black">
@@ -95,29 +92,24 @@ export default function WebinarPage() {
             }
 
             try {
-                // Use explicit library endpoint to avoid collision with schedule IDs
                 const res = await fetch(`${API_URL}/webinars/library/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
                 if (res.ok) {
                     const data = await res.json();
-
-                    // CLEANUP: Remove "STOP" from description if present
                     let cleanDesc = data.description || "";
                     cleanDesc = cleanDesc.replace(/STOP$/i, "").trim();
 
                     setWebinar({
                         ...data,
                         description: cleanDesc,
-                        // Use API data (NO hardcoded defaults)
                         category: data.category || "Общее",
                         speaker: data.speaker_name || "Не указан",
                         date: new Date(data.created_at).toLocaleDateString("ru-RU", {
                             day: 'numeric', month: 'long', year: 'numeric'
                         }),
                         iframe: data.video_url,
-                        // Ensure optional fields are passed
                         scheduled_at: data.scheduled_at,
                         connection_link: data.connection_link,
                         is_upcoming: data.is_upcoming ?? false
@@ -163,7 +155,76 @@ export default function WebinarPage() {
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // 2. Fetch Chat History
+    // --- STREAMING HELPER (SMART RESUME) ---
+    const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        setIsTyping(true);
+        if (saveUserMessage) {
+            // Placeholder for new assistant message
+            setMessages(prev => [...prev, { role: 'assistant', text: "" }]);
+        } else {
+            // If resuming, we just add the assistant placeholder, user msg is already there
+            setMessages(prev => [...prev, { role: 'assistant', text: "" }]);
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    messages: currentMessages.map(m => ({ role: m.role, content: m.text })),
+                    agent_id: "ai_tutor",
+                    webinar_id: parseInt(id),
+                    save_user_message: saveUserMessage // IMPORTANT: Backend must support this!
+                })
+            });
+
+            if (!res.ok) throw new Error("API Error");
+            if (!res.body) throw new Error("No body");
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+
+            let accumulatedText = "";
+            let firstChunk = true;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                // Hide typing indicator (if we had a separate visual one) when first chunk arrives
+                if (firstChunk) firstChunk = false;
+
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedText += chunk;
+
+                setMessages(prev => {
+                    const newMsgs = [...prev];
+                    const last = newMsgs[newMsgs.length - 1];
+                    if (last.role === 'assistant') last.text = accumulatedText;
+                    return newMsgs;
+                });
+            }
+
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => {
+                const newMsgs = [...prev];
+                const last = newMsgs[newMsgs.length - 1];
+                if (last.role === 'assistant') last.text = "Ошибка сети. Попробуйте позже.";
+                return newMsgs;
+            });
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
+    // 2. Fetch Chat History & Trigget Smart Resume
     useEffect(() => {
         const fetchHistory = async () => {
             const token = Cookies.get("token");
@@ -180,15 +241,22 @@ export default function WebinarPage() {
 
                 if (res.ok) {
                     const hist = await res.json();
-                    // Backend returns {messages: [...], last_read_at: ..., is_new_session: bool}
                     if (hist?.messages && hist.messages.length > 0) {
                         const uiMsgs = hist.messages.map((m: any) => ({
                             role: m.role,
                             text: m.content
                         }));
                         setMessages(uiMsgs);
+
+                        // 🚀 SMART RESUME LOGIC
+                        const lastMsg = uiMsgs[uiMsgs.length - 1];
+                        if (lastMsg.role === 'user') {
+                            console.log("🚀 [Smart Resume] Last message was User. Resuming generation...");
+                            // Call streamResponse without saving user message to DB again
+                            // Note: we pass uiMsgs directly as context
+                            streamResponse(uiMsgs, false);
+                        }
                     }
-                    // If no messages, wait for backend to create greeting via delayed task
                 }
             } catch (e) {
                 console.error("History error", e);
@@ -196,6 +264,7 @@ export default function WebinarPage() {
         };
 
         if (id) fetchHistory();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     useEffect(() => {
@@ -203,65 +272,17 @@ export default function WebinarPage() {
     }, [messages, isTyping]);
 
     const handleSend = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || isTyping) return;
 
-        const token = Cookies.get("token");
         const userText = input;
 
-        setMessages(prev => [...prev, { role: 'user', text: userText }]);
+        // Optimistic UI update
+        const newMessages = [...messages, { role: 'user' as const, text: userText }];
+        setMessages(newMessages);
         setInput("");
-        setIsTyping(true);
 
-        try {
-            const res = await fetch(`${API_URL}/chat/completions`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    messages: [...messages, { role: 'user' as const, text: userText }].map(m => ({ role: m.role, content: m.text })),
-                    agent_id: "ai_tutor",
-                    webinar_id: parseInt(id)
-                })
-            });
-
-            if (!res.ok) throw new Error("API Error");
-            if (!res.body) throw new Error("No body");
-
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-
-            setMessages(prev => [...prev, { role: 'assistant', text: "" }]);
-            let accumulatedText = "";
-            let firstChunk = true;
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                // Hide typing indicator when first chunk arrives
-                if (firstChunk) {
-                    setIsTyping(false);
-                    firstChunk = false;
-                }
-
-                const chunk = decoder.decode(value, { stream: true });
-                accumulatedText += chunk;
-
-                setMessages(prev => {
-                    const newMsgs = [...prev];
-                    const last = newMsgs[newMsgs.length - 1];
-                    if (last.role === 'assistant') last.text = accumulatedText;
-                    return newMsgs;
-                });
-            }
-
-        } catch (e) {
-            console.error(e);
-            setMessages(prev => [...prev, { role: 'assistant', text: "Ошибка сети. Попробуйте позже." }]);
-            setIsTyping(false);
-        }
+        // Trigger Streaming
+        await streamResponse(newMessages, true);
     };
 
     const [activeTab, setActiveTab] = useState<'info' | 'chat'>('info');
@@ -271,7 +292,7 @@ export default function WebinarPage() {
 
     const chatContent = (
         <div className="flex flex-col h-full w-full bg-white lg:border-l lg:border-gray-100 overflow-hidden">
-            {/* Chat Header - Visible only on Desktop (lg) because mobile has Tabs */}
+            {/* Chat Header */}
             <div className="hidden lg:flex p-4 bg-white border-b border-gray-100 items-center justify-between shadow-sm z-10 shrink-0 w-full">
                 <div className="flex items-center gap-2 min-w-0">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${isTyping ? 'bg-orange-400 animate-pulse' : 'bg-green-500'}`}></div>
@@ -376,7 +397,7 @@ export default function WebinarPage() {
 
     return (
         <div className="flex flex-col w-full h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] bg-white lg:bg-transparent overflow-hidden">
-            {/* Breadcrumbs - Hidden on Mobile/Tablet to save space, visible on Desktop */}
+            {/* Breadcrumbs */}
             <div className="hidden lg:flex mb-3 items-center gap-2 text-sm text-gray-500 px-1 w-full min-w-0 shrink-0">
                 <Link href="/platform/webinars" className="hover:text-[#206ecf] transition-colors shrink-0">Библиотека</Link>
                 <span className="shrink-0">/</span>
