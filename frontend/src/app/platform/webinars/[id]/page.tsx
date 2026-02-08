@@ -45,7 +45,7 @@ const getIframeHtml = (iframeString?: string) => {
         src = iframeString.replace("youtu.be/", "youtube.com/embed/");
     }
 
-    return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>`;
+    return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerPolicy="no-referrer-when-downgrade"></iframe>`;
 };
 
 // --- Memoized Video Player ---

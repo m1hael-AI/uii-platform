@@ -138,8 +138,9 @@ export default function WebinarsPage() {
         const matchesSearch = webinar.title.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     }).sort((a, b) => {
-        const dateA = new Date(a.date || 0).getTime();
-        const dateB = new Date(b.date || 0).getTime();
+        // Use raw timestamps/ISO dates for 100% accuracy (sorting fixed)
+        const dateA = new Date(a.conducted_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.conducted_at || b.created_at || 0).getTime();
         return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
     });
 
@@ -169,7 +170,7 @@ export default function WebinarsPage() {
             src = iframeHtml.replace("youtu.be/", "youtube.com/embed/");
         }
 
-        return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+        return `<iframe src="${src}" width="100%" height="100%" frameborder="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>`;
     };
 
     if (loading) return (
@@ -182,34 +183,41 @@ export default function WebinarsPage() {
         <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6">
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-                <div>
-                    <h1 className="text-3xl font-light text-[#474648] mb-2">Библиотека вебинаров</h1>
-                    <p className="text-[#7e95b1]">Архив прошедших вебинаров и лекций</p>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="space-y-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-[#474648]">Библиотека вебинаров</h1>
+                    <p className="text-[#7e95b1] text-sm md:text-base">Архив прошедших вебинаров и лекций</p>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    <div className="relative flex-1 md:flex-initial">
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                    {/* Search */}
+                    <div className="relative w-full sm:w-64 md:w-80 group">
                         <input
                             type="text"
                             placeholder="Поиск по темам..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full md:w-80 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
+                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] placeholder:text-gray-400"
                         />
-                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#206ecf] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
 
-                    <select
-                        value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-                        className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648] cursor-pointer"
-                    >
-                        <option value="newest">Сначала новые</option>
-                        <option value="oldest">Сначала старые</option>
-                    </select>
+                    {/* Custom Styled Sort */}
+                    <div className="relative w-full sm:w-auto">
+                        <select
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+                            className="w-full sm:w-auto pl-4 pr-10 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] cursor-pointer appearance-none"
+                        >
+                            <option value="newest">Сначала новые</option>
+                            <option value="oldest">Сначала старые</option>
+                        </select>
+                        <svg className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
                 </div>
             </div>
 
