@@ -9,13 +9,14 @@ try:
 except:
     pass
 
+from utils.logger import logger
 import yaml
 from pathlib import Path
 
 def load_prompts():
     path = Path(__file__).parent / "resources" / "default_prompts.yaml"
     if not path.exists():
-        print(f"WARNING: Prompts file not found at {path}")
+        logger.warning(f"⚠️ Prompts file not found at {path}")
         return {}
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
@@ -25,7 +26,7 @@ def seed_agents():
     """
     Creates basic agents in DB if not exist.
     """
-    print("Checking agents...")
+    logger.info("Checking agents...")
     
     agents_config = load_prompts()
     agents_to_seed = []
@@ -48,11 +49,11 @@ def seed_agents():
                 existing_agent = session.exec(statement).first()
                 
                 if not existing_agent:
-                    print(f"Creating agent: {agent_data['slug']}...")
+                    logger.info(f"Creating agent: {agent_data['slug']}...")
                     agent = Agent(**agent_data)
                     session.add(agent)
                 else:
-                    print(f"Updating agent: {agent_data['slug']}...")
+                    logger.info(f"Updating agent: {agent_data['slug']}...")
                     existing_agent.name = agent_data["name"]
                     existing_agent.description = agent_data["description"]
                     existing_agent.system_prompt = agent_data["system_prompt"]
@@ -61,9 +62,9 @@ def seed_agents():
                     session.add(existing_agent)
             
             session.commit()
-        print("SEEDING DONE SUCCESS.")
+        logger.info("✅ SEEDING DONE SUCCESS.")
     except Exception as e:
-        print(f"ERROR: {e}")
+        logger.error(f"❌ ERROR: {e}")
 
 if __name__ == "__main__":
     seed_agents()

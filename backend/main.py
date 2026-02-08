@@ -45,6 +45,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Ошибка запуска планировщика: {e}")
 
+    # Автоматически обновляем агентов (промпты) при старте
+    try:
+        from seed_agents import seed_agents
+        logger.info("🌱 Seeding/Updating agents...")
+        seed_agents()
+        logger.info("✅ Agents seeding complete")
+    except Exception as e:
+        logger.error(f"❌ Error seeding agents: {e}")
+
     yield
     
     logger.info("Остановка AI University Backend...")
