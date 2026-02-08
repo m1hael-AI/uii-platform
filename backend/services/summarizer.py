@@ -486,12 +486,12 @@ async def check_proactivity_trigger(
             reasoning = decision.reasoning
             reason = f"Proactivity triggered after {silence_hours}h silence. Reasoning: {reasoning}"
             
-            # Проверяем Anti-Spam (уже есть pending?)
+            # Проверяем Anti-Spam (уже есть pending или processing?)
             existing = await db.scalar(
                 select(PendingAction)
                 .where(PendingAction.user_id == user.id)
                 .where(PendingAction.agent_slug == chat_session.agent_slug)
-                .where(PendingAction.status == "pending")
+                .where(PendingAction.status.in_(["pending", "processing"]))
             )
             
             if not existing:
