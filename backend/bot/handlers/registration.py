@@ -12,6 +12,7 @@ from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.enums import ParseMode
 from sqlalchemy import select
+import asyncio
 
 from database import async_session_factory
 from models import User, UserAction, UserRole
@@ -107,11 +108,22 @@ async def cmd_start(message: Message, state: FSMContext, command: CommandObject)
             await session.refresh(user)
             await log_user_action(user_id, "start_bot", {"utm_source": utm_source})
             
-            # --- Sync Avatar ---
-            try:
-                await sync_user_avatar_from_telegram(user, session)
-            except Exception as e:
-                logger.error(f"Avatar sync failed: {e}")
+            # --- Sync Avatar (Background) ---
+            # Don't await here, let it run in background to speed up response
+            async def background_sync(u_id):
+                 try:
+                     async with async_session_factory() as s:
+                         # Need fresh session since main one might close
+                         stmt = select(User).where(User.id == u_id)
+                         res = await s.execute(stmt)
+                         u = res.scalar_one_or_none()
+                         if u:
+                             await sync_user_avatar_from_telegram(u, s)
+                 except Exception as e:
+                     logger.error(f"Background avatar sync failed: {e}")
+
+            # Fire and forget
+            asyncio.create_task(background_sync(user.id))
         else:
             # Update existing? Maybe just UTM if they came from new link
             if utm_source:
@@ -123,12 +135,20 @@ async def cmd_start(message: Message, state: FSMContext, command: CommandObject)
                  await session.commit()
                  await log_user_action(user_id, "start_bot_new_utm", {"utm_source": utm_source})
             
-            # --- Try Sync Avatar if missing ---
+            # --- Try Sync Avatar if missing (Background) ---
             if not user.tg_photo_url:
-                try:
-                    await sync_user_avatar_from_telegram(user, session)
-                except Exception as e:
-                    logger.error(f"Avatar sync failed (existing user): {e}")
+                async def background_sync_existing(u_id):
+                     try:
+                         async with async_session_factory() as s:
+                             stmt = select(User).where(User.id == u_id)
+                             res = await s.execute(stmt)
+                             u = res.scalar_one_or_none()
+                             if u:
+                                 await sync_user_avatar_from_telegram(u, s)
+                     except Exception as e:
+                         logger.error(f"Background avatar sync failed (existing): {e}")
+
+                asyncio.create_task(background_sync_existing(user.id))
         
         # === GENERATE MAGIC LINK ===
         # This revokes old links automatically

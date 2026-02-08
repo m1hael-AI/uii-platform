@@ -222,36 +222,32 @@ export default function PlatformLayout({
                                         });
                                         if (res.ok) {
                                             const data = await res.json();
-                                            console.log("🔔 Unread Check Data:", data); // DEBUG LOG
+                                            // console.log("🔔 Unread Check Data:", data);
 
                                             const sessions = data.sessions || [];
 
-                                            // Priority 1: Check for unread from agents (not main_assistant)
-                                            // Exclude ANY reserved assistant slugs
-                                            const hasUnreadFromAgents = sessions.some(
+                                            // Check for specific unreads
+                                            const unreadAssistant = sessions.find(
+                                                (s: any) => (s.agent_slug === "main_assistant" || s.agent_slug === "assistant") && s.unread_count > 0
+                                            );
+                                            const unreadAgents = sessions.find(
                                                 (s: any) => s.agent_slug !== "main_assistant" && s.agent_slug !== "assistant" && s.unread_count > 0
                                             );
 
-                                            // Priority 2: Check for unread from AI assistant
-                                            const hasUnreadFromAssistant = sessions.some(
-                                                (s: any) => (s.agent_slug === "main_assistant" || s.agent_slug === "assistant") && s.unread_count > 0
-                                            );
-
-                                            console.log("🔔 Logic:", { hasUnreadFromAgents, hasUnreadFromAssistant });
-
-                                            if (hasUnreadFromAssistant) {
-                                                // Open right sidebar (AI assistant)
-                                                // Trigger custom event to open sidebar
+                                            if (unreadAssistant) {
+                                                // Priority 1: Assistant
                                                 window.dispatchEvent(new CustomEvent("openRightSidebar"));
-                                            } else {
-                                                // Default / Priority 1 / Fallback
-                                                // If agents have unread OR no unread at all, go to main chat page
+                                            } else if (unreadAgents) {
+                                                // Priority 2: Agents
                                                 router.push("/platform/chat");
+                                            } else {
+                                                // Priority 3: No unread -> Open Assistant (Default context)
+                                                window.dispatchEvent(new CustomEvent("openRightSidebar"));
                                             }
                                         }
                                     } catch (e) {
                                         console.error("Failed to check unread status", e);
-                                        // Fallback on error
+                                        // Fallback -> Agents
                                         router.push("/platform/chat");
                                     }
                                 }}

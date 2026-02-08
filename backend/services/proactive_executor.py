@@ -223,7 +223,9 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
             preview_text = preview_text[:50] + "..."
         
         # HTML Formatting
-        text = f"🔔 <i>Вам пришло новое сообщение от {agent.name}</i>\n\n{preview_text}"
+        first_line = "🔔 Вам пришло новое сообщение от <b>{agent_name}</b>".format(agent_name=agent.name)
+        body = f"<i>{preview_text}</i>"
+        text = f"{first_line}\n\n{body}"
         
         # Inline Keyboard
         keyboard = InlineKeyboardMarkup(inline_keyboard=[

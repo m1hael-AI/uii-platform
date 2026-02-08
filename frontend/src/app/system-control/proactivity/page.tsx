@@ -57,7 +57,7 @@ interface ProactivitySettings {
     compression_prompt: string;
 
     // Anti-Spam
-    max_consecutive_messages: number;
+    max_consecutive_messages?: number;
 }
 
 export default function ProactivityAdminPage() {
@@ -393,8 +393,19 @@ export default function ProactivityAdminPage() {
                                     type="number"
                                     min="1"
                                     max="10"
-                                    value={settings.max_consecutive_messages || 3}
-                                    onChange={(e) => setSettings({ ...settings, max_consecutive_messages: parseInt(e.target.value) })}
+                                    value={settings.max_consecutive_messages ?? ""}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSettings({
+                                            ...settings,
+                                            max_consecutive_messages: val === "" ? undefined : parseInt(val)
+                                        });
+                                    }}
+                                    onBlur={(e) => {
+                                        if (!settings.max_consecutive_messages) {
+                                            setSettings({ ...settings, max_consecutive_messages: 3 });
+                                        }
+                                    }}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Если AI написал столько сообщений подряд без ответа юзера — проактивность останавливается.</p>
