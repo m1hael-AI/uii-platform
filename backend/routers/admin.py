@@ -564,3 +564,70 @@ async def list_llm_audit_logs(
         page=page,
         limit=limit
     )
+
+# --- Clear User Data (For Testing) ---
+
+@router.delete("/users/{user_id}/data")
+async def clear_user_data(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    🗑️ DANGER: Clear ALL data for a specific user.
+    Only for ADMIN. Used for testing purposes.
+    
+    Deletes:
+    - Messages
+    - Chat Sessions
+    - User Memory
+    - Pending Actions
+    - LLM Audit Logs
+    """
+    # CRITICAL: Only admin can clear user data
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can clear user data"
+        )
+    
+    # Verify user exists
+    user_result = await db.execute(select(User).where(User.id == user_id))
+    user = user_result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+    
+    from models import Message, ChatSession, UserMemory, PendingAction, LLMAuditLog
+    from sqlalchemy import delete
+    
+    # 1. Delete Messages
+    await db.execute(
+        delete(Message).where(
+            Message.session_id.in_(
+                select(ChatSession.id).where(ChatSession.user_id == user_id)
+            )
+        )
+    )
+    
+    # 2. Delete Chat Sessions
+    await db.execute(delete(ChatSession).where(ChatSession.user_id == user_id))
+    
+    # 3. Delete User Memory
+    await db.execute(delete(UserMemory).where(UserMemory.user_id == user_id))
+    
+    # 4. Delete Pending Actions
+    await db.execute(delete(PendingAction).where(PendingAction.user_id == user_id))
+    
+    # 5. Delete LLM Audit Logs
+    await db.execute(delete(LLMAuditLog).where(LLMAuditLog.user_id == user_id))
+    
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"All data for user {user_id} ({user.username or user.tg_first_name}) has been cleared",
+        "user_id": user_id
+    }
