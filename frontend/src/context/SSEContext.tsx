@@ -106,7 +106,7 @@ export const SSEProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const handleMessage = (msg: any) => {
-        if (msg.type === "chatStatusUpdate") {
+        if (msg.type === "chatStatusUpdate" || msg.type === "chatReadUpdate") {
             // Dispatch global event
             window.dispatchEvent(new Event("chatStatusUpdate"));
         }

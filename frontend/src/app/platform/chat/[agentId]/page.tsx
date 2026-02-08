@@ -145,13 +145,13 @@ export default function AgentChatPage() {
           // Here we are just marking as read.
           window.dispatchEvent(new Event("chatReadUpdate"));
 
-          // 🚀 SMART RESUME: REMOVED (Caused Infinite Loop)
-          // if (loadedMessages.length > 0) {
-          //   const lastMsg = loadedMessages[loadedMessages.length - 1];
-          //   if (lastMsg.role === 'user') {
-          //     streamResponse(loadedMessages, false);
-          //   }
-          // }
+          // 🚀 SMART RESUME: RESTORED
+          if (loadedMessages.length > 0) {
+            const lastMsg = loadedMessages[loadedMessages.length - 1];
+            if (lastMsg.role === 'user') {
+              streamResponse(loadedMessages, false);
+            }
+          }
         }
       } catch (e) {
         console.error("Failed to load history", e);

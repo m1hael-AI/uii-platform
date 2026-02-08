@@ -193,12 +193,12 @@ export default function RightSidebar() {
                             setHasUnreadMessages(false);
                         }
 
-                        // 🚀 SMART RESUME: REMOVED (Caused Infinite Loop)
-                        // const lastMsg = uiMsgs[uiMsgs.length - 1];
-                        // if (lastMsg.role === 'user') {
-                        //     console.log("🚀 [Smart Resume Sidebar] Last message was User. Resuming...");
-                        //     streamResponse(uiMsgs, false);
-                        // }
+                        // 🚀 SMART RESUME: RESTORED
+                        const lastMsg = uiMsgs[uiMsgs.length - 1];
+                        if (lastMsg.role === 'user') {
+                            console.log("🚀 [Smart Resume Sidebar] Last message was User. Resuming...");
+                            streamResponse(uiMsgs, false);
+                        }
 
                     } else {
                         // History was EMPTY (new user)

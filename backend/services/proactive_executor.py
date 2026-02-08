@@ -345,10 +345,19 @@ async def execute_proactive_message(
         # Отправляем в Telegram
         await send_to_telegram(user, agent, proactive_text)
         
-        logger.info(f"🎉 Проактивное сообщение успешно отправлено!")
+        # 8. Notify Frontend (SSE)
+        try:
+            from routers.chat import manager
+            await manager.broadcast(user.id, {"type": "chatStatusUpdate"})
+        except ImportError:
+            logger.warning("Could not import manager for SSE broadcast (circular import?)")
+        except Exception as e:
+            logger.error(f"Failed to broadcast SSE: {e}")
+
+        logger.info(f"✅ Проактивное сообщение выполнено успешно: {action.id}")
         
     except Exception as e:
-        logger.error(f"❌ Ошибка выполнения проактивного сообщения: {e}")
+        logger.error(f"❌ Критическая ошибка выполнения проактивной задачи {action.id}: {e}", exc_info=True)
         action.status = "failed"
         await db.commit()
         raise

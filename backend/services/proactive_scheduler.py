@@ -163,8 +163,30 @@ async def process_pending_actions(db: AsyncSession) -> None:
     processed = 0
     skipped = 0
     
+    from sqlalchemy import update
+
     for action in pending_actions:
         try:
+            # --- ATOMIC LOCKING (Prevention of Duplicates) ---
+            # Try to mark as 'processing'. If rowcount=0, someone else took it.
+            stmt = (
+                update(PendingAction)
+                .where(PendingAction.id == action.id)
+                .where(PendingAction.status == "pending")
+                .values(status="processing")
+                .execution_options(synchronize_session="fetch")
+            )
+            result = await db.execute(stmt)
+            await db.commit()
+
+            if result.rowcount == 0:
+                logger.warning(f"⚠️ Action {action.id} already locked/processed by another worker")
+                skipped += 1
+                continue
+            
+            # Refresh to reflect status change in object
+            await db.refresh(action)
+            # -----------------------------------------------
             # Получаем пользователя
             user_result = await db.execute(
                 select(User).where(User.id == action.user_id)

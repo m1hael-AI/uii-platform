@@ -419,6 +419,12 @@ async def check_proactivity_trigger(
         hours_since_last_msg=silence_hours # ALIAS
     )
     
+    # --- OPTIMISTIC LOCKING ---
+    # Update timestamp BEFORE the slow LLM call to prevent other workers 
+    # from picking up this chat again in the next minute.
+    chat_session.last_proactivity_check_at = datetime.utcnow()
+    await db.commit()
+    
     # 3. Запрос к LLM с Structured Outputs
     try:
         llm_messages = [{"role": "user", "content": prompt}]
@@ -503,9 +509,9 @@ async def check_proactivity_trigger(
             reasoning = decision.reasoning
             logger.info(f"💤 Proactivity decided not to act (create_task=false). Reason: {reasoning}")
 
-        # Обновляем timestamp проверки
-        chat_session.last_proactivity_check_at = datetime.utcnow()
-        await db.commit()
+        # Обновляем timestamp (уже обновлен выше для блокировки, можно не обновлять или обновить для точности)
+        # chat_session.last_proactivity_check_at = datetime.utcnow()
+        # await db.commit()
 
     except json.JSONDecodeError as e:
         logger.error(f"❌ JSON parsing error in proactivity check for session {chat_session.id}: {e}")
