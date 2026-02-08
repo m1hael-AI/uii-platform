@@ -168,7 +168,10 @@ export default function AgentChatPage() {
           if (shouldMarkRead) {
             await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
               method: "POST",
-              headers: { Authorization: `Bearer ${token}` }
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "X-Caller-Source": "AgentPage-Mount"
+              }
             });
             // Dispatch event to update sidebar/header UNREAD counts
             window.dispatchEvent(new Event("chatReadUpdate"));

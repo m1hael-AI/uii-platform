@@ -75,7 +75,10 @@ export default function RightSidebar() {
         try {
             const res = await fetch(`${API_URL}/chat/read?agent_id=main_assistant`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${token}` }
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "X-Caller-Source": "RightSidebar"
+                }
             });
             if (res.ok) {
                 // 🔔 Trigger Global Refresh
