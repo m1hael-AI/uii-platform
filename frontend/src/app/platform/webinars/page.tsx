@@ -13,14 +13,12 @@ interface Webinar {
     thumbnail_url?: string;
     is_upcoming: boolean;
     is_published: boolean;
-    date?: string; // or scheduled_at
-    category?: string; // API might not have this yet? Let's check API.
-    speaker?: string; // API might not have this.
+    date?: string; // formatted date string
+    conducted_at?: string; // ISO date for sorting
+    created_at?: string; // ISO date for sorting
+    category?: string;
+    speaker?: string;
     duration?: string;
-    // For now, if API lacks fields, we might need default values or add them to DB.
-    // The current DB model has: title, description, video_url, thumbnail_url, transcript_context, is_upcoming, is_published, scheduled_at.
-    // IT DOES NOT HAVE: category, speaker, duration.
-    // I will use default values for now to keep the UI working.
 }
 
 const ITEMS_PER_PAGE = 20;
@@ -183,40 +181,42 @@ export default function WebinarsPage() {
         <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6">
 
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm">
                 <div className="space-y-1">
-                    <h1 className="text-2xl md:text-3xl font-bold text-[#474648]">Библиотека вебинаров</h1>
-                    <p className="text-[#7e95b1] text-sm md:text-base">Архив прошедших вебинаров и лекций</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-[#474648] tracking-tight">Библиотека вебинаров</h1>
+                    <p className="text-[#7e95b1] text-sm md:text-base font-medium">Архив прошедших вебинаров и лекций</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center gap-4 w-full lg:w-auto">
                     {/* Search */}
-                    <div className="relative w-full sm:w-64 md:w-80 group">
+                    <div className="relative group w-full lg:w-80">
                         <input
                             type="text"
                             placeholder="Поиск по темам..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] placeholder:text-gray-400"
+                            className="w-full pl-11 pr-4 py-3 bg-gray-50/50 border border-transparent rounded-2xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] placeholder:text-gray-400"
                         />
-                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-[#206ecf] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400 group-focus-within:text-[#206ecf] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
 
                     {/* Custom Styled Sort */}
-                    <div className="relative w-full sm:w-auto">
+                    <div className="relative w-full lg:w-auto">
                         <select
                             value={sortOrder}
                             onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-                            className="w-full sm:w-auto pl-4 pr-10 py-2.5 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] cursor-pointer appearance-none"
+                            className="w-full pl-4 pr-10 py-3 bg-gray-50/50 border border-transparent rounded-2xl text-sm focus:ring-4 focus:ring-[#206ecf]/5 focus:border-[#206ecf] focus:bg-white outline-none transition-all text-[#474648] cursor-pointer appearance-none font-medium"
                         >
                             <option value="newest">Сначала новые</option>
                             <option value="oldest">Сначала старые</option>
                         </select>
-                        <svg className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <i className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </i>
                     </div>
                 </div>
             </div>
