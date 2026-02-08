@@ -232,6 +232,10 @@ async def get_user_sessions(
                 has_unread = True
             elif session.last_message_at > session.last_read_at:
                 has_unread = True
+        
+        # DEBUG LOG for specific agent
+        if agent.slug == 'startup_expert':
+             print(f"👉 [BACKEND] GET_SESSIONS 'startup_expert': LastMsg={session.last_message_at}, LastRead={session.last_read_at}, Unread={has_unread}")
 
         sessions_dto.append(ChatSessionDTO(
             id=session.id,
@@ -620,13 +624,15 @@ async def chat_completions(
                      
                      # ⏰ Update last_message_at for proactivity timer
                      # Use explicit UPDATE to avoid detached instance issues after previous commits
+                     now_utc = datetime.utcnow()
                      await db.execute(
                          update(ChatSession)
                          .where(ChatSession.id == chat_session.id)
-                         .values(last_message_at=datetime.utcnow())
+                         .values(last_message_at=now_utc)
                      )
                      
                      await db.commit()
+                     print(f"👉 [BACKEND] MSG_SAVED. Session={chat_session.id}, Agent={agent_slug}, MsgTime={now_utc}")
                      
                      # 🔔 Notify User (AI Response Finished)
                      # Trigger global update to refresh lists and bells
@@ -653,6 +659,9 @@ async def mark_chat_read(
     current_user: User = Depends(get_current_user)
 ):
     """Mark chat session as read (update last_read_at)"""
+    # DEBUG LOG
+    print(f"👉 [BACKEND] MARK_READ. Agent={agent_id}, User={current_user.id}, Time={datetime.utcnow()}")
+    
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
     
     if webinar_id is not None:
