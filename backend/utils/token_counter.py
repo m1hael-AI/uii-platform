@@ -9,7 +9,11 @@ def get_encoding(model: str = "gpt-4o"):
     """Получить энкодер для модели"""
     if model not in encodings:
         try:
+            logger.info(f"⏳ Loading tiktoken encoding for {model}...")
+            import time
+            t0 = time.time()
             encodings[model] = tiktoken.encoding_for_model(model)
+            logger.info(f"✅ Tiktoken loaded in {time.time() - t0:.2f}s")
         except KeyError:
             # Fallback для новых/неизвестных моделей
             logger.warning(f"Модель {model} не найдена в tiktoken, используем cl100k_base")
@@ -56,3 +60,16 @@ def count_string_tokens(text: str, model: str = "gpt-4o") -> int:
     except Exception as e:
          logger.error(f"Error counting string tokens: {e}")
          return len(text) // 4
+
+import asyncio
+from functools import partial
+
+async def count_tokens_from_messages_async(messages: List[Dict[str, Any]], model: str = "gpt-4o") -> int:
+    """Асинхронная обертка для подсчета токенов сообщений (в пуле потоков)"""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(count_tokens_from_messages, messages, model))
+
+async def count_string_tokens_async(text: str, model: str = "gpt-4o") -> int:
+    """Асинхронная обертка для подсчета токенов строки (в пуле потоков)"""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, partial(count_string_tokens, text, model))

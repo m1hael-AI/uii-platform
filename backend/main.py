@@ -45,6 +45,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Ошибка запуска планировщика: {e}")
 
+    # Warmup Tiktoken (Background)
+    import threading
+    def warmup_tiktoken():
+        from utils.token_counter import get_encoding
+        try:
+            logger.info("🚀 Starting Tiktoken warmup...")
+            get_encoding("gpt-4o")
+            logger.info("✅ Tiktoken warmup complete")
+        except Exception as e:
+            logger.error(f"❌ Tiktoken warmup failed: {e}")
+
+    threading.Thread(target=warmup_tiktoken, daemon=True).start()
+
 
 
     yield

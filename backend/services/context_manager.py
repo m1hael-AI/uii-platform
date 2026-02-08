@@ -1,8 +1,6 @@
 from typing import List, Dict, Any
 from loguru import logger
-from utils.token_counter import count_tokens_from_messages, count_string_tokens
-
-# Лимиты контекста для моделей (Token Context Window) - Data 2026
+from utils.token_counter import count_tokens_from_messages_async, count_string_tokens
 
 # Лимиты контекста для моделей (Token Context Window) - Data 2026
 MODEL_LIMITS = {
@@ -25,7 +23,7 @@ def get_model_limit(model: str) -> int:
     """Возвращает лимит токенов для модели или дефолтное значение"""
     return MODEL_LIMITS.get(model, DEFAULT_LIMIT)
 
-def is_context_overflow(
+async def is_context_overflow(
     messages: List[Dict[str, Any]], 
     max_tokens: int = 0, # 0 = use model limit
     threshold: float = 0.9, # Default to 90% as requested
@@ -42,7 +40,9 @@ def is_context_overflow(
         limit = get_model_limit(model)
         
     soft_limit = limit * threshold
-    total_tokens = count_tokens_from_messages(messages, model)
+    
+    # Use Async Token Counter to prevent blocking main loop
+    total_tokens = await count_tokens_from_messages_async(messages, model)
     
     # DEBUG: Always log the check
     logger.info(f"🔍 Context Check: {total_tokens} tokens | Soft Limit: {int(soft_limit)} ({threshold*100}% of {limit}) | Model: {model}")

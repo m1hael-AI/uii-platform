@@ -447,13 +447,18 @@ async def chat_completions(
     # A. Fetch History from DB (Active only)
     # We ignore frontend 'messages' list for context building. We trust the DB.
     # This automatically includes [SUMMARY] messages (role=SYSTEM) from compression.
+    
+    # SAFETY LIMIT: Fetch only last 200 messages to prevent server freeze on huge history
+    # (Infinite loop bug caused history to grow to thousands of messages)
     history_result = await db.execute(
         select(Message)
         .where(Message.session_id == chat_session.id)
         .where(Message.is_archived == False)
-        .order_by(Message.created_at.asc())
+        .order_by(Message.created_at.desc()) # Fetch latest first
+        .limit(200) # Hard limit
     )
-    history_messages = history_result.scalars().all()
+    # Reverse to restore chronological order (Oldest -> Newest)
+    history_messages = list(reversed(history_result.scalars().all()))
     
     # B. Fetch Memory (for Injection)
     # 1. Global Profile (UserMemory)
@@ -495,19 +500,19 @@ async def chat_completions(
     if webinar_context:
         from config import settings # Lazy import
         from services.context_manager import get_model_limit
-        from utils.token_counter import count_string_tokens, count_tokens_from_messages, get_encoding
+        from utils.token_counter import count_string_tokens_async, count_tokens_from_messages_async, get_encoding
         
         model_name = settings.openai_model
         max_model_tokens = get_model_limit(model_name)
         
         # Calculate Used Tokens
         # A. System Prompt (so far)
-        system_prompt_tokens = count_string_tokens(system_prompt, model=model_name)
+        system_prompt_tokens = await count_string_tokens_async(system_prompt, model=model_name)
         
         # B. Chat History
         # Convert history_messages (DB objects) to dicts for counting
         history_dicts = [{"role": m.role.value, "content": m.content} for m in history_messages]
-        history_tokens = count_tokens_from_messages(history_dicts, model=model_name)
+        history_tokens = await count_tokens_from_messages_async(history_dicts, model=model_name)
         
         # C. Response Buffer (Reserve space for answer)
         RESPONSE_BUFFER = 4000 # Safe default for long answers
@@ -517,7 +522,7 @@ async def chat_completions(
         available_context_tokens = max(1000, max_model_tokens - used_tokens)
         
         # Measure context
-        context_tokens = count_string_tokens(webinar_context, model=model_name)
+        context_tokens = await count_string_tokens_async(webinar_context, model=model_name)
         
         safe_context = webinar_context
         if context_tokens > available_context_tokens:
@@ -570,7 +575,7 @@ async def chat_completions(
     current_model = chat_settings.user_chat_model # Используем модель для общения с пользователями
     
     # Проверяем переполнение
-    if is_context_overflow(
+    if await is_context_overflow(
         conversation, 
         max_tokens=chat_settings.context_soft_limit, 
         threshold=chat_settings.context_threshold, 
