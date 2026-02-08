@@ -145,14 +145,13 @@ export default function AgentChatPage() {
           // Here we are just marking as read.
           window.dispatchEvent(new Event("chatReadUpdate"));
 
-          // 🚀 SMART RESUME: If last message was USER, try to complete it
-          if (loadedMessages.length > 0) {
-            const lastMsg = loadedMessages[loadedMessages.length - 1];
-            if (lastMsg.role === 'user') {
-              // Auto-trigger response generation - DO NOT SAVE (prevent duplicate)
-              streamResponse(loadedMessages, false);
-            }
-          }
+          // 🚀 SMART RESUME: REMOVED (Caused Infinite Loop)
+          // if (loadedMessages.length > 0) {
+          //   const lastMsg = loadedMessages[loadedMessages.length - 1];
+          //   if (lastMsg.role === 'user') {
+          //     streamResponse(loadedMessages, false);
+          //   }
+          // }
         }
       } catch (e) {
         console.error("Failed to load history", e);
