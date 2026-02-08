@@ -350,7 +350,7 @@ async def check_proactivity_trigger(
     # Вычисляем время молчания
     if chat_session.last_message_at:
         silence_duration = datetime.utcnow() - chat_session.last_message_at
-        silence_hours = round(silence_duration.total_seconds() / 3600, 1)
+        silence_hours = round(silence_duration.total_seconds() / 3600, 3)
     else:
         silence_hours = 0
     

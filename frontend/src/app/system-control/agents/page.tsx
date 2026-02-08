@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
+import PromptTooltip from "@/components/PromptTooltip";
 
 // Types
 interface Agent {
@@ -212,9 +213,12 @@ export default function AgentsControlPage() {
 
                                 {/* System Prompt Section */}
                                 <div className="flex flex-col h-[40%] min-h-[300px]">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                                        System Prompt
-                                    </label>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                                            System Prompt
+                                        </label>
+                                        <PromptTooltip content={`Доступные переменные:\n\n{user_profile} - Глобальный профиль пользователя (из памяти).\n{user_agent_profile} - Локальный профиль (мнение агента о пользователе).\n{webinar_context} - Контекст вебинара (если есть).\n{local_summary} - (Legacy) То же, что local_profile.`} />
+                                    </div>
                                     <textarea
                                         value={editPrompt}
                                         onChange={(e) => setEditPrompt(e.target.value)}

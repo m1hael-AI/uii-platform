@@ -212,6 +212,7 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
     
     try:
         from bot.loader import bot
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         
         # Deep Link to specific agent chat
         chat_url = f"{app_settings.frontend_url}/platform/chat?agent={agent.slug}"
@@ -221,13 +222,19 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
         if len(preview_text) > 50:
             preview_text = preview_text[:50] + "..."
         
-        # Markdown Link
-        text = f"🔔 Вам пришло новое сообщение от *{agent.name}*\n\n{preview_text}\n\n👉 [Перейти в диалог]({chat_url})"
+        # HTML Formatting
+        text = f"🔔 <i>Вам пришло новое сообщение от {agent.name}</i>\n\n{preview_text}"
+        
+        # Inline Keyboard
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👉 Перейти в диалог", url=chat_url)]
+        ])
         
         await bot.send_message(
             chat_id=user.tg_id,
             text=text,
-            parse_mode="Markdown"
+            parse_mode="HTML",
+            reply_markup=keyboard
         )
 
         logger.info(f"✅ Сообщение отправлено в Telegram: user={user.id}")
