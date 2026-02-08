@@ -468,14 +468,13 @@ async def chat_completions(
     # We ignore frontend 'messages' list for context building. We trust the DB.
     # This automatically includes [SUMMARY] messages (role=SYSTEM) from compression.
     
-    # SAFETY LIMIT: Fetch only last 200 messages to prevent server freeze on huge history
-    # (Infinite loop bug caused history to grow to thousands of messages)
+    # Load all non-archived messages (rely on context compression for token management)
+    # Context overflow check will trigger compression if needed
     history_result = await db.execute(
         select(Message)
         .where(Message.session_id == chat_session.id)
         .where(Message.is_archived == False)
         .order_by(Message.created_at.desc()) # Fetch latest first
-        .limit(200) # Hard limit
     )
     # Reverse to restore chronological order (Oldest -> Newest)
     history_messages = list(reversed(history_result.scalars().all()))
