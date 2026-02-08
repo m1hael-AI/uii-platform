@@ -3,8 +3,8 @@ import httpx
 import json
 import io
 from typing import Optional, Dict
-from backend.services.storage_service import upload_file
-from backend.config import settings
+from services.storage_service import upload_file
+from config import settings
 
 # User-Agent to avoid bot blocks
 HEADERS = {
