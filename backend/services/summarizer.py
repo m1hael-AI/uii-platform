@@ -511,7 +511,7 @@ async def check_proactivity_trigger(
 
         # Обновляем timestamp (уже обновлен выше для блокировки, можно не обновлять или обновить для точности)
         # chat_session.last_proactivity_check_at = datetime.utcnow()
-        # await db.commit()
+        await db.commit()
 
     except json.JSONDecodeError as e:
         logger.error(f"❌ JSON parsing error in proactivity check for session {chat_session.id}: {e}")
