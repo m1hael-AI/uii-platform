@@ -1,12 +1,13 @@
 from typing import List, Optional, Union
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlmodel import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from models import User, UserRole, UserAction, WebinarSignup, WebinarSchedule, WebinarLibrary
 from dependencies import get_current_user, get_db
+from services.video_service import process_video_thumbnail
 
 router = APIRouter(prefix="/webinars", tags=["webinars"])
 
@@ -161,9 +162,28 @@ async def get_webinar(
 
     raise HTTPException(status_code=404, detail="Webinar not found")
 
+async def _process_thumbnail_task(webinar_id: int, video_url: str, is_schedule: bool):
+    """Background task to fetch, download and upload thumbnail to S3."""
+    from database import async_session_factory
+    
+    s3_url = await process_video_thumbnail(video_url)
+    if s3_url:
+        async with async_session_factory() as db:
+            if is_schedule:
+                item = await db.get(WebinarSchedule, webinar_id)
+            else:
+                item = await db.get(WebinarLibrary, webinar_id)
+            
+            if item:
+                item.thumbnail_url = s3_url
+                item.updated_at = datetime.utcnow()
+                db.add(item)
+                await db.commit()
+
 @router.post("", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def create_webinar(
     webinar_data: WebinarUpdate, # Use loose schema to accept all fields
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -173,6 +193,8 @@ async def create_webinar(
     
     data = webinar_data.model_dump(exclude_unset=True)
     is_upcoming = data.get("is_upcoming", False)
+    video_url = data.get("video_url")
+    thumbnail_url = data.get("thumbnail_url")
     
     if is_upcoming:
         # Create Schedule
@@ -182,6 +204,11 @@ async def create_webinar(
         db.add(new_item)
         await db.commit()
         await db.refresh(new_item)
+        
+        # Background thumbnail processing
+        if video_url and not thumbnail_url:
+             background_tasks.add_task(_process_thumbnail_task, new_item.id, video_url, True)
+             
         return new_item
     else:
         # Create Library
@@ -194,12 +221,18 @@ async def create_webinar(
         db.add(new_item)
         await db.commit()
         await db.refresh(new_item)
+
+        # Background thumbnail processing
+        if new_item.video_url and not thumbnail_url:
+             background_tasks.add_task(_process_thumbnail_task, new_item.id, new_item.video_url, False)
+
         return new_item
 
 @router.patch("/{webinar_id}", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def update_webinar(
     webinar_id: int,
     update_data: WebinarUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -211,26 +244,42 @@ async def update_webinar(
     schedule = await db.get(WebinarSchedule, webinar_id)
     if schedule:
         data = update_data.model_dump(exclude_unset=True)
+        old_video = schedule.thumbnail_url # Just checking for comparison
         for key, value in data.items():
             if hasattr(schedule, key):
                 setattr(schedule, key, value)
+        
         schedule.updated_at = datetime.utcnow()
         db.add(schedule)
         await db.commit()
         await db.refresh(schedule)
+
+        # If video_url changed or thumbnail is missing, trigger re-process
+        if schedule.connection_link and not schedule.thumbnail_url:
+             # For schedule we might use connection_link or some other field if it's a video link
+             pass # Logic depends on how schedule handles videos
+             
         return schedule
 
     # Try Library
     library = await db.get(WebinarLibrary, webinar_id)
     if library:
         data = update_data.model_dump(exclude_unset=True)
+        video_changed = "video_url" in data and data["video_url"] != library.video_url
+        thumbnail_missing = not library.thumbnail_url and not data.get("thumbnail_url")
+        
         for key, value in data.items():
              if hasattr(library, key):
                 setattr(library, key, value)
+        
         library.updated_at = datetime.utcnow()
         db.add(library)
         await db.commit()
         await db.refresh(library)
+
+        if (video_changed or thumbnail_missing) and library.video_url:
+             background_tasks.add_task(_process_thumbnail_task, library.id, library.video_url, False)
+
         return library
 
     raise HTTPException(status_code=404, detail="Webinar not found")

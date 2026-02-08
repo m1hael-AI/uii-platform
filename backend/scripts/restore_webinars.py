@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import WebinarSchedule, WebinarLibrary
 from database import init_db
 from config import settings
+from services.video_service import process_video_thumbnail
 
 async def restore_webinars():
     # File is in secrets/webinars_dump.json
@@ -96,15 +97,35 @@ async def restore_webinars():
                 res = await db.execute(stmt)
                 existing = res.scalar_one_or_none()
                 
+                video_url = item.get('video_url', "")
+                
                 if not existing:
+                    # New item: Process thumbnail
+                    if video_url and not base_data.get("thumbnail_url"):
+                         print(f"Processing thumbnail for NEW: {base_data['title']}...")
+                         base_data["thumbnail_url"] = await process_video_thumbnail(video_url)
+                         
                     new_item = WebinarLibrary(
                         **base_data,
-                        video_url=item.get('video_url', ""),
+                        video_url=video_url,
                         transcript_context=item.get('transcript_context', ""),
                         conducted_at=item.get('scheduled_at') or item.get('created_at', now)
                     )
                     db.add(new_item)
                     library_count += 1
+                else:
+                    # Existing item: Fix thumbnail if missing or external
+                    lib_thumb = existing.thumbnail_url
+                    is_external = lib_thumb and ("mycdn.me" in lib_thumb or "userapi.com" in lib_thumb)
+                    
+                    if not lib_thumb or is_external:
+                        print(f"Fixing thumbnail for EXISTING: {existing.title}...")
+                        s3_url = await process_video_thumbnail(video_url or existing.video_url)
+                        if s3_url:
+                            existing.thumbnail_url = s3_url
+                            existing.updated_at = datetime.utcnow()
+                            db.add(existing)
+                            print(f"  -> Updated: {s3_url}")
             
         await db.commit()
         print(f"✅ Restored: {schedule_count} to Schedule, {library_count} to Library.")
