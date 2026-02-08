@@ -141,7 +141,7 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
         
         try:
             # Use atomic get_or_create
-            await get_or_create_chat_session(db, user_id, slug)
+            new_session = await get_or_create_chat_session(db, user_id, slug)
             session_created = True
         except Exception as e:
             logger.error(f"Error creating initial session for {slug}: {e}")
