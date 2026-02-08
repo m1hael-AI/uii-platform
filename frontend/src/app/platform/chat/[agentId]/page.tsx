@@ -25,14 +25,28 @@ export default function AgentChatPage() {
   const endRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
   const isGeneratingRef = useRef(false);
+  // Track active agent to prevent stale closures from marking wrong chat as read
+  const currentAgentIdRef = useRef(agentId);
 
   useEffect(() => {
     isMounted.current = true;
+    currentAgentIdRef.current = agentId;
+    return () => {
+      // We don't set isMounted false on param change if component reused, 
+      // but we DO update currentAgentIdRef.
+    };
+  }, [agentId]);
+
+  // Cleanup on unmount (only once)
+  useEffect(() => {
     return () => { isMounted.current = false; };
   }, []);
 
   // Helper: Stream Response (Extracted for re-use)
   const streamResponse = async (currentMessages: { role: 'user' | 'assistant', text: string }[], saveUserMessage: boolean = true) => {
+    // Capture the agentId this stream belongs to
+    const streamAgentId = agentId;
+
     // Prevent concurrent generations
     if (isGeneratingRef.current) return;
     isGeneratingRef.current = true;
@@ -101,11 +115,11 @@ export default function AgentChatPage() {
         detail: { agentId, isTyping: false }
       }));
 
-      // 🔥 SMART READ RECEIPT: Only if user still here
-      if (isMounted.current) {
+      // 🔥 SMART READ RECEIPT: Only if user still here AND on the same agent
+      if (isMounted.current && currentAgentIdRef.current === streamAgentId) {
         try {
           const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-          await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
+          await fetch(`${API_URL}/chat/read?agent_id=${streamAgentId}`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` }
           });
