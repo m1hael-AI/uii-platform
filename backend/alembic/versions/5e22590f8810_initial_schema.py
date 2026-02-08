@@ -50,18 +50,21 @@ def seed_agents(op):
             "description": data["description"],
             "system_prompt": data["system_prompt"],
             "greeting_message": data.get("greeting"), # Note: YAML key is 'greeting', DB col is 'greeting_message'
-            "avatar_url": data.get("avatar_url")
+            "avatar_url": data.get("avatar_url"),
+            "is_active": True
         }
         
         sql = sa.text("""
-            INSERT INTO agents (slug, name, description, system_prompt, greeting_message, avatar_url)
-            VALUES (:slug, :name, :description, :system_prompt, :greeting_message, :avatar_url)
+            INSERT INTO agents (slug, name, description, system_prompt, greeting_message, avatar_url, is_active, created_at, updated_at)
+            VALUES (:slug, :name, :description, :system_prompt, :greeting_message, :avatar_url, :is_active, NOW(), NOW())
             ON CONFLICT (slug) DO UPDATE SET
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
                 system_prompt = EXCLUDED.system_prompt,
                 greeting_message = EXCLUDED.greeting_message,
-                avatar_url = EXCLUDED.avatar_url;
+                avatar_url = EXCLUDED.avatar_url,
+                is_active = EXCLUDED.is_active,
+                updated_at = NOW();
         """)
         
         op.get_bind().execute(sql, agent)
