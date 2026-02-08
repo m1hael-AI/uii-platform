@@ -29,7 +29,6 @@ export default function AgentChatPage() {
   const currentAgentIdRef = useRef(agentId);
 
   useEffect(() => {
-    console.log(`[AgentPage] Mounted/Updated: ${agentId}`);
     isMounted.current = true;
     currentAgentIdRef.current = agentId;
     return () => {

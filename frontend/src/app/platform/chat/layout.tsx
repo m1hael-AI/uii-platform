@@ -32,8 +32,10 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
             if (!token) return;
 
-            const res = await fetch(`${API_URL}/chat/sessions`, {
-                headers: { Authorization: `Bearer ${token}` }
+            // 🛑 NO-CACHE: Prevent browser from serving stale sessions list
+            const res = await fetch(`${API_URL}/chat/sessions?t=${Date.now()}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store"
             });
 
             if (res.ok) {

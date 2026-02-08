@@ -58,8 +58,10 @@ export default function PlatformLayout({
             if (!token) return;
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
             try {
-                const res = await fetch(`${API_URL}/chat/unread-status`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                // 🛑 NO-CACHE
+                const res = await fetch(`${API_URL}/chat/unread-status?t=${Date.now()}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: "no-store"
                 });
                 if (res.ok) {
                     const data = await res.json();
