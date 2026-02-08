@@ -653,6 +653,7 @@ async def chat_completions(
 
 @router.post("/read")
 async def mark_chat_read(
+    request: Request,
     webinar_id: Optional[int] = None,
     agent_id: Optional[str] = "mentor",
     db: AsyncSession = Depends(get_db),
@@ -660,7 +661,8 @@ async def mark_chat_read(
 ):
     """Mark chat session as read (update last_read_at)"""
     # DEBUG LOG
-    print(f"👉 [BACKEND] MARK_READ. Agent={agent_id}, User={current_user.id}, Time={datetime.utcnow()}")
+    source = request.headers.get("X-Caller-Source", "Unknown")
+    print(f"👉 [BACKEND] MARK_READ. Agent={agent_id}, User={current_user.id}, Source={source}, Time={datetime.utcnow()}")
     
     q = select(ChatSession).where(ChatSession.user_id == current_user.id)
     

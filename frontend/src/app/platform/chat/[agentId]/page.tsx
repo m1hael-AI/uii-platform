@@ -124,7 +124,10 @@ export default function AgentChatPage() {
           const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
           await fetch(`${API_URL}/chat/read?agent_id=${streamAgentId}`, {
             method: "POST",
-            headers: { Authorization: `Bearer ${token}` }
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-Caller-Source": "AgentPage-Stream"
+            }
           });
           window.dispatchEvent(new Event("chatStatusUpdate"));
         } catch (e) { console.error("Auto-read failed", e); }
