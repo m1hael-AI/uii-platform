@@ -14,7 +14,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision: str = '20260208_seed'
-down_revision: Union[str, None] = 'b012c504ef6d' # Assuming this is the latest one from user logs
+down_revision: Union[str, Sequence[str], None] = ('b012c504ef6d', '02401e2ae68d') # Merging both heads
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
