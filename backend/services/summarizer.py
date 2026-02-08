@@ -16,7 +16,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from openai import AsyncOpenAI
 from loguru import logger
 from pydantic import BaseModel, Field, validator
@@ -394,9 +394,18 @@ async def check_proactivity_trigger(
             # Прерываемся ТОЛЬКО на сообщении пользователя!
             # (System messages, like trigger logs, should be ignored)
             break
+    
+    # ВАЖНО: Учитываем pending задачи в лимите
+    pending_count = await db.scalar(
+        select(func.count(PendingAction.id))
+        .where(PendingAction.user_id == user.id)
+        .where(PendingAction.agent_slug == chat_session.agent_slug)
+        .where(PendingAction.status.in_(["pending", "processing"]))
+    )
+    total_consecutive = consecutive_assistant_msgs + (pending_count or 0)
             
-    if consecutive_assistant_msgs >= max_consecutive:
-        logger.info(f"🛑 Proactivity STOP: {consecutive_assistant_msgs} consecutive assistant messages (Limit: {max_consecutive})")
+    if total_consecutive >= max_consecutive:
+        logger.info(f"🛑 Proactivity STOP: {total_consecutive} consecutive messages ({consecutive_assistant_msgs} sent + {pending_count} pending, Limit: {max_consecutive})")
         # Обновляем timestamp проверки, чтобы не долбить этот чат постоянно, но не пишем
         chat_session.last_proactivity_check_at = datetime.utcnow()
         await db.commit()
@@ -551,13 +560,22 @@ async def process_idle_chat(
      # === 2. Proactivity Check ===
     last_pro = chat_session.last_proactivity_check_at or datetime.min
     if (now - last_pro) > timedelta(hours=settings.proactivity_timeout):
-        # 1. Проверяем, что чат реально молчит (а не только что говорили)
+        # 1. Проверяем Quiet Hours СРАЗУ (до дорогого LLM запроса)
+        from services.proactive_scheduler import get_user_local_time, is_quiet_hours
+        user_time = await get_user_local_time(user)
+        if is_quiet_hours(user_time, settings):
+            logger.debug(f"🌙 Quiet Hours ({user_time.strftime('%H:%M')}), skipping proactivity check for session {chat_session.id}")
+            chat_session.last_proactivity_check_at = datetime.utcnow()
+            await db.commit()
+            return
+        
+        # 2. Проверяем, что чат реально молчит (а не только что говорили)
         # Тишина должна быть больше, чем таймаут
         if chat_session.last_message_at:
              silence_duration = now - chat_session.last_message_at
              if silence_duration > timedelta(hours=settings.proactivity_timeout):
                  
-                 # 2. ОПТИМИЗАЦИЯ: Если мы уже проверяли этот диалог ПОСЛЕ последнего сообщения
+                 # 3. ОПТИМИЗАЦИЯ: Если мы уже проверяли этот диалог ПОСЛЕ последнего сообщения
                  # значит, мы уже решили ничего не делать. Не тратим токены повторно.
                  if chat_session.last_proactivity_check_at and chat_session.last_message_at:
                      if chat_session.last_proactivity_check_at > chat_session.last_message_at:
