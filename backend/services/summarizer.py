@@ -130,14 +130,14 @@ async def process_memory_update(
         # logger.info(f"⏭️ Skipping memory update for {chat_session.id}: no user messages")
         return
 
-    logger.info(f"🧠 Updating memory for session {chat_session.id} ({len(new_messages)} new msgs)")
-
     # EXCEPTION: AI Tutor does NOT have long-term memory or proactivity
     if chat_session.agent_slug == "ai_tutor":
         # Just update timestamp to avoid re-checking
         chat_session.summarized_at = datetime.utcnow()
         await db.commit()
         return
+
+    logger.info(f"🧠 Updating memory for session {chat_session.id} ({len(new_messages)} new msgs)")
     
     # 1. Получаем/Создаем глобальную память
     user_memory_result = await db.execute(
