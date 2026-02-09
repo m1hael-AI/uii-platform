@@ -193,8 +193,7 @@ export default function UsersAdminPage() {
                                         <select
                                             value={user.role}
                                             onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                                            className={`px-2 py-1 rounded text-xs font-bold uppercase border-none focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'
-                                                }`}
+                                            className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-bold uppercase text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm hover:border-gray-400"
                                         >
                                             <option value="user">USER</option>
                                             <option value="admin">ADMIN</option>
