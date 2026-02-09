@@ -712,6 +712,12 @@ async def get_unread_status(
     Check if there are ANY unread messages across all user sessions.
     Used for the global header bell icon.
     """
+    # FIX: Ensure current_user is attached to current session to avoid MissingGreenlet
+    # if the object is detached/expired from the dependency session.
+    # However, merge returns a NEW instance.
+    if current_user not in db:
+       current_user = await db.merge(current_user)
+
     # 0. Trigger Cold Start if needed (Ensures notifications work on first layout load)
     await ensure_initial_sessions(db, current_user.id)
 
