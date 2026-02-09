@@ -600,7 +600,7 @@ async def clear_user_data(
             detail=f"User {user_id} not found"
         )
     
-    from models import Message, ChatSession, UserMemory, PendingAction, LLMAuditLog
+    from models import Message, ChatSession, UserMemory, PendingAction, LLMAudit
     from sqlalchemy import delete
     
     # 1. Delete Messages
@@ -622,7 +622,7 @@ async def clear_user_data(
     await db.execute(delete(PendingAction).where(PendingAction.user_id == user_id))
     
     # 5. Delete LLM Audit Logs
-    await db.execute(delete(LLMAuditLog).where(LLMAuditLog.user_id == user_id))
+    await db.execute(delete(LLMAudit).where(LLMAudit.user_id == user_id))
     
     await db.commit()
     
