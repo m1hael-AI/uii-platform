@@ -34,6 +34,21 @@ export default function WebinarsPage() {
     const [selectedCategory, setSelectedCategory] = useState("Все");
     const [searchQuery, setSearchQuery] = useState("");
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+    const [isSortOpen, setIsSortOpen] = useState(false);
+    const sortRef = useRef<HTMLDivElement>(null);
+
+    // Close sort dropdown when clicking outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+                setIsSortOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
 
     // Intersection Observer ref
     const observerTarget = useRef<HTMLDivElement>(null);
@@ -201,21 +216,65 @@ export default function WebinarsPage() {
                         </svg>
                     </div>
 
-                    {/* Custom Styled Sort (targeted improvement only) */}
-                    <div className="relative flex-1 md:flex-initial">
-                        <select
-                            value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648] cursor-pointer appearance-none pr-10"
+                    {/* Custom Styled Sort */}
+                    <div className="relative flex-1 md:flex-initial" ref={sortRef}>
+                        <button
+                            onClick={() => setIsSortOpen(!isSortOpen)}
+                            className="w-full md:w-48 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-[#474648] flex items-center justify-between hover:border-[#206ecf] transition-colors focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none"
                         >
-                            <option value="newest">Сначала новые</option>
-                            <option value="oldest">Сначала старые</option>
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span>{sortOrder === "newest" ? "Сначала новые" : "Сначала старые"}</span>
+                            <svg
+                                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
-                        </div>
+                        </button>
+
+                        <AnimatePresence>
+                            {isSortOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="absolute right-0 top-full mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden z-20"
+                                >
+                                    <button
+                                        onClick={() => {
+                                            setSortOrder("newest");
+                                            setIsSortOpen(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 flex items-center justify-between ${sortOrder === "newest" ? "text-[#206ecf] bg-blue-50/50" : "text-[#474648]"
+                                            }`}
+                                    >
+                                        <span>Сначала новые</span>
+                                        {sortOrder === "newest" && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSortOrder("oldest");
+                                            setIsSortOpen(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 flex items-center justify-between ${sortOrder === "oldest" ? "text-[#206ecf] bg-blue-50/50" : "text-[#474648]"
+                                            }`}
+                                    >
+                                        <span>Сначала старые</span>
+                                        {sortOrder === "oldest" && (
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>
