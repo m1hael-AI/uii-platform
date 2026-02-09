@@ -631,3 +631,41 @@ async def clear_user_data(
         "message": f"All data for user {user_id} ({user.tg_username or user.tg_first_name}) has been cleared",
         "user_id": user_id
     }
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole
+
+@router.patch("/users/{user_id}/role")
+async def update_user_role(
+    user_id: int,
+    role_update: UserRoleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Change user role (admin/user).
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can manage roles"
+        )
+        
+    user_res = await db.execute(select(User).where(User.id == user_id))
+    user = user_res.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+        
+    # Prevent demoting the last admin or yourself if needed (skipping for now, trusted environment)
+    
+    user.role = role_update.role
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    
+    return user

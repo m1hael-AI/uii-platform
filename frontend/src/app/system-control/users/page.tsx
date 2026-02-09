@@ -82,6 +82,33 @@ export default function UsersAdminPage() {
         }
     };
 
+    const handleRoleChange = async (userId: number, newRole: string) => {
+        const token = Cookies.get("token");
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+        try {
+            // Optimistic update
+            setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+
+            const res = await fetch(`${API_URL}/admin/users/${userId}/role`, {
+                method: "PATCH",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ role: newRole })
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to update role");
+            }
+        } catch (e) {
+            console.error("Failed to update role", e);
+            alert("❌ Не удалось обновить роль");
+            fetchUsers(searchTerm); // Revert on error
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-6">
             {/* Header */}
@@ -163,10 +190,15 @@ export default function UsersAdminPage() {
                                         ) : "-"}
                                     </td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'
-                                            }`}>
-                                            {user.role}
-                                        </span>
+                                        <select
+                                            value={user.role}
+                                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                            className={`px-2 py-1 rounded text-xs font-bold uppercase border-none focus:ring-2 focus:ring-blue-500 cursor-pointer outline-none ${user.role === 'admin' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'
+                                                }`}
+                                        >
+                                            <option value="user">USER</option>
+                                            <option value="admin">ADMIN</option>
+                                        </select>
                                     </td>
                                     <td className="p-4">
                                         {user.is_onboarded ? (
