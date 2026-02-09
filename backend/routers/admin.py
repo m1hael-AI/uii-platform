@@ -628,6 +628,6 @@ async def clear_user_data(
     
     return {
         "success": True,
-        "message": f"All data for user {user_id} ({user.username or user.tg_first_name}) has been cleared",
+        "message": f"All data for user {user_id} ({user.tg_username or user.tg_first_name}) has been cleared",
         "user_id": user_id
     }
