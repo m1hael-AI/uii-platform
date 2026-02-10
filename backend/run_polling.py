@@ -58,8 +58,17 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("Webhook deleted. Starting polling...")
     
-    # 6. Start Polling
-    await dp.start_polling(bot)
+    # 6. Start Polling with custom timeout for stability
+    # Explicitly using long polling timeout to match standard Telegram API expectations
+    # and reduce 'Connection reset' frequency.
+    try:
+        await dp.start_polling(
+            bot, 
+            polling_timeout=30,  # 30 seconds wait for updates
+            handle_signals=False # Handled manually in current setup or docker
+        )
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     try:
