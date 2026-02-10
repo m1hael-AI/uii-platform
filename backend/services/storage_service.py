@@ -197,3 +197,37 @@ async def generate_presigned_url(
             ExpiresIn=expires_in,
         )
         return url
+
+
+async def file_exists(key: str) -> bool:
+    """
+    Проверяет, существует ли файл в S3-совместимом хранилище.
+    
+    Args:
+        key: Путь к файлу в bucket
+    
+    Returns:
+        True если файл существует, False если нет или при ошибке
+    """
+    if not settings.s3_endpoint_url:
+        return False
+    
+    session = get_s3_session()
+    
+    try:
+        async with session.client(
+            's3',
+            endpoint_url=settings.s3_endpoint_url,
+            aws_access_key_id=settings.s3_access_key,
+            aws_secret_access_key=settings.s3_secret_key,
+            region_name=settings.s3_region,
+            config=s3_config,
+        ) as s3:
+            await s3.head_object(
+                Bucket=settings.s3_bucket_name,
+                Key=key,
+            )
+            return True
+    except Exception:
+        # Если файл не найден или ошибка доступа -> считаем, что его нет
+        return False

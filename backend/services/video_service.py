@@ -3,7 +3,9 @@ import httpx
 import json
 import io
 from typing import Optional, Dict
-from services.storage_service import upload_file
+import hashlib
+from PIL import Image
+from services.storage_service import upload_file, file_exists
 from config import settings
 
 # User-Agent to avoid bot blocks
@@ -70,8 +72,8 @@ async def fetch_youtube_thumbnail(video_url: str) -> Optional[str]:
 
 async def process_video_thumbnail(video_url: str) -> Optional[str]:
     """
-    Detects platform, fetches external thumbnail, downloads it,
-    and uploads to S3 storage. Returns public S3 URL.
+    Detects platform, fetches external thumbnail, optimize it (WebP + Resize),
+    and uploads to S3 storage if not exists. Returns public S3 URL.
     """
     ext_thumb_url = None
     
@@ -83,25 +85,48 @@ async def process_video_thumbnail(video_url: str) -> Optional[str]:
     if not ext_thumb_url:
         return None
         
-    # Download and upload to S3 to avoid 403/Referer/Slowness issues
     try:
+        # 1. Generate unique filename based on hash ONLY (no timestamp)
+        # This ensures dedup: same video URL -> same filename
+        file_hash = hashlib.md5(video_url.encode()).hexdigest()
+        file_name = f"thumb_{file_hash}.webp"
+        folder = "thumbnails"
+        file_key = f"{folder}/{file_name}"
+        
+        # 2. Check if file already exists in S3
+        if await file_exists(file_key):
+             # Return existing URL without downloading/uploading
+             return f"{settings.s3_endpoint_url}/{settings.s3_bucket_name}/{file_key}"
+
+        # 3. Download, Optimize, Upload
         async with httpx.AsyncClient(timeout=10.0) as client:
             img_resp = await client.get(ext_thumb_url, headers=HEADERS)
             if img_resp.status_code == 200:
-                # Generate unique filename based on hash or timestamp
-                import hashlib
-                import time
-                file_hash = hashlib.md5(video_url.encode()).hexdigest()
-                file_name = f"thumb_{file_hash}_{int(time.time())}.jpg"
                 
-                # Upload using storage_service
+                # Optimize Image using Pillow
+                img = Image.open(io.BytesIO(img_resp.content))
+                
+                # Resize if too big (max width 800px)
+                max_width = 800
+                if img.width > max_width:
+                    ratio = max_width / float(img.width)
+                    new_height = int(float(img.height) * float(ratio))
+                    img = img.resize((max_width, new_height), Image.Resampling.LANCZOS)
+                
+                # Save to in-memory buffer as WebP
+                output_buffer = io.BytesIO()
+                img.save(output_buffer, format="WEBP", quality=80, optimize=True)
+                output_buffer.seek(0)
+                
+                # Upload optimized file
                 s3_url = await upload_file(
-                    file_data=io.BytesIO(img_resp.content),
+                    file_data=output_buffer,
                     file_name=file_name,
-                    content_type="image/jpeg",
-                    folder="thumbnails"
+                    content_type="image/webp",
+                    folder=folder
                 )
                 return s3_url
+                
     except Exception as e:
         print(f"Error processing/uploading thumbnail: {e}")
         
