@@ -405,33 +405,32 @@ export default function WebinarsPage() {
                     ))}
                 </AnimatePresence>
             </motion.div>
-        </div>
 
-    {/* Load More Button or Loading Indicator */ }
-    {
-        hasMore && !loading && (
-            <div className="text-center py-8">
-                <div ref={observerTarget} className="h-4"></div>
-                {isLoadingMore && (
-                    <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#206ecf] rounded-full animate-spin"></div>
-                )}
-            </div>
-        )
-    }
+            {/* Load More Button or Loading Indicator */}
+            {
+                hasMore && !loading && (
+                    <div className="text-center py-8">
+                        <div ref={observerTarget} className="h-4"></div>
+                        {isLoadingMore && (
+                            <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#206ecf] rounded-full animate-spin"></div>
+                        )}
+                    </div>
+                )
+            }
 
-    {
-        !loading && filteredWebinars.length === 0 && (
-            <div className="text-center py-24">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-                <h3 className="text-gray-900 font-medium mb-1">Ничего не найдено</h3>
-                <p className="text-gray-500 text-sm">В библиотеке пока нет записей.</p>
-            </div>
-        )
-    }
+            {
+                !loading && filteredWebinars.length === 0 && (
+                    <div className="text-center py-24">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-gray-900 font-medium mb-1">Ничего не найдено</h3>
+                        <p className="text-gray-500 text-sm">В библиотеке пока нет записей.</p>
+                    </div>
+                )
+            }
         </div >
     );
 }
