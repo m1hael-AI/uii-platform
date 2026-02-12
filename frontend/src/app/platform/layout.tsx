@@ -300,7 +300,7 @@ export default function PlatformLayout({
                     </header>
 
                     {/* Page Content */}
-                    <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6 overflow-y-auto">
+                    <main className="flex-1 p-4 md:p-6 pb-20 lg:pb-6">
                         {children}
                     </main>
 
