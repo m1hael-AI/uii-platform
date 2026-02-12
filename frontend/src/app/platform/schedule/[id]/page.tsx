@@ -21,6 +21,9 @@ interface Webinar {
     category?: string;
     speaker?: string;
     duration?: string;
+    type?: string;
+    program?: { date: string, title: string, link: string }[];
+    landing_bullets?: string[];
 }
 
 export default function UpcomingWebinarPage() {
@@ -52,17 +55,36 @@ export default function UpcomingWebinarPage() {
                     let cleanDesc = data.description || "";
                     cleanDesc = cleanDesc.replace(/STOP$/i, "").trim();
 
+                    let dateStr = new Date(data.scheduled_at || data.created_at).toLocaleDateString("ru-RU", {
+                        day: 'numeric', month: 'long', year: 'numeric'
+                    });
+
+                    // Logic for Date Range (Sprints)
+                    if (data.type === 'sprint' && data.program && data.program.length > 1) {
+                        try {
+                            const sortedDates = data.program.map((p: any) => new Date(p.date)).sort((a: any, b: any) => a - b);
+                            const start = sortedDates[0];
+                            const end = sortedDates[sortedDates.length - 1];
+                            const startStr = start.toLocaleDateString("ru-RU", { day: 'numeric', month: 'long' });
+                            const endStr = end.toLocaleDateString("ru-RU", { day: 'numeric', month: 'long' });
+                            dateStr = `${startStr} — ${endStr}`;
+                        } catch (e) {
+                            // Fallback to standard date
+                        }
+                    }
+
                     setWebinar({
                         ...data,
                         description: cleanDesc,
                         category: "AI Education",
                         speaker: data.speaker_name || "Дмитрий Романов",
-                        date: new Date(data.scheduled_at || data.created_at).toLocaleDateString("ru-RU", {
-                            day: 'numeric', month: 'long', year: 'numeric'
-                        }),
+                        date: dateStr,
                         is_upcoming: true,
                         scheduled_at: data.scheduled_at,
-                        connection_link: data.connection_link
+                        connection_link: data.connection_link,
+                        type: data.type,
+                        program: data.program,
+                        landing_bullets: data.landing_bullets
                     });
                 }
             } catch (e) {
@@ -137,7 +159,7 @@ export default function UpcomingWebinarPage() {
                                 <div className="flex flex-col gap-1">
                                     <span className="text-xs font-bold text-gray-400 uppercase">Дата и время</span>
                                     <span className="text-lg font-medium text-gray-900">{webinar.date}</span>
-                                    {webinar.scheduled_at && <span className="text-sm text-gray-500">{new Date(webinar.scheduled_at).toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' })} МСК</span>}
+                                    {webinar.scheduled_at && !webinar.program && <span className="text-sm text-gray-500">{new Date(webinar.scheduled_at).toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' })} МСК</span>}
                                 </div>
 
                                 <div className="flex flex-col gap-1">
@@ -148,11 +170,46 @@ export default function UpcomingWebinarPage() {
                                 <div className="pt-6 border-t border-gray-200 flex flex-col items-center">
                                     <WebinarAction webinar={webinar} />
                                     <p className="text-xs text-center text-gray-400 mt-3">
-                                        Напоминание придет за 1 час до начала
+                                        {webinar.type === 'sprint' ? "Одна запись на весь спринт" : "Напоминание придет за 1 час до начала"}
                                     </p>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Content Section: Program OR Bullets */}
+                    <div className="mt-12">
+                        {/* Priority: Program (Sprints) > Bullets (Webinars) */}
+                        {webinar.program && webinar.program.length > 0 ? (
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-6">Программа</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {webinar.program.map((item, idx) => (
+                                        <div key={idx} className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-orange-200 transition-colors">
+                                            <div className="text-xs text-[#FF6B35] font-bold uppercase mb-2">
+                                                Урок {idx + 1}
+                                            </div>
+                                            <div className="font-medium text-gray-900 mb-1">{item.title}</div>
+                                            <div className="text-sm text-gray-500">
+                                                {new Date(item.date).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long' })} в {new Date(item.date).toLocaleTimeString("ru-RU", { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : webinar.landing_bullets && webinar.landing_bullets.length > 0 ? (
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-6">Что будет на вебинаре</h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                    {webinar.landing_bullets.map((bullet, idx) => (
+                                        <div key={idx} className="flex items-start gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm mt-0.5">✓</span>
+                                            <span className="text-gray-700">{bullet}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             </div>

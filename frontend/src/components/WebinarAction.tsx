@@ -9,6 +9,7 @@ interface Webinar {
     is_upcoming: boolean;
     scheduled_at?: string;
     connection_link?: string;
+    type?: string;
 }
 
 export default function WebinarAction({ webinar }: { webinar: Webinar }) {
@@ -89,21 +90,28 @@ export default function WebinarAction({ webinar }: { webinar: Webinar }) {
     }
 
     // --- SHOW CONNECT BUTTON IF LIVE AND REGISTERED ---
-    if (isRegistered && isLive && webinar.connection_link) {
-        return (
-            <a
-                href={webinar.connection_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-10 w-full rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200 animate-pulse"
-            >
-                <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                </span>
-                Подключиться
-            </a>
-        );
+    if (isRegistered && isLive) {
+        // For Sprints, use the smart redirect. For regular, use direct link.
+        const connectUrl = webinar.type === 'sprint'
+            ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010"}/webinars/join/${webinar.id}`
+            : webinar.connection_link;
+
+        if (connectUrl) {
+            return (
+                <a
+                    href={connectUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-10 w-full rounded-lg text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200 animate-pulse"
+                >
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                    </span>
+                    Подключиться
+                </a>
+            );
+        }
     }
 
     if (isRegistered) {

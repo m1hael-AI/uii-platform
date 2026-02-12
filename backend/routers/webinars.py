@@ -23,6 +23,11 @@ class WebinarScheduleBase(WebinarBase):
     connection_link: Optional[str] = None
     scheduled_at: datetime
     duration_minutes: int = 60
+    
+    # Unified Fields
+    type: str = "webinar"
+    program: Optional[List[dict]] = None # JSON list of sub-events
+    landing_bullets: Optional[List[str]] = None # JSON list of bullets
 
 class WebinarLibraryBase(WebinarBase):
     video_url: str
@@ -62,6 +67,11 @@ class WebinarUpdate(BaseModel):
     scheduled_at: Optional[datetime] = None
     speaker_name: Optional[str] = None
     duration_minutes: Optional[int] = None
+    
+    # Unified Fields
+    type: Optional[str] = None
+    program: Optional[List[dict]] = None
+    landing_bullets: Optional[List[str]] = None
 
 class WebinarResponse(WebinarBase):
     id: int
@@ -138,6 +148,58 @@ async def get_library_webinar(
     if not webinar or (current_user.role != UserRole.ADMIN and not webinar.is_published):
         raise HTTPException(status_code=404, detail="Webinar not found")
     return webinar
+
+@router.get("/join/{webinar_id}")
+async def join_webinar_smart_link(
+    webinar_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Умный редирект для входа на вебинар/спринт.
+    - Если это обычный вебинар -> редирект на connection_link
+    - Если это Спринт -> ищет актуальный урок по дате и редиректит на него
+    """
+    from fastapi.responses import RedirectResponse
+    
+    # 1. Get Webinar
+    webinar = await db.get(WebinarSchedule, webinar_id)
+    if not webinar:
+        raise HTTPException(status_code=404, detail="Webinar not found")
+        
+    # 2. Check Type
+    target_link = webinar.connection_link
+    
+    if webinar.type == "sprint" and webinar.program:
+        # Logic: Find the "current" or "next" event in the program
+        now = datetime.utcnow()
+        # Program structure expected: [{"date": "ISO", "link": "url", "title": "..."}]
+        
+        # Sort program by date just in case
+        try:
+            program_sorted = sorted(webinar.program, key=lambda x: x.get("date", ""))
+            
+            # Find first event that hasn't finished (assuming 2h duration for safety)
+            for event in program_sorted:
+                event_date = datetime.fromisoformat(event.get("date").replace("Z", "+00:00"))
+                # If event starts in future or started less than 3 hours ago -> It's the one
+                # Simple logic: Redirect to the first one that is "Today/Now" or "Future"
+                
+                # If event is in the past (more than 4 hours ago), skip
+                time_diff = (now - event_date.replace(tzinfo=None)).total_seconds()
+                
+                # If event is in future (negative diff) OR event started recently (< 4 hours)
+                if time_diff < 4 * 3600:
+                    if event.get("link"):
+                        target_link = event.get("link")
+                        break
+        except Exception as e:
+            # Fallback to main link if date parsing fails
+            pass
+
+    if not target_link:
+         raise HTTPException(status_code=404, detail="Link not found")
+         
+    return RedirectResponse(target_link)
 
 @router.get("/{webinar_id}", response_model=Union[WebinarScheduleResponse, WebinarLibraryResponse])
 async def get_webinar(

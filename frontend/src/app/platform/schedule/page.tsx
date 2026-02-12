@@ -14,6 +14,8 @@ interface Webinar {
   connection_link?: string;
   speaker?: string;
   duration?: string;
+  type?: string;
+  program?: { date: string }[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -47,11 +49,35 @@ export default function SchedulePage() {
 
       if (res.ok) {
         const data = await res.json();
-        const enhancedData = data.map((w: any) => ({
-          ...w,
-          speaker: w.speaker_name || "М. Овсянников",
-          date: new Date(w.scheduled_at || w.created_at).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' })
-        }));
+        const enhancedData = data.map((w: any) => {
+          let dateStr = new Date(w.scheduled_at || w.created_at).toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' });
+
+          // Sprint Range Logic
+          if (w.type === 'sprint' && w.program && w.program.length > 1) {
+            try {
+              const sortedDates = w.program.map((p: any) => new Date(p.date)).sort((a: any, b: any) => a - b);
+              const start = sortedDates[0];
+              const end = sortedDates[sortedDates.length - 1];
+              const startDay = start.getDate();
+              const endDay = end.getDate();
+              const month = start.toLocaleDateString("ru-RU", { month: 'long' }); // Assumes same month for simplicity or just shows start month
+              const year = start.getFullYear();
+
+              // Format: "10-15 февраля 2026"
+              dateStr = `${startDay}-${endDay} ${month} ${year}`;
+            } catch (e) {
+              // Fallback
+            }
+          }
+
+          return {
+            ...w,
+            speaker: w.speaker_name || "М. Овсянников",
+            date: dateStr,
+            program: w.program,
+            type: w.type
+          };
+        });
 
         if (isInitial) {
           setUpcomingData(enhancedData);
@@ -138,6 +164,11 @@ export default function SchedulePage() {
               <Link href={`/platform/schedule/${webinar.id}`} className="group block">
                 <h3 className="text-lg font-medium text-[#231f20] group-hover:text-[#206ecf] transition-colors mb-2">
                   {webinar.title}
+                  {webinar.type === 'sprint' && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                      Спринт
+                    </span>
+                  )}
                 </h3>
               </Link>
               <p className="text-sm text-gray-500 mb-4 line-clamp-2">

@@ -528,30 +528,61 @@ async def chat_completions(
         # A. System Prompt (so far)
         system_prompt_tokens = await count_string_tokens_async(system_prompt, model=model_name)
         
-        # B. Chat History
-        # Convert history_messages (DB objects) to dicts for counting
-        history_dicts = [{"role": m.role.value, "content": m.content} for m in history_messages]
-        history_tokens = await count_tokens_from_messages_async(history_dicts, model=model_name)
-        
-        # C. Response Buffer (Reserve space for answer)
+        # B. Response Buffer (Reserve space for answer)
         RESPONSE_BUFFER = 4000 # Safe default for long answers
         
-        # Calculate Available Space
-        used_tokens = system_prompt_tokens + history_tokens + RESPONSE_BUFFER
-        available_context_tokens = max(1000, max_model_tokens - used_tokens)
-        
-        # Measure context
+        # C. Webinar Context (Measure First - PRIORITY)
         context_tokens = await count_string_tokens_async(webinar_context, model=model_name)
         
+        # D. Calculate Space for History
+        # Limit - (System + Webinar + Buffer)
+        reserved_tokens = system_prompt_tokens + context_tokens + RESPONSE_BUFFER
+        available_for_history = max_model_tokens - reserved_tokens
+        
         safe_context = webinar_context
-        if context_tokens > available_context_tokens:
-            logger.warning(f"⚠️ Webinar context too large ({context_tokens} tokens). Truncating to {available_context_tokens} tokens (Model Limit: {max_model_tokens} - Used: {used_tokens}).")
+        
+        if available_for_history < 0:
+            # CRITICAL: Webinar + System > Model Limit. 
+            # We MUST truncate the webinar context as a last resort, otherwise the request fails.
+            available_context_tokens = max(1000, max_model_tokens - system_prompt_tokens - RESPONSE_BUFFER)
+            logger.error(f"🚨 CRITICAL: Webinar context ({context_tokens}) + System ({system_prompt_tokens}) exceeds model limit ({max_model_tokens})! Truncating webinar to {available_context_tokens} tokens.")
             
             # Smart Truncation via tiktoken
             encoding = get_encoding(model_name)
             encoded = encoding.encode(webinar_context)
             truncated_encoded = encoded[:available_context_tokens]
             safe_context = encoding.decode(truncated_encoded)
+            
+            # No space for history
+            history_messages = [] 
+            logger.warning("⚠️ Dropping ALL history to fit truncated webinar context.")
+            
+        else:
+            # We have space for history?
+            # Convert history_messages (DB objects) to dicts for counting
+            history_dicts = [{"role": m.role.value, "content": m.content} for m in history_messages]
+            history_tokens = await count_tokens_from_messages_async(history_dicts, model=model_name)
+            
+            if history_tokens > available_for_history:
+                 logger.warning(f"⚠️ History too large ({history_tokens} tokens) for remaining space ({available_for_history}). Trimming history for this request.")
+                 
+                 # Optimized trim logic: iterate from end and add until full
+                 trimmed_history = []
+                 current_tokens = 0
+                 # Reverse iteration (newest first)
+                 for msg in reversed(history_messages):
+                     # Estimate tokens for one message (approximate overhead 4 tokens)
+                     # Calling async counter for every message is slow, but safe
+                     msg_dict = {"role": msg.role.value, "content": msg.content}
+                     msg_tokens = await count_tokens_from_messages_async([msg_dict], model=model_name)
+                     
+                     if current_tokens + msg_tokens > available_for_history:
+                         break
+                     
+                     trimmed_history.insert(0, msg)
+                     current_tokens += msg_tokens
+                 
+                 history_messages = trimmed_history
 
         formatted_context = (
             f"\n=== КОНТЕКСТ ВЕБИНАРА (ТРАНСКРИПЦИЯ) ===\n"

@@ -414,7 +414,7 @@ class ChatSettings(SQLModel, table=True):
     compression_max_tokens: Optional[int] = Field(default=None, description="Max tokens для саммари")
     context_threshold: float = Field(default=0.9, description="Порог срабатывания сжатия (0.9 = 90%)")
     context_compression_keep_last: int = Field(default=20, description="Сколько последних сообщений оставлять")
-    context_soft_limit: int = Field(default=350000, description="Мягкий лимит токенов для срабатывания")
+    context_soft_limit: int = Field(default=90000, description="Мягкий лимит токенов для срабатывания")
     
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -440,6 +440,11 @@ class WebinarSchedule(SQLModel, table=True):
     # Статус
     is_published: bool = Field(default=True, description="Опубликован ли вебинар")
     
+    # Unified Sprint/Webinar Fields
+    type: str = Field(default="webinar", description="Тип события: webinar или sprint")
+    program: Optional[Any] = Field(default=None, sa_column=Column(JSON), description="Программа вебинара/спринта (JSON)")
+    landing_bullets: Optional[Any] = Field(default=None, sa_column=Column(JSON), description="Список 'Чему вы научитесь' (JSON)")
+
     # Расписание
     scheduled_at: datetime = Field(description="Дата и время начала (UTC)")
     duration_minutes: int = Field(default=60, description="Длительность (мин)")
