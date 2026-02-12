@@ -400,7 +400,7 @@ export default function WebinarsPage() {
                         </motion.div>
                     ))}
                 </AnimatePresence>
-            </motion.div>
+            </div>
 
             {/* Load More Button or Loading Indicator */}
             {
