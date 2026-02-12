@@ -416,7 +416,7 @@ export default function WebinarsPage() {
             }
 
             {
-                !loading && filteredWebinars.length === 0 && (
+                filteredWebinars.length === 0 && (!loading || webinars.length > 0) && (
                     <div className="text-center py-24">
                         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -424,7 +424,7 @@ export default function WebinarsPage() {
                             </svg>
                         </div>
                         <h3 className="text-gray-900 font-medium mb-1">Ничего не найдено</h3>
-                        <p className="text-gray-500 text-sm">В библиотеке пока нет записей.</p>
+                        <p className="text-gray-500 text-sm">Попробуйте изменить параметры поиска</p>
                     </div>
                 )
             }
