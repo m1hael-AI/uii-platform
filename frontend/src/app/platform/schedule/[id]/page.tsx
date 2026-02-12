@@ -203,11 +203,15 @@ export default function UpcomingWebinarPage() {
                         {webinar.landing_bullets && webinar.landing_bullets.length > 0 && (
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Чему вы научитесь</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
                                     {webinar.landing_bullets.map((bullet, idx) => (
-                                        <div key={idx} className="flex items-start gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm mt-0.5">✓</span>
-                                            <span className="text-gray-700">{bullet}</span>
+                                        <div key={idx} className="flex gap-4 items-start p-4 rounded-xl border border-gray-50 hover:border-gray-100 transition-colors bg-white">
+                                            <div className="text-3xl font-light text-blue-200 leading-none select-none">
+                                                {(idx + 1).toString().padStart(2, '0')}
+                                            </div>
+                                            <p className="text-gray-700 text-sm leading-relaxed pt-1">
+                                                {bullet}
+                                            </p>
                                         </div>
                                     ))}
                                 </div>
