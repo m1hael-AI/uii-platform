@@ -177,10 +177,10 @@ export default function UpcomingWebinarPage() {
                         </div>
                     </div>
 
-                    {/* Content Section: Program OR Bullets */}
-                    <div className="mt-12">
-                        {/* Priority: Program (Sprints) > Bullets (Webinars) */}
-                        {webinar.program && webinar.program.length > 0 ? (
+                    {/* Content Section: Program AND/OR Bullets */}
+                    <div className="mt-12 space-y-12">
+                        {/* 1. Program Section */}
+                        {webinar.program && webinar.program.length > 0 && (
                             <div>
                                 <h2 className="text-xl font-bold text-gray-900 mb-6">Программа</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -197,9 +197,12 @@ export default function UpcomingWebinarPage() {
                                     ))}
                                 </div>
                             </div>
-                        ) : webinar.landing_bullets && webinar.landing_bullets.length > 0 ? (
+                        )}
+
+                        {/* 2. Bullets Section */}
+                        {webinar.landing_bullets && webinar.landing_bullets.length > 0 && (
                             <div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-6">Что будет на вебинаре</h2>
+                                <h2 className="text-xl font-bold text-gray-900 mb-6">Чему вы научитесь</h2>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                     {webinar.landing_bullets.map((bullet, idx) => (
                                         <div key={idx} className="flex items-start gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -209,7 +212,7 @@ export default function UpcomingWebinarPage() {
                                     ))}
                                 </div>
                             </div>
-                        ) : null}
+                        )}
                     </div>
                 </div>
             </div>
