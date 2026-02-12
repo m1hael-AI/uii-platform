@@ -106,12 +106,16 @@ export default function WebinarsPage() {
         fetchWebinars(1, true);
     }, [fetchWebinars]);
 
-    // Reset on search change only (filter is client-side)
+    // Debounced Search Effect
     useEffect(() => {
-        setPage(1);
-        setWebinars([]);
-        setHasMore(true);
-        fetchWebinars(1, true);
+        const timer = setTimeout(() => {
+            setPage(1);
+            // setWebinars([]); // Removed to fixing flashing
+            setHasMore(true);
+            fetchWebinars(1, true);
+        }, 500);
+
+        return () => clearTimeout(timer);
     }, [searchQuery, fetchWebinars]);
 
     // Intersection Observer for infinite scroll

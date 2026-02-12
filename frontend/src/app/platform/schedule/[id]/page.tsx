@@ -178,7 +178,7 @@ export default function UpcomingWebinarPage() {
                     </div>
 
                     {/* Content Section: Program AND/OR Bullets */}
-                    <div className="mt-12 space-y-12">
+                    <div className="mt-8 space-y-8">
                         {/* 1. Program Section */}
                         {webinar.program && webinar.program.length > 0 && (
                             <div>
