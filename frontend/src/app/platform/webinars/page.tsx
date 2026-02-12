@@ -305,128 +305,128 @@ export default function WebinarsPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-                <AnimatePresence>
-                    {filteredWebinars.map((webinar) => (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.2 }}
-                            key={webinar.id}
+                {filteredWebinars.map((webinar) => (
+                    <motion.div
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        key={webinar.id}
+                    >
+                        <Link
+                            href={`/platform/webinars/${webinar.id}`}
+                            className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg hover:border-blue-100 transition-all duration-300 flex flex-col h-full relative"
                         >
-                            <Link
-                                href={`/platform/webinars/${webinar.id}`}
-                                className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg hover:border-blue-100 transition-all duration-300 flex flex-col h-full relative"
-                            >
-                                {/* Thumbnail: Real Iframe behind a glass layer or Image */}
-                                <div className="aspect-video bg-black relative">
-                                    {/* Пытаемся получить картинку превью (Thumbnail) */}
-                                    {(() => {
-                                        // 1. Если есть явная картинка с бэкенда
-                                        if (webinar.thumbnail_url && webinar.thumbnail_url.length > 10) {
+                            {/* Thumbnail: Real Iframe behind a glass layer or Image */}
+                            <div className="aspect-video bg-black relative">
+                                {/* Пытаемся получить картинку превью (Thumbnail) */}
+                                {(() => {
+                                    // 1. Если есть явная картинка с бэкенда
+                                    if (webinar.thumbnail_url && webinar.thumbnail_url.length > 10) {
+                                        return (
+                                            <img
+                                                src={webinar.thumbnail_url}
+                                                alt={webinar.title}
+                                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                                            />
+                                        );
+                                    }
+
+                                    // 2. Пытаемся достать картинку из URL видео (YouTube / VK)
+                                    // VK Video: https://vk.com/video_ext.php?oid=...&id=...
+                                    // VK Thumb format: https://assets.vk.com/images/video/thumbs/default.jpg (Generic) - hard to guess real one without API
+                                    // BUT we can use a placeholder for VK to avoid loading heavyweight iframe
+
+                                    // YouTube
+                                    if (webinar.video_url?.includes("youtube.com") || webinar.video_url?.includes("youtu.be")) {
+                                        let vidId = "";
+                                        if (webinar.video_url.includes("v=")) vidId = webinar.video_url.split("v=")[1]?.split("&")[0];
+                                        else if (webinar.video_url.includes("embed/")) vidId = webinar.video_url.split("embed/")[1]?.split("?")[0];
+                                        else if (webinar.video_url.includes("youtu.be/")) vidId = webinar.video_url.split("youtu.be/")[1]?.split("?")[0];
+
+                                        if (vidId) {
                                             return (
                                                 <img
-                                                    src={webinar.thumbnail_url}
+                                                    src={`https://img.youtube.com/vi/${vidId}/hqdefault.jpg`}
                                                     alt={webinar.title}
                                                     className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                                 />
                                             );
                                         }
+                                    }
 
-                                        // 2. Пытаемся достать картинку из URL видео (YouTube / VK)
-                                        // VK Video: https://vk.com/video_ext.php?oid=...&id=...
-                                        // VK Thumb format: https://assets.vk.com/images/video/thumbs/default.jpg (Generic) - hard to guess real one without API
-                                        // BUT we can use a placeholder for VK to avoid loading heavyweight iframe
-
-                                        // YouTube
-                                        if (webinar.video_url?.includes("youtube.com") || webinar.video_url?.includes("youtu.be")) {
-                                            let vidId = "";
-                                            if (webinar.video_url.includes("v=")) vidId = webinar.video_url.split("v=")[1]?.split("&")[0];
-                                            else if (webinar.video_url.includes("embed/")) vidId = webinar.video_url.split("embed/")[1]?.split("?")[0];
-                                            else if (webinar.video_url.includes("youtu.be/")) vidId = webinar.video_url.split("youtu.be/")[1]?.split("?")[0];
-
-                                            if (vidId) {
-                                                return (
-                                                    <img
-                                                        src={`https://img.youtube.com/vi/${vidId}/hqdefault.jpg`}
-                                                        alt={webinar.title}
-                                                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                                    />
-                                                );
-                                            }
-                                        }
-
-                                        // Fallback for VK/Other: Show generic placeholder instead of IFRAME
-                                        // Loading 20 iframes kills the page and causes 403.
-                                        return (
-                                            <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gray-100 flex-col gap-2">
-                                                <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
-                                                    <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M8 5v14l11-7z" />
-                                                    </svg>
-                                                </div>
-                                                <span className="text-xs font-medium text-gray-400">Смотреть запись</span>
+                                    // Fallback for VK/Other: Show generic placeholder instead of IFRAME
+                                    // Loading 20 iframes kills the page and causes 403.
+                                    return (
+                                        <div className="w-full h-full flex items-center justify-center text-gray-500 bg-gray-100 flex-col gap-2">
+                                            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center">
+                                                <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                </svg>
                                             </div>
-                                        );
-                                    })()}
-
-                                    {/* Overlay (Glass) */}
-                                    <div className="absolute inset-0 bg-transparent z-10 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                    </div>
-                                </div>
-
-                                <div className="p-6 flex-1 flex flex-col z-20 bg-white">
-                                    <div className="flex items-center justify-between mb-3 text-xs text-gray-400">
-                                        <span>{webinar.date}</span>
-                                        <span className="text-[#206ecf] bg-blue-50 px-2 py-0.5 rounded font-medium">{webinar.category}</span>
-                                    </div>
-
-                                    <h3 className="text-lg font-medium text-[#474648] mb-2 line-clamp-2 group-hover:text-[#206ecf] transition-colors leading-snug">
-                                        {webinar.title}
-                                    </h3>
-
-                                    <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-1 leading-relaxed">
-                                        {webinar.description}
-                                    </p>
-
-                                    <div className="flex items-center gap-3 pt-4 border-t border-gray-50 mt-auto">
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
-                                            {webinar.speaker?.charAt(0)}
+                                            <span className="text-xs font-medium text-gray-400">Смотреть запись</span>
                                         </div>
-                                        <span className="text-xs text-gray-500 font-medium truncate">{webinar.speaker}</span>
-                                    </div>
+                                    );
+                                })()}
+
+                                {/* Overlay (Glass) */}
+                                <div className="absolute inset-0 bg-transparent z-10 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                 </div>
-                            </Link>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+                            </div>
+
+                            <div className="p-6 flex-1 flex flex-col z-20 bg-white">
+                                <div className="flex items-center justify-between mb-3 text-xs text-gray-400">
+                                    <span>{webinar.date}</span>
+                                    <span className="text-[#206ecf] bg-blue-50 px-2 py-0.5 rounded font-medium">{webinar.category}</span>
+                                </div>
+
+                                <h3 className="text-lg font-medium text-[#474648] mb-2 line-clamp-2 group-hover:text-[#206ecf] transition-colors leading-snug">
+                                    {webinar.title}
+                                </h3>
+
+                                <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-1 leading-relaxed">
+                                    {webinar.description}
+                                </p>
+
+                                <div className="flex items-center gap-3 pt-4 border-t border-gray-50 mt-auto">
+                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
+                                        {webinar.speaker?.charAt(0)}
+                                    </div>
+                                    <span className="text-xs text-gray-500 font-medium truncate">{webinar.speaker}</span>
+                                </div>
+                            </div>
+                        </Link>
+                    </motion.div>
+                ))}
+            </AnimatePresence>
+        </div>
+
+            {/* Load More Button or Loading Indicator */ }
+    {
+        hasMore && !loading && (
+            <div className="text-center py-8">
+                <div ref={observerTarget} className="h-4"></div>
+                {isLoadingMore && (
+                    <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#206ecf] rounded-full animate-spin"></div>
+                )}
             </div>
+        )
+    }
 
-            {/* Load More Button or Loading Indicator */}
-            {
-                hasMore && !loading && (
-                    <div className="text-center py-8">
-                        <div ref={observerTarget} className="h-4"></div>
-                        {isLoadingMore && (
-                            <div className="inline-block w-8 h-8 border-4 border-gray-200 border-t-[#206ecf] rounded-full animate-spin"></div>
-                        )}
-                    </div>
-                )
-            }
-
-            {
-                !loading && filteredWebinars.length === 0 && (
-                    <div className="text-center py-24">
-                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-gray-900 font-medium mb-1">Ничего не найдено</h3>
-                        <p className="text-gray-500 text-sm">В библиотеке пока нет записей.</p>
-                    </div>
-                )
-            }
+    {
+        !loading && filteredWebinars.length === 0 && (
+            <div className="text-center py-24">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <h3 className="text-gray-900 font-medium mb-1">Ничего не найдено</h3>
+                <p className="text-gray-500 text-sm">В библиотеке пока нет записей.</p>
+            </div>
+        )
+    }
         </div >
     );
 }
