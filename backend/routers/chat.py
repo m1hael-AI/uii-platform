@@ -169,45 +169,60 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     if res.first():
         return False # Already has sessions
         
-    # 2. Setup initial sessions
-    initial_slugs = ["startup_expert", "python", "hr", "analyst", "main_assistant"]
+    # 2. Setup initial sessions for ALL active agents + main_assistant
+    # Fetch all active agents
+    agents_res = await db.execute(select(Agent).where(Agent.is_active == True))
+    agents = agents_res.scalars().all()
     
-    for slug in initial_slugs:
-        # For agents, check existence. Assistant is a special slug.
-        if slug != "main_assistant":
-            agent_res = await db.execute(select(Agent).where(Agent.slug == slug))
-            agent_obj = agent_res.scalar_one_or_none()
-            if not agent_obj: continue
-        # Context logic removed from here as it belongs in chat_completions
-        
+    # We want sessions for main_assistant + all other agents
+    target_slugs = set([a.slug for a in agents])
+    if "main_assistant" not in target_slugs:
+        # Should not happen if seeded correctly, but just in case
+        pass 
+
+    for agent in agents:
+        slug = agent.slug
+        if slug == "ai_tutor": continue # Skip specialized agents if needed (e.g. tutor)
+
         try:
             # Use atomic get_or_create
-            new_session = await get_or_create_chat_session(db, user_id, slug)
-            session_created = True
+            session_result = await get_or_create_chat_session(db, user_id, slug)
+            new_session = session_result
+            # Check if we just created it? get_or_create doesn't return created bool usually
+            # But we check `if res.first(): return False` at the top, so we assume these are new 
+            # OR we check if messages exist.
+            
+            # Actually, get_or_create might return existing. 
+            # We want to send greeting ONLY if no messages exist.
+            
+            # Check for messages
+            msg_check = await db.execute(select(Message).where(Message.session_id == new_session.id))
+            if msg_check.first():
+                continue # Already has messages
+            
+            # Create greeting
+            if slug != "main_assistant":
+                welcome_text = agent.greeting_message or "Привет! Чем могу помочь?"
+                
+                msg = Message(
+                    session_id=new_session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=welcome_text,
+                    created_at=datetime.utcnow()
+                )
+                db.add(msg)
+                
+                # Update session timestamps
+                new_session.last_message = welcome_text # Ensure preview works!
+                new_session.last_message_at = datetime.utcnow()
+                # Mark as UNREAD by setting last_read_at to old date
+                new_session.last_read_at = datetime(2000, 1, 1) 
+                
         except Exception as e:
             logger.error(f"Error creating initial session for {slug}: {e}")
-            logger.warning(f"Session for user {user_id}, agent {slug} already exists (race condition)")
             continue
-        
-        # Create greeting message for AGENTS (not for main_assistant)
-        # Only if we just created the session in this request
-        if session_created and slug != "main_assistant":
-            welcome_text = agent_obj.greeting_message if agent_obj.greeting_message else GREETINGS.get(slug, "Привет! Чем могу помочь?")
-            
-            msg = Message(
-                session_id=new_session.id,
-                role=MessageRole.ASSISTANT,
-                content=welcome_text,
-                created_at=datetime.utcnow()
-            )
-            db.add(msg)
-            
-            # Update session timestamps
-            new_session.last_message_at = datetime.utcnow()
-            new_session.last_read_at = datetime(2000, 1, 1)  # Mark as unread
-            
-            await db.commit()
     
+    await db.commit()
     return True
 
 @router.get("/sessions", response_model=List[ChatSessionDTO])
