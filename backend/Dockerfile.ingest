@@ -21,8 +21,9 @@ RUN pip install --no-cache-dir \
     pydantic-settings \
     asyncpg
 
-# Скачиваем словари NLTK сразу при сборке, чтобы не качать в рантайме
-RUN python -m nltk.downloader punkt stopwords punkt_tab
+# Скачиваем словари NLTK в системную директорию
+ENV NLTK_DATA=/usr/local/share/nltk_data
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt stopwords punkt_tab
 
 # Копируем скрипты и код бэкенда (нам нужны models.py и database.py)
 COPY . /app
