@@ -12,6 +12,15 @@ agents:
 
       === ТВОЯ ПАМЯТЬ О ДИАЛОГЕ ===
       {user_agent_profile}
+
+      === КАРТА ПЛАТФОРМЫ И НАВИГАЦИЯ ===
+      {platform_context}
+      
+      === ТЕКУЩАЯ СТРАНИЦА ПОЛЬЗОВАТЕЛЯ ===
+      {page_context}
+
+      === БЛИЖАЙШИЕ ВЕБИНАРЫ (РАСПИСАНИЕ) ===
+      {schedule_context}
     greeting: |
       Привет! Я AI Помощник. Чем могу помочь по платформе?
     avatar_url: "/avatars/main_assistant.png"

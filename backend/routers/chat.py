@@ -20,6 +20,31 @@ from models import User, ChatSession, Message, MessageRole, Agent, PendingAction
 from config import settings
 from loguru import logger
 from services.chat_session_service import get_or_create_chat_session
+from utils.platform_context import PLATFORM_CONTEXT
+
+async def get_upcoming_schedule_context(db: AsyncSession) -> str:
+    """Fetches upcoming webinars for system prompt context"""
+    try:
+        # Fetch all upcoming webinars (no limit as per user request)
+        q = select(WebinarSchedule).where(
+            WebinarSchedule.is_upcoming == True
+        ).order_by(WebinarSchedule.scheduled_at.asc())
+        
+        res = await db.execute(q)
+        webinars = res.scalars().all()
+        
+        if not webinars:
+            return "Ближайших запланированных вебинаров пока нет."
+            
+        lines = []
+        for w in webinars:
+            date_str = w.scheduled_at.strftime("%d.%m %H:%M") if w.scheduled_at else "Скоро"
+            lines.append(f"- {date_str}: {w.title} (Спикер: {w.speaker_name or 'Не указан'})")
+            
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"Error fetching schedule context: {e}")
+        return "Информация о расписании временно недоступна."
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -621,7 +646,30 @@ async def chat_completions(
     system_prompt = system_prompt.replace("{user_agent_profile}", local_profile)
     system_prompt = system_prompt.replace("{local_summary}", local_profile) # Legacy support
 
+    # 1.1 Platform Context (Static)
+    if "{platform_context}" in system_prompt:
+        system_prompt = system_prompt.replace("{platform_context}", PLATFORM_CONTEXT)
+
+    # 1.2 Page Context (Dynamic from Request)
+    if "{page_context}" in system_prompt:
+        page_ctx_str = "Пользователь находится вне платформы или контекст не передан."
+        if request.page_context:
+            # Format: "Title: Dashboard\nURL: /platform\n"
+            parts = []
+            if "title" in request.page_context: parts.append(f"Заголовок: {request.page_context['title']}")
+            if "url" in request.page_context: parts.append(f"URL: {request.page_context['url']}")
+            if parts:
+                page_ctx_str = "\n".join(parts)
+        
+        system_prompt = system_prompt.replace("{page_context}", page_ctx_str)
+
+    # 1.3 Schedule Context (Dynamic from DB)
+    if "{schedule_context}" in system_prompt:
+        schedule_str = await get_upcoming_schedule_context(db)
+        system_prompt = system_prompt.replace("{schedule_context}", schedule_str)
+
     # 2. Webinar Context Injection (SECOND - Dynamic Size)
+    webinar_context = webinar_chunks_str # Define for truncation logic
     if webinar_context:
         from config import settings # Lazy import
         from services.context_manager import get_model_limit
@@ -705,11 +753,12 @@ async def chat_completions(
             
         if "{webinar_chunks}" in system_prompt:
             # Format chunks with visual delimiters for the model
-            formatted_r_chunks = webinar_chunks_str 
+            # Use safe_context (truncated) instead of raw webinar_chunks_str
+            formatted_r_chunks = safe_context 
             
             # Simple check: if it looks like raw text (not formatted by format_rag_context), wrap it.
-            if "=== ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ" not in formatted_r_chunks and "(Нет релевантных" not in formatted_r_chunks:
-                 formatted_r_chunks = f"=== КОНТЕКСТ (ТРАНСКРИПЦИЯ) ===\n{webinar_chunks_str}\n"
+            if "=== ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ" not in formatted_r_chunks and "(Нет релевантных" not in formatted_r_chunks and "=== КОНТЕКСТ" not in formatted_r_chunks:
+                 formatted_r_chunks = f"=== КОНТЕКСТ (ТРАНСКРИПЦИЯ) ===\n{safe_context}\n"
     
             system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
             

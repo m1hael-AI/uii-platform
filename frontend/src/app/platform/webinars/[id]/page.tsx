@@ -180,7 +180,11 @@ export default function WebinarPage() {
                     messages: currentMessages.map(m => ({ role: m.role, content: m.text })),
                     agent_id: "ai_tutor",
                     webinar_id: parseInt(id),
-                    save_user_message: saveUserMessage // IMPORTANT: Backend must support this!
+                    save_user_message: saveUserMessage, // IMPORTANT: Backend must support this!
+                    page_context: {
+                        url: window.location.pathname,
+                        title: document.title
+                    }
                 })
             });
 

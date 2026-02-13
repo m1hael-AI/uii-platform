@@ -117,7 +117,11 @@ export default function AgentChatPage() {
         body: JSON.stringify({
           messages: currentMessages.map(m => ({ role: m.role, content: m.text })),
           agent_id: agentId,
-          save_user_message: saveUserMessage
+          save_user_message: saveUserMessage,
+          page_context: {
+            url: window.location.pathname,
+            title: document.title
+          }
         })
       });
 

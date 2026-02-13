@@ -125,7 +125,11 @@ export default function RightSidebar() {
                     messages: contextMessages,
                     agent_id: "main_assistant",
                     webinar_id: null,
-                    save_user_message: saveUserMessage // 🚀 Key Param
+                    save_user_message: saveUserMessage, // 🚀 Key Param
+                    page_context: {
+                        url: window.location.pathname,
+                        title: document.title
+                    }
                 })
             });
 
