@@ -460,11 +460,13 @@ async def chat_completions(
         last_user_msg_content = request.messages[-1].content
 
     # 1. Get Webinar Context (RAG vs Full)
-    webinar_context = ""
+    # 1. Get Webinar Context (Split into Info and Chunks)
+    # We now populate two separate placeholders: {webinar_info} and {webinar_chunks}
+    webinar_info_str = "Информация недоступна."
+    webinar_chunks_str = "Контекст не найден."
+    
     if request.webinar_id:
-        # A. Always Fetch Metadata (Title/Description)
-        # This guarantees the agent isn't "blind" even if RAG fails.
-        meta_context = ""
+        # A. Fetch Metadata (Title/Description) -> {webinar_info}
         try:
             res_meta = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
             w_meta = res_meta.scalar_one_or_none()
@@ -476,63 +478,41 @@ async def chat_completions(
             if w_meta:
                 title = getattr(w_meta, 'title', 'Без названия')
                 desc = getattr(w_meta, 'description', 'Нет описания')
-                meta_context = f"=== О ВЕБИНАРЕ ===\nНазвание: {title}\nОписание: {desc}\n\n"
+                webinar_info_str = f"Название: {title}\nОписание: {desc}"
         except Exception as e:
             logger.error(f"⚠️ Failed to fetch webinar metadata: {e}")
 
-        # B. Try RAG Search (Optimization)
-        # We only want to fallback if RAG *cannot* be used (i.e. webinar not indexed yet).
-        # If webinar IS indexed but returns no chunks (irrelevant query), we should NOT dump pure transcript.
-        
-        rag_content = ""
-        
+        # B. RAG Search -> {webinar_chunks}
         # 1. Search
         chunks = []
         if last_user_msg_content:
             chunks = await search_relevant_chunks(db, last_user_msg_content, webinar_id=request.webinar_id)
             
         if chunks:
-            rag_content = await format_rag_context(chunks)
+            webinar_chunks_str = await format_rag_context(chunks)
             logger.info(f"🔍 RAG found {len(chunks)} chunks for query: '{last_user_msg_content[:20]}...'")
         else:
             # 2. Check if webinar is indexed at all
-            # If it has chunks, but search returned nothing -> Query is irrelevant. Do NOT fallback.
-            # If it has NO chunks -> It's a legacy/unprocessed webinar. Fallback to full transcript.
-            
-            # Simple existence check (limit 1 is enough)
-            from sqlalchemy import exists
-            # We can't easily import `WebinarChunk` here without circular imports if not careful, 
-            # but it is imported in `models`.
-            # Let's use a quick scalar query.
             from models import WebinarChunk
-            
             has_chunks = await db.scalar(
                 select(func.count(WebinarChunk.id)).where(WebinarChunk.webinar_id == request.webinar_id)
             )
             
             if has_chunks and has_chunks > 0:
-                 logger.info(f"🚫 RAG found nothing (relevant), but webinar is indexed. Using only Metadata.")
-                 # rag_content remains empty
+                 logger.info(f"🚫 RAG found nothing (relevant), but webinar is indexed. Chunks empty.")
+                 webinar_chunks_str = "(Нет релевантных фрагментов для данного запроса)"
             else:
                 # C. Fallback to Full Transcript (Legacy/Short webinars)
-                # Try retrieving context from WebinarLibrary
-                # We already fetched w_meta above, reusing it if possible, but w_meta might not have transcript loaded if deferred? 
-                # SQLAlchemy objects usually stick around in session.
-                
-                # Check w_meta from above first
                 if w_meta and getattr(w_meta, 'transcript_context', None):
-                     rag_content = w_meta.transcript_context
-                     logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(rag_content)} chars)")
+                     webinar_chunks_str = w_meta.transcript_context
+                     logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_chunks_str)} chars)")
                 else:
-                    # Fallback (rare): try Schedule if not checked
+                    # Fallback (rare): try Schedule
                     if not w_meta:
                         res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
                         w_sch = res_sch.scalar_one_or_none()
                         if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
-                             rag_content = w_sch.transcript_context
-
-        # COMBINE Metadata + Content
-        webinar_context = meta_context + rag_content
+                             webinar_chunks_str = w_sch.transcript_context
 
     # 2. Get or Create Session
     chat_session = await get_or_create_chat_session(
@@ -719,12 +699,28 @@ async def chat_completions(
             f"==========================================\n"
         )
         
-        # Inject into placeholder
+        # Inject into placeholder (NEW: Split placeholders)
+        if "{webinar_info}" in system_prompt:
+            system_prompt = system_prompt.replace("{webinar_info}", webinar_info_str)
+            
+        if "{webinar_chunks}" in system_prompt:
+            # Format chunks with visual delimiters for the model
+            formatted_r_chunks = webinar_chunks_str 
+            
+            # Simple check: if it looks like raw text (not formatted by format_rag_context), wrap it.
+            if "=== ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ" not in formatted_r_chunks and "(Нет релевантных" not in formatted_r_chunks:
+                 formatted_r_chunks = f"=== КОНТЕКСТ (ТРАНСКРИПЦИЯ) ===\n{webinar_chunks_str}\n"
+    
+            system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
+            
+        # Legacy fallback (if prompt file wasn't updated)
         if "{webinar_context}" in system_prompt:
-            system_prompt = system_prompt.replace("{webinar_context}", formatted_context)
-        else:
-            # If agent doesn't have placeholder but context exists -> that's weird but not fatal.
-            pass
+             # Combine them back for old prompts
+             combined_context = (
+                f"=== О ВЕБИНАРЕ ===\n{webinar_info_str}\n\n"
+                f"=== КОНТЕКСТ ===\n{webinar_chunks_str}"
+             )
+             system_prompt = system_prompt.replace("{webinar_context}", combined_context)
             
     else:
         # NO CONTEXT PROVIDED
