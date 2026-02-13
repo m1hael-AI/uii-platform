@@ -284,12 +284,15 @@ async def get_user_sessions(
         # Red dot logic
         has_unread = False
         if session.last_message_at:
-            if not session.last_read_at:
+            # Force unread if last_read_at is the "magic" cold start date (year 2000)
+            if session.last_read_at and session.last_read_at.year < 2001:
+                has_unread = True
+            elif not session.last_read_at:
                 has_unread = True
             elif session.last_message_at > session.last_read_at:
                 has_unread = True
         
-        # DEBUG LOG for specific agent
+        # DEBUG LOG for startup_expert to trace unread logic
         if agent.slug == 'startup_expert':
              print(f"👉 [BACKEND] GET_SESSIONS 'startup_expert': LastMsg={session.last_message_at}, LastRead={session.last_read_at}, Unread={has_unread}")
 
