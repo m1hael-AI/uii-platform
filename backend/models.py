@@ -684,6 +684,8 @@ class LLMAudit(SQLModel, table=True):
     # Metadata
     status: str = "success" # success, error
     error_message: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 from pgvector.sqlalchemy import Vector
 
