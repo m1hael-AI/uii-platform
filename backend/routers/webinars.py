@@ -258,6 +258,10 @@ async def create_webinar(
     video_url = data.get("video_url")
     thumbnail_url = data.get("thumbnail_url")
     
+    # Remove control field from data before creating DB model
+    if "is_upcoming" in data:
+        del data["is_upcoming"]
+
     if is_upcoming:
         # Create Schedule
         new_item = WebinarSchedule(**data)
