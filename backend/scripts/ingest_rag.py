@@ -103,7 +103,7 @@ async def ingest_webinars():
                         webinar_id=webinar.id,
                         content=chunk_content,
                         embedding=vector,
-                        metadata={
+                        chunk_metadata={
                             "index": i,
                             "source": "transcript",
                             "title": webinar.title

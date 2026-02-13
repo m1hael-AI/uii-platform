@@ -32,7 +32,7 @@ def upgrade() -> None:
     sa.Column('content', sa.VARCHAR(), nullable=False),
     # Using Vector type from pgvector
     sa.Column('embedding', Vector(1536), nullable=True),
-    sa.Column('metadata', sa.JSON(), nullable=True),
+    sa.Column('chunk_metadata', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['webinar_id'], ['webinar_libraries.id'], ),
     sa.PrimaryKeyConstraint('id')
