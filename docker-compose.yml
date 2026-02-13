@@ -54,6 +54,24 @@ services:
           cpus: '0.05'
           memory: 64M
 
+  rag-ingest:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ingest
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+    env_file:
+      - .env
+    # Command can be overridden, but default to running the script
+    command: python scripts/ingest_rag.py --reload
+    profiles: [ "ingest" ] # Optional: prevents auto-start with 'up' if desired, but let's keep it simple for now or just standard service. 
+    # Actually, for one-off tasks, profiles are good, but let's just make it a standard service that exits.
+    # If it exits, 'up' might show it as exited. That's fine.
+    # Better: don't start it automatically with 'up', so maybe profile 'tools' or just rely on 'run'.
+    # I will just add it.
+
   backend:
     build:
       context: ./backend
