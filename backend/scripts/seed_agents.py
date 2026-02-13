@@ -12,7 +12,7 @@ from loguru import logger
 # Add parent directory to path to import models and config
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from models import Agent
+from models import Agent, ChatSession
 from database import async_engine
 
 load_dotenv()
@@ -35,25 +35,24 @@ async def seed_agents():
     )
 
     async with async_session() as session:
-        # 1. Deactivate ALL existing agents first (to safely replace roster)
-        # We don't delete to preserve chat history, just set is_active=False
-        # Except main_assistant and ai_tutor if they exist in new list (we just update them)
-        logger.info("💤 Deactivating old agents...")
+        # 1. DELETE obsolete agents (and their sessions)
+        logger.info("🧹 Cleaning up old agents...")
         
         # Get list of new slugs
         new_slugs = list(agents_data.keys())
-        
-        # Deactivate agents NOT in the new list
-        # Actually, let's just update valid ones and deactivate others.
         
         existing_agents_result = await session.execute(select(Agent))
         existing_agents = existing_agents_result.scalars().all()
         
         for existing in existing_agents:
             if existing.slug not in new_slugs:
-                existing.is_active = False
-                logger.info(f"   -> Deactivated: {existing.slug}")
-            # If it IS in new_slugs, we will update it below.
+                # Delete sessions first (manual cascade)
+                logger.info(f"   -> Deleting sessions for: {existing.slug}")
+                await session.execute(delete(ChatSession).where(ChatSession.agent_slug == existing.slug))
+                
+                # Delete agent
+                logger.info(f"   -> Deleted agent: {existing.slug}")
+                await session.delete(existing)
             
         # 2. Upsert (Update or Insert) new agents
         for slug, info in agents_data.items():
