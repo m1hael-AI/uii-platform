@@ -3,61 +3,70 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
-const AGENTS = [
-    { id: "startup_expert", name: "Эксперт по стартапам", role: "Бизнес", avatar: "S", color: "bg-orange-50 text-orange-600" },
-    { id: "python", name: "Python Эксперт", role: "Tutor", avatar: "P", color: "bg-yellow-50 text-yellow-600" },
-    { id: "analyst", name: "Data Analyst", role: "Expert", avatar: "D", color: "bg-green-50 text-green-600" },
-    { id: "hr", name: "HR Консультант", role: "Assistant", avatar: "H", color: "bg-purple-50 text-purple-600" },
+// Fallback colors for agents without avatar
+const COLORS = [
+    "bg-orange-50 text-orange-600",
+    "bg-yellow-50 text-yellow-600",
+    "bg-green-50 text-green-600",
+    "bg-purple-50 text-purple-600",
+    "bg-blue-50 text-blue-600",
+    "bg-pink-50 text-pink-600",
 ];
+
+interface Agent {
+    id: number;
+    slug: string;
+    name: string;
+    description?: string;
+    avatar_url?: string;
+    greeting_message?: string;
+}
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
     const params = useParams();
     const pathname = usePathname();
 
-    // Search
+    // Search & Data
     const [search, setSearch] = useState("");
+    const [agents, setAgents] = useState<Agent[]>([]);
     const [sessions, setSessions] = useState<Record<string, any>>({});
     const [typingAgents, setTypingAgents] = useState<Record<string, boolean>>({});
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch sessions to get real last messages
-    // Fetch sessions logic
-    const fetchSessions = async () => {
+    // Fetch Agents & Sessions
+    const fetchData = async () => {
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-            // Check for token safely
             const { default: Cookies } = await import("js-cookie");
             const token = Cookies.get("token");
 
             if (!token) return;
 
-            // 🛑 NO-CACHE: Prevent browser from serving stale sessions list
-            const res = await fetch(`${API_URL}/chat/sessions?t=${Date.now()}`, {
-                headers: { Authorization: `Bearer ${token}` },
-                cache: "no-store"
-            });
+            // Parallel Request
+            const [agentsRes, sessionsRes] = await Promise.all([
+                fetch(`${API_URL}/chat/agents`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${API_URL}/chat/sessions?t=${Date.now()}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+            ]);
 
-            if (res.ok) {
-                const data = await res.json();
-                console.log(`[ChatLayout] Sessions Updated. Current Path: ${window.location.pathname}`);
+            if (agentsRes.ok) {
+                const agentsData = await agentsRes.json();
+                setAgents(agentsData);
+            }
+
+            if (sessionsRes.ok) {
+                const sessionsData = await sessionsRes.json();
                 const sessionMap: Record<string, any> = {};
-                data.forEach((s: any) => {
-                    // 🛡️ ANTI-FLICKER: If we are currently on this agent's page, ignore server's "unread" status
-                    // current pathname might be /platform/chat/mentor
-                    // s.agent_id is "mentor"
+                sessionsData.forEach((s: any) => {
                     const isActive = window.location.pathname.includes(`/chat/${s.agent_id}`);
-                    if (isActive) {
-                        s.has_unread = false;
-                    }
-                    if (s.has_unread) console.log(`[ChatLayout] 🔴 Agent ${s.agent_id} has UNREAD (Active=${isActive})`);
-
+                    if (isActive) s.has_unread = false;
                     sessionMap[s.agent_id] = s;
                 });
                 setSessions(sessionMap);
             }
         } catch (e) {
-            console.error("Failed to fetch sessions", e);
+            console.error("Failed to fetch chat data", e);
         } finally {
             setIsLoading(false);
         }
@@ -65,9 +74,9 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
     // Initial load + Event Listener for updates
     useEffect(() => {
-        fetchSessions();
+        fetchData();
 
-        const handleUpdate = () => fetchSessions();
+        const handleUpdate = () => fetchData();
         const handleTyping = (e: Event) => {
             const detail = (e as CustomEvent).detail;
             setTypingAgents(prev => ({
@@ -85,10 +94,10 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         };
     }, []);
 
-    const filteredAgents = AGENTS.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+    const filteredAgents = agents.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
 
     return (
-        // Mobile: Fixed position to fill space between Header (h-16) and BottomNav (h-16)
+        // Mobile: Fixed position to fill space and BottomNav
         // Desktop: Calculated height within container
         <div className={`
             flex bg-white overflow-hidden
@@ -129,34 +138,41 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                             ))}
                         </div>
                     ) : (
-                        filteredAgents.map(agent => {
-                            const isActive = pathname.includes(`/chat/${agent.id}`);
-                            const session = sessions[agent.id];
-                            const isTyping = typingAgents[agent.id];
+                        filteredAgents.map((agent, idx) => {
+                            const isActive = pathname.includes(`/chat/${agent.slug}`);
+                            const session = sessions[agent.slug];
+                            const isTyping = typingAgents[agent.slug];
 
                             // Display Logic: Typing > Last Message > Default
                             const displayMsg = isTyping
                                 ? <span className="text-[#206ecf] animate-pulse">Печатает...</span>
-                                : (session?.last_message || "");
+                                : (session?.last_message || agent.description || "Начать диалог");
 
                             const hasUnread = session?.has_unread || false;
 
+                            // Deterministic color based on ID
+                            const colorClass = COLORS[agent.id % COLORS.length];
+
                             return (
                                 <Link
-                                    key={agent.id}
-                                    href={`/platform/chat/${agent.id}`}
+                                    key={agent.slug}
+                                    href={`/platform/chat/${agent.slug}`}
                                     onClick={() => {
                                         // 💨 INSTANT LOCAL UPDATE
                                         setSessions(prev => ({
                                             ...prev,
-                                            [agent.id]: { ...prev[agent.id], has_unread: false }
+                                            [agent.slug]: { ...prev[agent.slug], has_unread: false }
                                         }));
                                     }}
                                     className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
                                         }`}
                                 >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${agent.color} relative`}>
-                                        {agent.avatar}
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden relative ${!agent.avatar_url ? colorClass : 'bg-gray-100'}`}>
+                                        {agent.avatar_url ? (
+                                            <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span>{agent.name[0]}</span>
+                                        )}
                                         {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
                                     </div>
                                     <div className="flex-1 min-w-0">

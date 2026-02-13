@@ -15,6 +15,16 @@ interface ChatSession {
     has_unread: boolean;
 }
 
+// Fallback colors
+const COLORS = [
+    "bg-orange-50 text-orange-600",
+    "bg-yellow-50 text-yellow-600",
+    "bg-green-50 text-green-600",
+    "bg-purple-50 text-purple-600",
+    "bg-blue-50 text-blue-600",
+    "bg-pink-50 text-pink-600",
+];
+
 export default function ChatIndexPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -67,19 +77,9 @@ export default function ChatIndexPage() {
         return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
     }, []);
 
-    // Get color based on agent ID (consistent with mock)
-    const getAgentStyle = (slug: string) => {
-        switch (slug) {
-            case "startup_expert": return "bg-orange-50 text-orange-600";
-            case "python": return "bg-yellow-50 text-yellow-600";
-            case "analyst": return "bg-green-50 text-green-600";
-            case "hr": return "bg-purple-50 text-purple-600";
-            default: return "bg-blue-50 text-blue-600";
-        }
-    };
-
-    const getAgentAvatar = (name: string) => {
-        return name ? name[0].toUpperCase() : "A";
+    // Get color based on agent ID hash (consistent with layout)
+    const getAgentStyle = (id: number) => {
+        return COLORS[id % COLORS.length];
     };
 
     if (loading) {
@@ -126,8 +126,12 @@ export default function ChatIndexPage() {
                             }}
                             className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
                         >
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${getAgentStyle(session.agent_id)}`}>
-                                {getAgentAvatar(session.agent_name)}
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden relative ${!session.agent_avatar ? getAgentStyle(session.id) : 'bg-gray-100'}`}>
+                                {session.agent_avatar ? (
+                                    <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span>{session.agent_name[0]}</span>
+                                )}
                             </div>
 
                             <div className="flex-1 min-w-0">

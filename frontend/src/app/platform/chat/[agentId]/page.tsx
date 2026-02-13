@@ -5,19 +5,31 @@ import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import Cookies from "js-cookie";
 
-const AGENTS_DATA: Record<string, { name: string; role: string; status: string; color: string; bg: string }> = {
-  startup_expert: { name: "Эксперт по стартапам", role: "Бизнес", status: "Онлайн", color: "text-orange-600", bg: "bg-orange-50" },
-  python: { name: "Python Эксперт", role: "Tutor", status: "Онлайн", color: "text-yellow-600", bg: "bg-yellow-50" },
-  analyst: { name: "Аналитик Данных", role: "Expert", status: "Онлайн", color: "text-green-600", bg: "bg-green-50" },
-  hr: { name: "HR Консультант", role: "Assistant", status: "Онлайн", color: "text-purple-600", bg: "bg-purple-50" },
-};
+interface Agent {
+  id: number;
+  slug: string;
+  name: string;
+  description?: string;
+  avatar_url?: string;
+  greeting_message?: string;
+}
+
+// Fallback colors
+const COLORS = [
+  { bg: "bg-orange-50", text: "text-orange-600" },
+  { bg: "bg-yellow-50", text: "text-yellow-600" },
+  { bg: "bg-green-50", text: "text-green-600" },
+  { bg: "bg-purple-50", text: "text-purple-600" },
+  { bg: "bg-blue-50", text: "text-blue-600" },
+  { bg: "bg-pink-50", text: "text-pink-600" },
+];
 
 export default function AgentChatPage() {
   const params = useParams();
   const router = useRouter();
   const agentId = params.agentId as string;
-  const agent = AGENTS_DATA[agentId] || { name: "AI Агент", role: "Bot", status: "Онлайн" };
 
+  const [agent, setAgent] = useState<Agent | null>(null);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', text: string, created_at?: string }[]>([]);
   const [streamingMessage, setStreamingMessage] = useState("");
   const [input, setInput] = useState("");
@@ -27,6 +39,36 @@ export default function AgentChatPage() {
   const isGeneratingRef = useRef(false);
   // Track active agent to prevent stale closures from marking wrong chat as read
   const currentAgentIdRef = useRef(agentId);
+
+  // Fetch Agent Metadata
+  useEffect(() => {
+    const fetchAgentMetadata = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        const res = await fetch(`${API_URL}/chat/agents`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          const agents: Agent[] = await res.json();
+          const found = agents.find(a => a.slug === agentId);
+          if (found) {
+            setAgent(found);
+          } else {
+            // Fallback for unknown agent (maybe legacy or just created)
+            setAgent({ id: 0, slug: agentId, name: "AI Агент", description: "Assistant" });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch agent metadata", e);
+      }
+    };
+
+    fetchAgentMetadata();
+  }, [agentId]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -214,7 +256,9 @@ export default function AgentChatPage() {
     return () => window.removeEventListener("chatStatusUpdate", handleUpdate);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentId, agent.name]);
+  }, [agentId]);
+  // Depend on agentId, but we removed 'agent.name' dependency to avoid invalidating on metadata load.
+  // Actually, if agent metadata loads delayed, we don't need to re-fetch history.
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -239,6 +283,11 @@ export default function AgentChatPage() {
     await streamResponse(newMessages);
   };
 
+  // Determine styles
+  const agentStyle = agent && agent.id ? COLORS[agent.id % COLORS.length] : COLORS[0];
+  const agentName = agent ? agent.name : "Загрузка...";
+  const agentAvatarUrl = agent?.avatar_url;
+
   return (
     <div className="flex flex-col h-full relative">
       {/* Header */}
@@ -253,14 +302,18 @@ export default function AgentChatPage() {
           </svg>
         </button>
 
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
-          {agent.name[0]}
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
+          {agentAvatarUrl ? (
+            <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
+          ) : (
+            <span>{agentName[0]}</span>
+          )}
         </div>
 
         <div className="flex-1">
-          <h2 className="font-bold text-gray-900 leading-tight">{agent.name}</h2>
+          <h2 className="font-bold text-gray-900 leading-tight">{agentName}</h2>
           <div className="text-[10px] md:text-xs text-[#206ecf]">
-            {isTyping ? "Печатает..." : agent.status}
+            {isTyping ? "Печатает..." : "Онлайн"}
           </div>
         </div>
       </div>
@@ -270,8 +323,12 @@ export default function AgentChatPage() {
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
-                {agent.name[0]}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
+                {agentAvatarUrl ? (
+                  <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{agentName[0]}</span>
+                )}
               </div>
             )}
             <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 md:px-5 md:py-4 text-base shadow-sm break-words overflow-hidden ${msg.role === 'user'
@@ -287,8 +344,12 @@ export default function AgentChatPage() {
 
         {isTyping && !streamingMessage && (
           <div className="flex justify-start items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
-              {agent.name[0]}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
+              {agentAvatarUrl ? (
+                <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
+              ) : (
+                <span>{agentName[0]}</span>
+              )}
             </div>
             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm">
               <div className="flex gap-1.5 items-center h-6">
@@ -302,8 +363,12 @@ export default function AgentChatPage() {
 
         {streamingMessage && (
           <div className="flex justify-start">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agent.bg || 'bg-blue-50'} ${agent.color || 'text-blue-600'}`}>
-              {agent.name[0]}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
+              {agentAvatarUrl ? (
+                <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
+              ) : (
+                <span>{agentName[0]}</span>
+              )}
             </div>
             <div className="max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 md:px-5 md:py-4 text-base shadow-sm bg-white border border-gray-100 text-gray-800 rounded-tl-none">
               <div className="prose prose-sm md:prose-base max-w-none text-gray-800">
