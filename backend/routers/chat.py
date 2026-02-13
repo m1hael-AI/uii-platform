@@ -549,67 +549,7 @@ async def chat_completions(
 
     # D. INJECTION
     
-    # --- Context Awareness Injection (Optimized) ---
-    from datetime import timezone, timedelta
-    
-    # 1. Time Context {time_context}
-    # Fixed to MSK (UTC+3)
-    msk_tz = timezone(timedelta(hours=3))
-    current_time_msk = datetime.now(msk_tz).strftime("%d.%m.%Y %H:%M (MSK)")
-    
-    if "{time_context}" in system_prompt:
-            system_prompt = system_prompt.replace("{time_context}", current_time_msk)
-            
-    # 2. Page Context {page_context}
-    if "{page_context}" in system_prompt:
-        page_ctx_str = ""
-        if request.page_context:
-            url = request.page_context.get("url", "unknown")
-            title = request.page_context.get("title", "Unknown Page")
-            page_ctx_str = f"Пользователь сейчас находится на странице: {title} (URL: {url})"
-        else:
-            page_ctx_str = "Пользователь находится на неизвестной странице."
-        
-        system_prompt = system_prompt.replace("{page_context}", page_ctx_str)
-
-    # 3. Schedule Context {schedule_context}
-    if "{schedule_context}" in system_prompt:
-        # Fetch upcoming webinars (limit 5)
-        # We reuse the session 'db'
-        upcoming_webinars = await db.execute(
-            select(WebinarSchedule)
-            .where(WebinarSchedule.start_time > datetime.utcnow())
-            .order_by(WebinarSchedule.start_time.asc())
-            .limit(5)
-        )
-        schedules = upcoming_webinars.scalars().all()
-        
-        if schedules:
-            sch_list_str = "Ближайшие вебинары:\n"
-            for s in schedules:
-                # Convert UTC to MSK for display
-                s_time_msk = s.start_time.replace(tzinfo=timezone.utc).astimezone(msk_tz)
-                time_str = s_time_msk.strftime("%d.%m %H:%M")
-                sch_list_str += f"- {time_str}: {s.title}\n"
-        else:
-            sch_list_str = "На данный момент запланированных вебинаров нет."
-            
-        system_prompt = system_prompt.replace("{schedule_context}", sch_list_str)
-
-    # 4. Platform Context {platform_context}
-    if "{platform_context}" in system_prompt:
-        # Short version of the map
-        platform_map = (
-            "--- КАРТА ПЛАТФОРМЫ ---\n"
-            "1. /platform (Главная): Запись на спринты, вход на эфир.\n"
-            "2. /webinars (Библиотека): Архив записей, поиск.\n"
-            "3. /schedule (Расписание): Календарь событий.\n"
-            "4. /profile (Профиль): Твои подписки.\n"
-            "-----------------------"
-        )
-        system_prompt = system_prompt.replace("{platform_context}", platform_map)
-
-    # -----------------------------------
+    # Context Awareness Injection removed to isolate RAG testing
     
     # 1. Webinar Context Injection
     
