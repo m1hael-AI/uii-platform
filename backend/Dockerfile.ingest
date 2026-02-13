@@ -17,7 +17,9 @@ RUN pip install --no-cache-dir \
     psycopg2-binary \
     pgvector \
     python-dotenv \
-    loguru
+    loguru \
+    pydantic-settings \
+    asyncpg
 
 # Скачиваем словари NLTK сразу при сборке, чтобы не качать в рантайме
 RUN python -m nltk.downloader punkt stopwords
