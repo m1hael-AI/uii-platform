@@ -25,9 +25,9 @@ from utils.platform_context import PLATFORM_CONTEXT
 async def get_upcoming_schedule_context(db: AsyncSession) -> str:
     """Fetches upcoming webinars for system prompt context"""
     try:
-        # Fetch all upcoming webinars (no limit as per user request)
+        # Fetch all upcoming webinars (filter by date > now)
         q = select(WebinarSchedule).where(
-            WebinarSchedule.is_upcoming == True
+            WebinarSchedule.scheduled_at > datetime.utcnow()
         ).order_by(WebinarSchedule.scheduled_at.asc())
         
         res = await db.execute(q)
