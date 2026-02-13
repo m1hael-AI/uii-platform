@@ -386,6 +386,8 @@ async def get_chat_history(
         is_new_session=is_new_session
     )
 
+from services.rag_service import search_relevant_chunks, format_rag_context
+
 @router.post("/completions")
 async def chat_completions(
     request: ChatRequest,
@@ -394,20 +396,59 @@ async def chat_completions(
     current_user: User = Depends(get_current_user),
     _: None = Depends(rate_limiter)
 ):
-    # 1. Get Webinar Context
+    # 0. Extract Last User Message (Early)
+    last_user_msg_content = ""
+    if request.messages:
+        last_user_msg_content = request.messages[-1].content
+
+    # 1. Get Webinar Context (RAG vs Full)
     webinar_context = ""
     if request.webinar_id:
-        # Try retrieving context from WebinarLibrary (most likely source of transcripts)
-        res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
-        w = res.scalar_one_or_none()
-        if w and w.transcript_context:
-            webinar_context = w.transcript_context
+        # A. Try RAG Search first (Optimization)
+        # We only want to fallback if RAG *cannot* be used (i.e. webinar not indexed yet).
+        # If webinar IS indexed but returns no chunks (irrelevant query), we should NOT dump pure transcript.
+        
+        # 1. Search
+        chunks = []
+        if last_user_msg_content:
+            chunks = await search_relevant_chunks(db, last_user_msg_content, webinar_id=request.webinar_id)
+            
+        if chunks:
+            webinar_context = await format_rag_context(chunks)
+            logger.info(f"🔍 RAG found {len(chunks)} chunks for query: '{last_user_msg_content[:20]}...'")
         else:
-            # Fallback (rare): try Schedule, though likely no transcript yet
-            res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
-            w_sch = res_sch.scalar_one_or_none()
-            if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
-                 webinar_context = w_sch.transcript_context
+            # 2. Check if webinar is indexed at all
+            # If it has chunks, but search returned nothing -> Query is irrelevant. Do NOT fallback.
+            # If it has NO chunks -> It's a legacy/unprocessed webinar. Fallback to full transcript.
+            
+            # Simple existence check (limit 1 is enough)
+            from sqlalchemy import exists
+            # We can't easily import `WebinarChunk` here without circular imports if not careful, 
+            # but it is imported in `models`.
+            # Let's use a quick scalar query.
+            from models import WebinarChunk
+            
+            has_chunks = await db.scalar(
+                select(func.count(WebinarChunk.id)).where(WebinarChunk.webinar_id == request.webinar_id)
+            )
+            
+            if has_chunks and has_chunks > 0:
+                 logger.info(f"🚫 RAG found nothing (relevant), but webinar is indexed. Skipping fallback.")
+                 # Context remains empty - this is correct for irrelevant queries.
+            else:
+                # B. Fallback to Full Transcript (Legacy/Short webinars)
+                # Try retrieving context from WebinarLibrary
+                res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
+                w = res.scalar_one_or_none()
+                if w and w.transcript_context:
+                    webinar_context = w.transcript_context
+                    logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_context)} chars)")
+                else:
+                    # Fallback (rare): try Schedule
+                    res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
+                    w_sch = res_sch.scalar_one_or_none()
+                    if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
+                         webinar_context = w_sch.transcript_context
 
     # 2. Get or Create Session
     chat_session = await get_or_create_chat_session(
@@ -420,10 +461,9 @@ async def chat_completions(
         # No delayed greeting here. Greeting is handled by get_chat_history or created synchronously if needed.
 
     # 3. Save User Message
-    # 3. Save User Message
     # We take the LAST message from the client as the new one
     if request.messages and request.save_user_message:
-        last_user_msg_content = request.messages[-1].content
+        # last_user_msg_content already extracted at step 0
         user_db_msg = Message(
             session_id=chat_session.id,
             role=MessageRole.USER,

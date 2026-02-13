@@ -76,6 +76,32 @@ async def generate_chat_response(
     return content
 
 
+async def generate_embedding(
+    text: str,
+    model: str = "text-embedding-3-small"
+) -> List[float]:
+    """
+    Генерирует вектор для текста (Embedding).
+    
+    Args:
+        text: Текст для векторизации
+        model: Модель эмбеддингов (по умолчанию text-embedding-3-small)
+        
+    Returns:
+        List[float]: Вектор (массив чисел)
+    """
+    # Replace newlines to avoid issues with some older models, 
+    # though 3-small is robust, it's a good practice.
+    text = text.replace("\n", " ")
+    
+    response = await client.embeddings.create(
+        input=[text],
+        model=model
+    )
+    
+    return response.data[0].embedding
+
+
 async def stream_chat_response(
     messages: List[Dict[str, str]],
     model: Optional[str] = None,

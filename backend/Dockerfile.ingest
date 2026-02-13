@@ -1,0 +1,32 @@
+# Используем тот же базовый образ, что и backend, или slim
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Устанавливаем зависимости для скрипта
+# pgvector нужен для работы с БД
+# nltk для нарезки
+# sqlalchemy/sqlmodel/psycopg2 для ORM
+# openai для эмбеддингов
+# python-dotenv для конфига
+RUN pip install --no-cache-dir \
+    nltk \
+    openai \
+    sqlalchemy \
+    sqlmodel \
+    psycopg2-binary \
+    pgvector \
+    python-dotenv \
+    loguru
+
+# Скачиваем словари NLTK сразу при сборке, чтобы не качать в рантайме
+RUN python -m nltk.downloader punkt stopwords
+
+# Копируем скрипты и код бэкенда (нам нужны models.py и database.py)
+COPY . /app
+
+# Указываем Python path, чтобы видеть модули из корня
+ENV PYTHONPATH=/app
+
+# По умолчанию запускаем скрипт загрузки (но команду можно переопределить в compose)
+CMD ["python", "scripts/ingest_rag.py"]

@@ -494,6 +494,7 @@ class WebinarLibrary(SQLModel, table=True):
     
     # Relationships
     chat_sessions: List["ChatSession"] = Relationship(back_populates="library")
+    chunks: List["WebinarChunk"] = Relationship(back_populates="webinar")
 
 
 class WebinarSignup(SQLModel, table=True):
@@ -683,5 +684,35 @@ class LLMAudit(SQLModel, table=True):
     # Metadata
     status: str = "success" # success, error
     error_message: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+from pgvector.sqlalchemy import Vector
+
+class WebinarChunk(SQLModel, table=True):
+    """
+    Кусочек вебинара для RAG (Vector Search).
+    """
+    __tablename__ = "webinar_chunks"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    webinar_id: int = Field(foreign_key="webinar_libraries.id", index=True)
+    
+    # Сам текст (3-5 предложений)
+    content: str = Field(description="Текст фрагмента")
+    
+    # Вектор (OpenAI text-embedding-3-small = 1536 dimensions)
+    embedding: Any = Field(sa_column=Column(Vector(1536)))
+    
+    # Метаданные (например, таймкод)
+    metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Relationships
+    webinar: Optional[WebinarLibrary] = Relationship(back_populates="chunks")
+
+# Update WebinarLibrary to include chunks relationship
+# (This modification is done by adding the relationship to the existing class in this file, 
+# but since I am appending, I can't easily patch the class above. 
+# I will use multi_replace to do both.)
+
 

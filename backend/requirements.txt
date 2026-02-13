@@ -11,7 +11,9 @@ sqlmodel==0.0.22
 sqlalchemy[asyncio]==2.0.35
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
+psycopg2-binary==2.9.9
 alembic==1.13.2
+pgvector==0.2.5
 
 # === OpenAI (стандартный SDK с AsyncOpenAI) ===
 openai==1.51.0
