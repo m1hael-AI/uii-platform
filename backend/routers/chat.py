@@ -462,9 +462,29 @@ async def chat_completions(
     # 1. Get Webinar Context (RAG vs Full)
     webinar_context = ""
     if request.webinar_id:
-        # A. Try RAG Search first (Optimization)
+        # A. Always Fetch Metadata (Title/Description)
+        # This guarantees the agent isn't "blind" even if RAG fails.
+        meta_context = ""
+        try:
+            res_meta = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
+            w_meta = res_meta.scalar_one_or_none()
+            
+            if not w_meta:
+                 res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
+                 w_meta = res_sch.scalar_one_or_none()
+            
+            if w_meta:
+                title = getattr(w_meta, 'title', 'Без названия')
+                desc = getattr(w_meta, 'description', 'Нет описания')
+                meta_context = f"=== О ВЕБИНАРЕ ===\nНазвание: {title}\nОписание: {desc}\n\n"
+        except Exception as e:
+            logger.error(f"⚠️ Failed to fetch webinar metadata: {e}")
+
+        # B. Try RAG Search (Optimization)
         # We only want to fallback if RAG *cannot* be used (i.e. webinar not indexed yet).
         # If webinar IS indexed but returns no chunks (irrelevant query), we should NOT dump pure transcript.
+        
+        rag_content = ""
         
         # 1. Search
         chunks = []
@@ -472,7 +492,7 @@ async def chat_completions(
             chunks = await search_relevant_chunks(db, last_user_msg_content, webinar_id=request.webinar_id)
             
         if chunks:
-            webinar_context = await format_rag_context(chunks)
+            rag_content = await format_rag_context(chunks)
             logger.info(f"🔍 RAG found {len(chunks)} chunks for query: '{last_user_msg_content[:20]}...'")
         else:
             # 2. Check if webinar is indexed at all
@@ -491,22 +511,28 @@ async def chat_completions(
             )
             
             if has_chunks and has_chunks > 0:
-                 logger.info(f"🚫 RAG found nothing (relevant), but webinar is indexed. Skipping fallback.")
-                 # Context remains empty - this is correct for irrelevant queries.
+                 logger.info(f"🚫 RAG found nothing (relevant), but webinar is indexed. Using only Metadata.")
+                 # rag_content remains empty
             else:
-                # B. Fallback to Full Transcript (Legacy/Short webinars)
+                # C. Fallback to Full Transcript (Legacy/Short webinars)
                 # Try retrieving context from WebinarLibrary
-                res = await db.execute(select(WebinarLibrary).where(WebinarLibrary.id == request.webinar_id))
-                w = res.scalar_one_or_none()
-                if w and w.transcript_context:
-                    webinar_context = w.transcript_context
-                    logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_context)} chars)")
+                # We already fetched w_meta above, reusing it if possible, but w_meta might not have transcript loaded if deferred? 
+                # SQLAlchemy objects usually stick around in session.
+                
+                # Check w_meta from above first
+                if w_meta and getattr(w_meta, 'transcript_context', None):
+                     rag_content = w_meta.transcript_context
+                     logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(rag_content)} chars)")
                 else:
-                    # Fallback (rare): try Schedule
-                    res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
-                    w_sch = res_sch.scalar_one_or_none()
-                    if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
-                         webinar_context = w_sch.transcript_context
+                    # Fallback (rare): try Schedule if not checked
+                    if not w_meta:
+                        res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
+                        w_sch = res_sch.scalar_one_or_none()
+                        if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
+                             rag_content = w_sch.transcript_context
+
+        # COMBINE Metadata + Content
+        webinar_context = meta_context + rag_content
 
     # 2. Get or Create Session
     chat_session = await get_or_create_chat_session(
