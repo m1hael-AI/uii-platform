@@ -20,7 +20,7 @@ interface Agent {
     name: string;
     description?: string;
     avatar_url?: string;
-    greeting_message?: string;
+    greeting_message?: string; // Added field
 }
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
@@ -142,10 +142,10 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                             const session = sessions[agent.slug];
                             const isTyping = typingAgents[agent.slug];
 
-                            // Display Logic: Typing > Last Message > Default
+                            // Display Logic: Typing > Last Message > Greeting > Description > Default
                             const displayMsg = isTyping
                                 ? <span className="text-[#206ecf] animate-pulse">Печатает...</span>
-                                : (session?.last_message || agent.description || "Начать диалог");
+                                : (session?.last_message || agent.greeting_message || agent.description || "Начать диалог");
 
                             const hasUnread = session?.has_unread || false;
 

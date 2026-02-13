@@ -10,6 +10,7 @@ interface ChatSession {
     agent_id: string; // slug
     agent_name: string;
     agent_avatar: string | null;
+    agent_greeting?: string; // Added field for frontend mapping
     last_message: string;
     last_message_at: string | null;
     has_unread: boolean;
@@ -39,7 +40,7 @@ export default function ChatIndexPage() {
         }
     }, [searchParams, router]);
 
-    // Fetch Sessions
+    // Fetch Sessions AND Agents to get greetings
     const fetchSessions = async () => {
         const token = Cookies.get("token");
         if (!token) {
@@ -49,13 +50,25 @@ export default function ChatIndexPage() {
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
         try {
-            const res = await fetch(`${API_URL}/chat/sessions`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            // Parallel fetch to get agents (with greetings) and sessions
+            const [agentsRes, sessionsRes] = await Promise.all([
+                fetch(`${API_URL}/chat/agents`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${API_URL}/chat/sessions`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
 
-            if (res.ok) {
-                const data = await res.json();
-                setSessions(data);
+            if (sessionsRes.ok && agentsRes.ok) {
+                const sessionsData: ChatSession[] = await sessionsRes.json();
+                const agentsData: any[] = await agentsRes.json();
+
+                // Map greetings to sessions
+                const sessionsWithGreeting = sessionsData.map(s => {
+                    const agent = agentsData.find(a => a.slug === s.agent_id);
+                    return {
+                        ...s,
+                        agent_greeting: agent?.greeting_message
+                    };
+                });
+                setSessions(sessionsWithGreeting);
             }
         } catch (e) {
             console.error("Failed to fetch sessions", e);
@@ -138,7 +151,7 @@ export default function ChatIndexPage() {
                                     )}
                                 </div>
                                 <p className={`text-xs line-clamp-1 ${session.has_unread ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                                    {session.last_message}
+                                    {session.last_message || session.agent_greeting || "Начать диалог"}
                                 </p>
                             </div>
 
