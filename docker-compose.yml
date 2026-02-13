@@ -5,7 +5,8 @@
 services:
   # PostgreSQL база данных
   db:
-    image: postgres:15-alpine
+    # Use pgvector image to support vector extension
+    image: pgvector/pgvector:pg16
     container_name: ai_university_db
     restart: unless-stopped
     environment:
