@@ -118,6 +118,43 @@ class ChatSessionDTO(BaseModel):
     last_message_at: Optional[str]
     has_unread: bool = False
 
+class AgentDTO(BaseModel):
+    id: int
+    slug: str
+    name: str
+    description: Optional[str] = None
+    avatar_url: Optional[str] = None
+    greeting_message: Optional[str] = None
+
+@router.get("/agents", response_model=List[AgentDTO])
+async def get_available_agents(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get list of all available AI agents"""
+    # Exclude main_assistant if it's treated specially as a "system" agent, 
+    # but for now let's return everything and let frontend filter if needed.
+    # Actually, main_assistant is usually the "Help" bot, not in the specialist list.
+    # But let's return all ACTIVE agents.
+    
+    result = await db.execute(
+        select(Agent)
+        .where(Agent.is_active == True)
+        .order_by(Agent.id) # Or explicit order
+    )
+    agents = result.scalars().all()
+    
+    return [
+        AgentDTO(
+            id=a.id,
+            slug=a.slug,
+            name=a.name,
+            description=a.description,
+            avatar_url=a.avatar_url,
+            greeting_message=a.greeting_message
+        ) for a in agents if a.slug != "main_assistant" # Exclude main assistant from general list
+    ]
+
 async def ensure_initial_sessions(db: AsyncSession, user_id: int):
     """
     Ensures that a new user has all necessary initial sessions (Agents + Assistant)
