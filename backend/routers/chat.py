@@ -152,7 +152,7 @@ async def get_available_agents(
             description=a.description,
             avatar_url=a.avatar_url,
             greeting_message=a.greeting_message
-        ) for a in agents if a.slug != "main_assistant" # Exclude main assistant from general list
+        ) for a in agents if a.slug not in ["main_assistant", "ai_tutor"] # Exclude system agents
     ]
 
 async def ensure_initial_sessions(db: AsyncSession, user_id: int):

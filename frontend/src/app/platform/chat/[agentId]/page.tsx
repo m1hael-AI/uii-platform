@@ -302,12 +302,8 @@ export default function AgentChatPage() {
           </svg>
         </button>
 
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
-          {agentAvatarUrl ? (
-            <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
-          ) : (
-            <span>{agentName[0]}</span>
-          )}
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 overflow-hidden relative ${agentStyle.bg} ${agentStyle.text}`}>
+          <span>{agentName[0]}</span>
         </div>
 
         <div className="flex-1">
@@ -323,12 +319,8 @@ export default function AgentChatPage() {
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
-                {agentAvatarUrl ? (
-                  <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
-                ) : (
-                  <span>{agentName[0]}</span>
-                )}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agentStyle.bg} ${agentStyle.text}`}>
+                {agentName[0]}
               </div>
             )}
             <div className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 md:px-5 md:py-4 text-base shadow-sm break-words overflow-hidden ${msg.role === 'user'
@@ -344,12 +336,8 @@ export default function AgentChatPage() {
 
         {isTyping && !streamingMessage && (
           <div className="flex justify-start items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
-              {agentAvatarUrl ? (
-                <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
-              ) : (
-                <span>{agentName[0]}</span>
-              )}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agentStyle.bg} ${agentStyle.text}`}>
+              {agentName[0]}
             </div>
             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm">
               <div className="flex gap-1.5 items-center h-6">
@@ -363,12 +351,8 @@ export default function AgentChatPage() {
 
         {streamingMessage && (
           <div className="flex justify-start">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm overflow-hidden relative ${!agentAvatarUrl ? (agentStyle.bg + ' ' + agentStyle.text) : 'bg-gray-100'}`}>
-              {agentAvatarUrl ? (
-                <img src={agentAvatarUrl} alt={agentName} className="w-full h-full object-cover" />
-              ) : (
-                <span>{agentName[0]}</span>
-              )}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-2 shrink-0 shadow-sm ${agentStyle.bg} ${agentStyle.text}`}>
+              {agentName[0]}
             </div>
             <div className="max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 md:px-5 md:py-4 text-base shadow-sm bg-white border border-gray-100 text-gray-800 rounded-tl-none">
               <div className="prose prose-sm md:prose-base max-w-none text-gray-800">

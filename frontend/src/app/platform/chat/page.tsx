@@ -126,12 +126,8 @@ export default function ChatIndexPage() {
                             }}
                             className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
                         >
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden relative ${!session.agent_avatar ? getAgentStyle(session.id) : 'bg-gray-100'}`}>
-                                {session.agent_avatar ? (
-                                    <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <span>{session.agent_name[0]}</span>
-                                )}
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${getAgentStyle(session.id)}`}>
+                                {session.agent_name[0]}
                             </div>
 
                             <div className="flex-1 min-w-0">
