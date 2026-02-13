@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir \
     asyncpg
 
 # Скачиваем словари NLTK сразу при сборке, чтобы не качать в рантайме
-RUN python -m nltk.downloader punkt stopwords
+RUN python -m nltk.downloader punkt stopwords punkt_tab
 
 # Копируем скрипты и код бэкенда (нам нужны models.py и database.py)
 COPY . /app
