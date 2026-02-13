@@ -14,7 +14,7 @@ async def search_relevant_chunks(
     db: AsyncSession,
     query: str,
     limit: int = 5,
-    similarity_threshold: float = 0.3,
+    similarity_threshold: float = 0.65,
     webinar_id: int = None
 ) -> List[WebinarChunk]:
     """
