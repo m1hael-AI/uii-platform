@@ -14,8 +14,25 @@ from loguru import logger
 from dotenv import load_dotenv
 
 # NLTK imports
+# NLTK imports
 import nltk
 from nltk.tokenize import sent_tokenize
+
+# Ensure NLTK data is downloaded
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', quiet=True)
+
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', quiet=True)
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords', quiet=True)
 
 # Project imports
 from database import async_engine
