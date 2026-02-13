@@ -58,6 +58,14 @@ async def lifespan(app: FastAPI):
 
     threading.Thread(target=warmup_tiktoken, daemon=True).start()
 
+    # Auto-Seed Agents on Startup
+    try:
+        from scripts.seed_agents import seed_agents
+        logger.info("🌱 Seeding agents from YAML...")
+        await seed_agents()
+    except Exception as e:
+        logger.error(f"❌ Agent seeding failed: {e}")
+
 
 
     yield
