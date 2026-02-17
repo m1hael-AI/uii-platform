@@ -48,6 +48,19 @@ async def main():
                 count = await manager.add_news_items([item])
                 logger.info(f"✅ Added {count} items to DB.")
                 
+                # 5. Test Article Generation (Writer)
+                logger.info("5️⃣ Testing Article Generation (Writer)...")
+                try:
+                    article = await client.generate_article(item)
+                    if article:
+                        logger.info(f"✅ Generated Article: {article.title}")
+                        logger.info(f"   Content Length: {len(article.content)} chars")
+                    else:
+                        logger.warning("⚠️ Writer returned None (check logic/logs).")
+                except Exception as w_e:
+                    logger.error(f"❌ Writer failed: {w_e}")
+
+                
             else:
                 logger.warning("⚠️ Harvester returned 0 items.")
                 
