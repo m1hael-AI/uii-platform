@@ -4,10 +4,10 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, text
-from backend.models import NewsItem, NewsStatus
-from backend.services.openai_service import generate_embedding
-from backend.services.news.perplexity import NewsItemSchema, PerplexityClient, WriterResponse
-from backend.config import settings
+from models import NewsItem, NewsStatus
+from services.openai_service import generate_embedding
+from services.news.perplexity import NewsItemSchema, PerplexityClient, WriterResponse
+from config import settings
 
 logger = logging.getLogger(__name__)
 

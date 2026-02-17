@@ -6,7 +6,7 @@ import asyncio
 import httpx
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ValidationError
-from backend.config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 
