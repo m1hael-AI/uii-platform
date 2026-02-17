@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from utils.logger import logger
 from config import settings
 from bot.loader import bot, dp
-from routers import users, chat, auth, password_reset, admin, webinars, logs
+from routers import users, chat, auth, password_reset, admin, webinars, logs, news
 from database import init_db
 from utils.redis_client import redis_client # Import
 
@@ -121,6 +121,7 @@ app.include_router(password_reset.router)
 app.include_router(admin.router)
 app.include_router(webinars.router)
 app.include_router(logs.router)
+app.include_router(news.router)
 
 
 
