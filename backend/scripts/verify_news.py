@@ -14,9 +14,13 @@ from services.news.perplexity import PerplexityClient
 async def main():
     logger.info("🚀 Starting News System Verification...")
     
+    # Init Client
+    client = PerplexityClient()
+    logger.info(f"🔑 API Key: {client.api_key[:5]}... (Length: {len(client.api_key or '')})")
+    logger.info(f"🤖 Model: {client.model}")
+
     # 1. Check Prompts
     logger.info("1️⃣ Checking Prompts Loading...")
-    client = PerplexityClient()
     if not client.prompts:
         logger.error("❌ Failed to load prompts from default_prompts.yaml")
         return
@@ -45,12 +49,30 @@ async def main():
                 logger.info(f"✅ Added {count} items to DB.")
                 
             else:
-                logger.warning("⚠️ Harvester returned 0 items. Check API Key or Model.")
+                logger.warning("⚠️ Harvester returned 0 items.")
                 
         except Exception as e:
-            logger.error(f"❌ Harvester/Ingestion failed: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"❌ Harvester failed: {e}")
+            
+            # --- Fallback Test ---
+            logger.info("🔁 Attempting fallback test (Google Gemini)...")
+            original_model = client.model
+            client.model = "google/gemini-2.0-flash-001"
+            try:
+                # Manual request bypassing strict JSON for simple check
+                messages = [{"role": "user", "content": "Say hello"}]
+                # Note: This will likely fail strict JSON validation in _request unless we relax it 
+                # or create a special method. But _request expects JSON.
+                # Let's try searching news with Gemini
+                
+                news_items = await client.search_news(query="AI News")
+                if news_items:
+                     logger.info("✅ Fallback (Gemini) worked! The issue is with PERPLEXITY model availability.")
+                else:
+                     logger.info("⚠️ Fallback (Gemini) returned 0 items, but no error.")
+            except Exception as e2:
+                logger.error(f"❌ Fallback failed too: {e2}")
+                logger.error("👉 Check your OPENROUTER_API_KEY in .env file!")
 
 if __name__ == "__main__":
     if os.name == 'nt':
