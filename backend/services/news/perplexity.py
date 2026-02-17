@@ -78,7 +78,6 @@ class PerplexityClient:
                     payload = {
                         "model": self.model,
                         "messages": messages,
-                        "response_format": {"type": "json_object"},
                         "temperature": 0.1 # Строгость для JSON
                     }
                     
