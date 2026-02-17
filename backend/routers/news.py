@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_async_session
 from models import User, NewsItem, NewsStatus
-from services.auth import get_current_user, get_current_admin
+from dependencies import get_current_user
 from services.news.manager import NewsManager
 
 router = APIRouter(prefix="/news", tags=["News"])
@@ -69,11 +69,15 @@ async def get_news_item(
 async def generate_article_manual(
     news_id: int,
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_current_admin) # Only admins can force generation
+    user: User = Depends(get_current_user)
 ):
     """
     Принудительно запустить генерацию для новости.
     """
+    # Check if user is admin
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     manager = NewsManager(db)
     try:
         article = await manager.trigger_generation(news_id)
