@@ -9,23 +9,35 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
 from database import get_async_session
-from models import User, NewsSettings, NewsItem, NewsStatus
-from dependencies import get_current_user, require_admin
+from models import User, NewsSettings, NewsItem, NewsStatus, UserRole
+from dependencies import get_current_user, get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/news", tags=["admin-news"])
 
 
+def verify_admin(user: User):
+    """Verify user has admin privileges."""
+    from fastapi import HTTPException, status
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Admin privileges required"
+        )
+
+
 @router.get("/config", response_model=dict)
 async def get_news_config(
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(require_admin)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Получить текущие настройки AI News.
     Только для админов.
     """
+    verify_admin(current_user)
+    
     # Get settings (singleton)
     stmt = select(NewsSettings).limit(1)
     result = await db.execute(stmt)
@@ -98,13 +110,15 @@ async def get_news_config(
 @router.put("/config", response_model=dict)
 async def update_news_config(
     config: dict,
-    db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(require_admin)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Обновить настройки AI News.
     Только для админов.
     """
+    verify_admin(current_user)
+    
     # Get existing settings
     stmt = select(NewsSettings).limit(1)
     result = await db.execute(stmt)
@@ -146,7 +160,7 @@ async def update_news_config(
     await db.commit()
     await db.refresh(settings)
     
-    logger.info(f"News settings updated by admin {user.email}")
+    logger.info(f"News settings updated by admin {current_user.email or current_user.tg_username}")
     
     return {
         "status": "success",
