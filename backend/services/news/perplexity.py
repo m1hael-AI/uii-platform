@@ -75,10 +75,20 @@ class PerplexityClient:
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(retries):
                 try:
+                    schema = response_model.model_json_schema()
+                    
                     payload = {
                         "model": self.model,
                         "messages": messages,
-                        "temperature": 0.1 # Строгость для JSON
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": response_model.__name__,
+                                "strict": True,
+                                "schema": schema
+                            }
+                        },
+                        "temperature": 0.1
                     }
                     
                     response = await client.post(
