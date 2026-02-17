@@ -172,7 +172,7 @@ export default function NewsPage() {
                                 <div className="flex-shrink-0 mt-1">
                                     {item.isNew ? (
                                         <span className="inline-block px-2 py-0.5 text-xs font-semibold text-white bg-green-500 rounded">🆕 Новое</span>
-                                    ) : item.status === 'COMPLETED' ? (
+                                    ) : item.status === 'completed' ? (
                                         <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
                                     ) : (
                                         <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
@@ -208,7 +208,7 @@ export default function NewsPage() {
                                     <div className="flex items-center gap-3 text-xs text-gray-500">
                                         <span>{formatDate(item.published_at)}</span>
                                         <span>•</span>
-                                        <span className="capitalize">{item.status === 'COMPLETED' ? 'Готово' : 'Генерируется'}</span>
+                                        <span className="capitalize">{item.status === 'completed' ? 'Готово' : 'Генерируется'}</span>
                                         {item.source_urls && item.source_urls.length > 0 && (
                                             <>
                                                 <span>•</span>
