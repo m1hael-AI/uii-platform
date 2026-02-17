@@ -112,9 +112,7 @@ def start_scheduler():
         replace_existing=True,
     )
     
-        name="Очистка старых логов LLM",
-        replace_existing=True,
-    )
+
     
     # --- AI News Jobs ---
     
