@@ -20,7 +20,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ news }) => {
         <div className="group relative bg-[#1c1c1e]/60 backdrop-blur-xl border border-white/5 rounded-2xl overflow-hidden hover:border-[#206ecf]/50 transition-all duration-300 hover:shadow-lg hover:shadow-[#206ecf]/10 h-full flex flex-col">
 
             {/* Status Indicator */}
-            <div className={`absolute top-0 right-0 w-2 h-2 rounded-full m-4 ${news.status === 'COMPLETED' ? 'bg-green-500' : 'bg-yellow-500'
+            <div className={`absolute top-0 right-0 w-2 h-2 rounded-full m-4 ${news.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
                 }`}></div>
 
             <div className="p-6 flex-1 flex flex-col">

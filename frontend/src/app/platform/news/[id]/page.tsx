@@ -25,7 +25,7 @@ export default function ArticlePage() {
                 const data = await NewsService.getNewsItem(Number(id));
 
                 // If article is PENDING, trigger generation
-                if (data.status === "PENDING") {
+                if (data.status === "pending") {
                     setArticle(data);
                     setLoading(false);
                     setGenerating(true);
