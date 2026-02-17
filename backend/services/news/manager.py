@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, text
 from models import NewsItem, NewsStatus
@@ -70,7 +70,7 @@ class NewsManager:
                     
                     # Convert to UTC if aware, then strip timezone to make it naive
                     if pub_date.tzinfo is not None:
-                        pub_date = pub_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+                        pub_date = pub_date.astimezone(timezone.utc).replace(tzinfo=None)
                         
                 except Exception as e:
                     logger.warning(f"Date parse error '{item.published_at}': {e}. Using utcnow.")
