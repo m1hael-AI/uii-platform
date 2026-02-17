@@ -77,6 +77,17 @@ class Settings(BaseSettings):
     # Debounce для Summarizer (минуты после последнего сообщения)
     summarizer_debounce_minutes: int = 15
     
+    # === AI News Settings ===
+    openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
+    perplexity_model: str = os.getenv("PERPLEXITY_MODEL", "perplexity/sonar-pro")
+    
+    # Дедупликация (0.84 = строгий фильтр, отсекает только явные дубли)
+    news_dedup_threshold: float = float(os.getenv("NEWS_DEDUP_THRESHOLD", "0.84"))
+    
+    # Генерация
+    news_max_retries: int = int(os.getenv("MAX_GENERATION_RETRIES", "3"))
+    news_rate_limit_per_minute: int = int(os.getenv("NEWS_RATE_LIMIT_PER_MINUTE", "5"))
+
     class Config:
         env_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
         env_file_encoding = "utf-8"
