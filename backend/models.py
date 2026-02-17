@@ -760,3 +760,40 @@ class NewsItem(SQLModel, table=True):
     # --- Управление Состоянием ---
     status: NewsStatus = Field(default=NewsStatus.PENDING, description="Статус генерации контента")
     retry_count: int = Field(default=0, description="Счетчик неудачных попыток генерации")
+
+
+class NewsSettings(SQLModel, table=True):
+    """
+    Настройки AI News системы.
+    Редактируется через админ-панель.
+    Должна быть только одна запись (singleton).
+    """
+    __tablename__ = "news_settings"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # === Prompts ===
+    harvester_prompt: str = Field(
+        default="You are a news aggregator AI. Find the most important and recent AI/ML news.",
+        description="Промпт для поиска новостей через Perplexity"
+    )
+    writer_prompt: str = Field(
+        default="You are a professional tech writer. Create a comprehensive article about the given news.",
+        description="Промпт для генерации статей"
+    )
+    
+    # === Schedule Settings ===
+    harvester_enabled: bool = Field(default=True, description="Включен ли автоматический сбор новостей")
+    harvester_cron: str = Field(default="0 2 * * *", description="Cron выражение для harvester (по умолчанию: каждый день в 2:00)")
+    
+    generator_enabled: bool = Field(default=True, description="Включена ли автоматическая генерация статей")
+    generator_cron: str = Field(default="*/15 * * * *", description="Cron выражение для generator (по умолчанию: каждые 15 минут)")
+    
+    # === Parameters ===
+    dedup_threshold: float = Field(default=0.84, description="Порог для дедупликации по векторам (Cosine Similarity)")
+    generator_batch_size: int = Field(default=5, description="Максимум новостей для генерации за один запуск")
+    generator_delay: int = Field(default=2, description="Задержка между генерациями в секундах")
+    
+    # === Metadata ===
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Когда последний раз обновлялись настройки")
+
