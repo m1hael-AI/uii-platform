@@ -111,28 +111,23 @@ export default function NewsPage() {
                 </div>
 
                 {/* Search Bar */}
-                <div className="flex gap-3 flex-1 md:flex-initial md:min-w-[400px]">
-                    <div className="flex-1 relative">
+                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <div className="relative flex-1 md:flex-initial">
                         <input
                             type="text"
                             placeholder="Поиск по темам..."
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
-                            className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-200 focus:outline-none focus:border-[#FF6B35] transition-colors text-sm"
+                            className="w-full md:w-96 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
                         />
-                        {searchQuery && (
-                            <button
-                                onClick={() => handleSearchChange("")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                            >
-                                ✕
-                            </button>
-                        )}
+                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                     </div>
                     <button
                         onClick={handleFreshSearch}
                         disabled={!searchQuery.trim() || isSearching}
-                        className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-lg hover:bg-[#ff5722] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
+                        className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl hover:bg-[#ff5722] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                     >
                         {isSearching ? (
                             <>
@@ -170,7 +165,7 @@ export default function NewsPage() {
                         <Link
                             key={item.id}
                             href={`/platform/news/${item.id}?back=${encodeURIComponent(searchQuery)}`}
-                            className="block bg-white border border-gray-200 rounded-lg p-4 hover:border-[#FF6B35] hover:shadow-md transition-all"
+                            className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-[#FF6B35] hover:shadow-md transition-all"
                         >
                             <div className="flex items-start gap-3">
                                 {/* Status Indicator */}
