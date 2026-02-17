@@ -1,4 +1,5 @@
 from typing import Annotated
+import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
@@ -10,6 +11,8 @@ from models import User
 from services.auth import decode_access_token
 from config import settings
 from utils.redis_client import get_redis
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -69,3 +72,31 @@ async def rate_limiter(user: User = Depends(get_current_user)):
     except Exception as e:
         # Fallback if Redis fails
         print(f"Rate limiter error: {e}")
+
+async def check_news_rate_limit(user: User = Depends(get_current_user)):
+    """
+    Лимит на генерацию новостей/статей.
+    Берется из настроек (по умолчанию 5 в минуту).
+    """
+    limit = settings.news_rate_limit_per_minute
+    window = 60
+    
+    redis = await get_redis()
+    if not redis:
+        return 
+        
+    key = f"rate_limit:news:{user.id}"
+    
+    try:
+        current_count = await redis.incr(key)
+        if current_count == 1:
+            await redis.expire(key, window)
+            
+        if current_count > limit:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"News generation limit exceeded ({limit}/min). Please wait."
+            )
+    except Exception as e:
+        logger.error(f"News Rate limiter error: {e}")
+
