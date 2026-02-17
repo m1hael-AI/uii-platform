@@ -3,7 +3,7 @@ import asyncio
 from sqlalchemy import select
 from loguru import logger
 
-from services.scheduler import AsyncSessionLocal
+from database import async_session_factory
 from services.news.manager import NewsManager
 from services.news.perplexity import PerplexityClient
 from models import NewsItem, NewsStatus
@@ -16,7 +16,7 @@ async def harvest_news_nightly():
     Ищет топ новостей через Harvester и сохраняет в БД.
     """
     logger.info("🌙 Starting Nightly News Harvester Job...")
-    async with AsyncSessionLocal() as db:
+    async with async_session_factory() as db:
         try:
             manager = NewsManager(db)
             client = PerplexityClient()
@@ -43,7 +43,7 @@ async def generate_articles_periodic():
     Берет PENDING новости и генерирует статьи.
     """
     logger.info("🏭 Starting Article Generator Job...")
-    async with AsyncSessionLocal() as db:
+    async with async_session_factory() as db:
         try:
             manager = NewsManager(db)
             
