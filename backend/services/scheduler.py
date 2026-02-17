@@ -13,7 +13,10 @@ from config import settings
 from services.summarizer import check_idle_conversations
 from services.proactive_scheduler import process_pending_actions
 from services.webinar_notifier import check_webinar_reminders
+from services.webinar_notifier import check_webinar_reminders
 from services.audit_service import cleanup_old_logs
+from services.news.jobs import harvest_news_nightly, generate_articles_periodic
+
 
 
 # Создаём engine для scheduler (отдельный от FastAPI)
@@ -107,6 +110,32 @@ def start_scheduler():
         id="cleanup_logs",
         name="Очистка старых логов LLM",
         replace_existing=True,
+    )
+    
+        name="Очистка старых логов LLM",
+        replace_existing=True,
+    )
+    
+    # --- AI News Jobs ---
+    
+    # 1. Ночной сборщик новостей (3:00 утра)
+    scheduler.add_job(
+        harvest_news_nightly,
+        trigger='cron',
+        hour=3, 
+        minute=0,
+        id="news_harvester",
+        name="Сбор AI новостей (Harvester)",
+        replace_existing=True
+    )
+    
+    # 2. Генератор статей (каждые 15 минут)
+    scheduler.add_job(
+        generate_articles_periodic,
+        trigger=IntervalTrigger(minutes=15),
+        id="news_generator",
+        name="Генерация статей (Writer)",
+        replace_existing=True
     )
     
     scheduler.start()
