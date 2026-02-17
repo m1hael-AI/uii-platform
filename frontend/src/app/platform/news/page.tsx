@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { NewsService, NewsItem } from "../../services/news";
-import NewsCard from "../../components/news/NewsCard";
+import { NewsService, NewsItem } from "@/services/news";
+import NewsCard from "@/components/news/NewsCard";
 
 export default function NewsPage() {
     const [news, setNews] = useState<NewsItem[]>([]);

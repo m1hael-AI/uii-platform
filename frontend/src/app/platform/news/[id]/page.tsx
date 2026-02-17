@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { NewsService, NewsItem } from "../../../services/news";
+import { NewsService, NewsItem } from "@/services/news";
 
 export default function ArticlePage() {
     const { id } = useParams();
