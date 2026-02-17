@@ -1,12 +1,15 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from database import get_async_session
 from models import User, NewsItem, NewsStatus
 from dependencies import get_current_user
 from services.news.manager import NewsManager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/news", tags=["News"])
 
@@ -65,26 +68,112 @@ async def get_news_item(
         "updated_at": news.updated_at.isoformat() if news.updated_at else None
     }
 
-@router.post("/{news_id}/generate", response_model=dict)
-async def generate_article_manual(
-    news_id: int,
+@router.post("/search", response_model=dict)
+async def search_fresh_news(
+    request: dict = Body(...),
     db: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_current_user)
 ):
     """
-    Принудительно запустить генерацию для новости.
+    Поиск свежих новостей через Perplexity API.
+    Найденные новости сохраняются в базу со статусом PENDING.
     """
-    # Check if user is admin
-    if not user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    query = request.get("query", "")
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
     
+    manager = NewsManager(db)
+    try:
+        # Search for news using Perplexity
+        news_items = await manager.perplexity.search_news(query=query)
+        
+        if not news_items:
+            return {"results": [], "message": "No news found for this query"}
+        
+        # Add news items to database
+        added_count = await manager.add_news_items(news_items)
+        
+        # Fetch the newly added items to return to frontend
+        stmt = select(NewsItem).order_by(desc(NewsItem.created_at)).limit(len(news_items))
+        result = await db.execute(stmt)
+        new_news = result.scalars().all()
+        
+        return {
+            "results": [
+                {
+                    "id": n.id,
+                    "title": n.title,
+                    "summary": n.summary,
+                    "published_at": n.published_at.isoformat() if n.published_at else None,
+                    "status": n.status,
+                    "tags": n.tags,
+                    "source_urls": n.source_urls
+                }
+                for n in new_news
+            ],
+            "message": f"Found {added_count} new articles"
+        }
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+@router.post("/{news_id}/generate", response_model=dict)
+async def generate_article_manual(
+    news_id: int,
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_current_user)  # Any authenticated user
+):
+    """
+    Принудительно запустить генерацию для новости.
+    Доступно для любого авторизованного пользователя.
+    Генерация происходит только для новостей со статусом PENDING.
+    """
+    # Check if news exists and get its status
+    stmt = select(NewsItem).where(NewsItem.id == news_id)
+    result = await db.execute(stmt)
+    news_item = result.scalar_one_or_none()
+    
+    if not news_item:
+        raise HTTPException(status_code=404, detail="News item not found")
+    
+    # If already completed, return existing article
+    if news_item.status == NewsStatus.COMPLETED:
+        return {
+            "status": "already_completed",
+            "title": news_item.title,
+            "content": news_item.content,
+            "article": {
+                "id": news_item.id,
+                "title": news_item.title,
+                "summary": news_item.summary,
+                "content": news_item.content,
+                "status": news_item.status
+            }
+        }
+    
+    # If failed, allow retry
+    if news_item.status == NewsStatus.FAILED:
+        news_item.status = NewsStatus.PENDING
+        await db.commit()
+    
+    # Trigger generation
     manager = NewsManager(db)
     try:
         article = await manager.trigger_generation(news_id)
         if not article:
              raise HTTPException(status_code=400, detail="Generation failed or returned empty")
              
-        return {"status": "success", "title": article.title}
+        return {
+            "status": "success",
+            "title": article.title,
+            "article": {
+                "id": article.id,
+                "title": article.title,
+                "summary": article.summary,
+                "content": article.content,
+                "status": article.status
+            }
+        }
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

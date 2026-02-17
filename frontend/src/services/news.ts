@@ -46,7 +46,25 @@ export const NewsService = {
         return res.json();
     },
 
-    async generateArticle(id: number): Promise<void> {
+    async searchNews(query: string): Promise<NewsItem[]> {
+        const token = Cookies.get("token");
+        const res = await fetch(`${API_URL}/news/search`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ query })
+        });
+
+        if (!res.ok) {
+            throw new Error("Failed to search news");
+        }
+        const data = await res.json();
+        return data.results || [];
+    },
+
+    async generateArticle(id: number): Promise<{ status: string; article: NewsItem }> {
         const token = Cookies.get("token");
         const res = await fetch(`${API_URL}/news/${id}/generate`, {
             method: "POST",
@@ -56,5 +74,6 @@ export const NewsService = {
         if (!res.ok) {
             throw new Error("Failed to generate article");
         }
+        return res.json();
     }
 };
