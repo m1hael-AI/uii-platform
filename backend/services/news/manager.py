@@ -62,10 +62,18 @@ class NewsManager:
                     continue
                 
                 # 3. Create
-                # Parse date safely
+                # Parse date safely (Ensure Naive UTC for DB compatibility)
                 try:
-                    pub_date = datetime.fromisoformat(item.published_at.replace("Z", "+00:00"))
-                except ValueError:
+                    # fromisoformat handles 'Z' in Python 3.11+, but let's be safe
+                    dt_str = item.published_at.replace("Z", "+00:00")
+                    pub_date = datetime.fromisoformat(dt_str)
+                    
+                    # Convert to UTC if aware, then strip timezone to make it naive
+                    if pub_date.tzinfo is not None:
+                        pub_date = pub_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+                        
+                except Exception as e:
+                    logger.warning(f"Date parse error '{item.published_at}': {e}. Using utcnow.")
                     pub_date = datetime.utcnow()
 
                 news = NewsItem(
