@@ -22,7 +22,7 @@ export default function NewsPage() {
         if (isInitial) setLoading(true);
 
         try {
-            const newItems = await NewsService.getNews(pageNum, 50); // Fetch more items
+            const newItems = await NewsService.getNews(pageNum, 50);
 
             if (isInitial) {
                 setAllNews(newItems);
@@ -79,7 +79,6 @@ export default function NewsPage() {
         setIsSearching(true);
         try {
             const results = await NewsService.searchNews(searchQuery);
-            // Add new results to the top with a flag
             const newResults = results.map((item: NewsItem) => ({ ...item, isNew: true }));
             setAllNews(prev => [...newResults, ...prev]);
             setFilteredNews(prev => [...newResults, ...prev]);
@@ -102,48 +101,51 @@ export default function NewsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-semibold text-[#474648] mb-1">Новости</h1>
-                <p className="text-sm text-[#7e95b1]">Актуальные новости из мира AI</p>
-            </div>
+        <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6">
 
-            {/* Search Bar */}
-            <div className="mb-6 flex gap-3">
-                <div className="flex-1 relative">
-                    <input
-                        type="text"
-                        placeholder="Поиск по темам..."
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-200 focus:outline-none focus:border-[#FF6B35] transition-colors"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => handleSearchChange("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                            ✕
-                        </button>
-                    )}
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+                <div>
+                    <h1 className="text-3xl font-light text-[#474648] mb-2">Новости</h1>
+                    <p className="text-[#7e95b1]">Актуальные новости из мира AI</p>
                 </div>
-                <button
-                    onClick={handleFreshSearch}
-                    disabled={!searchQuery.trim() || isSearching}
-                    className="px-6 py-2.5 bg-[#FF6B35] text-white rounded-lg hover:bg-[#ff5722] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                    {isSearching ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Ищу...
-                        </>
-                    ) : (
-                        <>
-                            🔍 Найти свежие
-                        </>
-                    )}
-                </button>
+
+                {/* Search Bar */}
+                <div className="flex gap-3 flex-1 md:flex-initial md:min-w-[400px]">
+                    <div className="flex-1 relative">
+                        <input
+                            type="text"
+                            placeholder="Поиск по темам..."
+                            value={searchQuery}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-200 focus:outline-none focus:border-[#FF6B35] transition-colors text-sm"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => handleSearchChange("")}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                    <button
+                        onClick={handleFreshSearch}
+                        disabled={!searchQuery.trim() || isSearching}
+                        className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-lg hover:bg-[#ff5722] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
+                    >
+                        {isSearching ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Ищу...
+                            </>
+                        ) : (
+                            <>
+                                🔍 Найти свежие
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
 
             {/* Search Results Info */}
