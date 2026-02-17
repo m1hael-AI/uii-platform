@@ -146,6 +146,7 @@ class NewsManager:
                 
                 # Можно сохранить key_points в теги или отдельное поле, если нужно
                 # news.tags.extend(article.key_points)
+                return article
                 
             else:
                 # Неудача (пустой ответ)
