@@ -26,6 +26,14 @@ class MessageRole(str, Enum):
     SYSTEM = "system"
 
 
+class NewsStatus(str, Enum):
+    """Статус генерации новости"""
+    PENDING = "pending"       # Заголовок создан, контент еще не сгенерирован
+    PROCESSING = "processing" # Воркер взял задачу в работу
+    COMPLETED = "completed"   # Статья успешна сгенерирована
+    FAILED = "failed"         # Ошибка генерации (исчерпаны лимиты)
+
+
 # === ОСНОВНЫЕ МОДЕЛИ ===
 
 class User(SQLModel, table=True):
@@ -718,3 +726,37 @@ class WebinarChunk(SQLModel, table=True):
 # I will use multi_replace to do both.)
 
 
+
+# === AI NEWS MODELS ===
+
+class NewsItem(SQLModel, table=True):
+    """
+    Новостное событие (AI News).
+    Агрегирует заголовки из Perplexity и хранит сгенерированную статью.
+    """
+    __tablename__ = "news_items"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # --- Основной контент ---
+    title: str = Field(description="Заголовок на русском языке")
+    summary: str = Field(description="Краткое саммари для превью и вектора")
+    content: Optional[str] = Field(default=None, sa_column=Column(Text), description="Полный текст статьи (Markdown)")
+    
+    # --- Метаданные ---
+    published_at: datetime = Field(description="Дата публикации оригинального события")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # --- Источники и Теги ---
+    # source_urls: Список ссылок. ПЕРВЫЙ URL считается каноническим для проверки дублей.
+    source_urls: List[str] = Field(sa_column=Column(JSON), description="Список исходных ссылок")
+    tags: List[str] = Field(sa_column=Column(JSON), description="Список тегов")
+    
+    # --- Векторный Поиск ---
+    # Вектор строится по строке: f"{title} {summary}"
+    embedding: List[float] = Field(sa_column=Column(Vector(1536)), description="Вектор (Title + Summary)") 
+    
+    # --- Управление Состоянием ---
+    status: NewsStatus = Field(default=NewsStatus.PENDING, description="Статус генерации контента")
+    retry_count: int = Field(default=0, description="Счетчик неудачных попыток генерации")
