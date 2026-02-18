@@ -16,20 +16,37 @@ router = APIRouter(prefix="/news", tags=["News"])
 @router.get("/", response_model=List[dict])  # Simplification: returning dicts to avoid Pydantic overhead for now
 async def get_news_list(
     status: Optional[NewsStatus] = None,
+    type: str = Query("all", regex="^(all|foryou)$"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_current_user)
 ):
     """
     Получить список новостей с пагинацией.
+    type: "all" (хронология) или "foryou" (персонализация)
     """
-    stmt = select(NewsItem).order_by(desc(NewsItem.published_at)).limit(limit).offset(offset)
-    
-    if status:
-        stmt = stmt.where(NewsItem.status == status)
+    if type == "foryou":
+        manager = NewsManager(db)
+        # Personalized feed (no status filter support yet, usually returns all valid)
+        news = await manager.get_personalized_news(user_id=user.id, limit=limit)
+        # Offset logic is hard with personalization (re-ranking), 
+        # for now simplistic slice or just ignore offset in manager (manager limit handles top N)
+        # But `get_personalized_news` returns limit items. 
+        # Pagination in personalization is complex. Let's assume infinite scroll just asks for next page?
+        # Actually simplest is: Manager returns top N. If offset > 0, we might miss things or see dupes if re-ranked.
+        # MVP: "For You" ignores offset or we implement detailed pagination later. 
+        # Current manager impl ignores offset.
         
-    result = await db.execute(stmt)
-    news = result.scalars().all()
+    else:
+        # Standard feed
+        stmt = select(NewsItem).order_by(desc(NewsItem.published_at)).limit(limit).offset(offset)
+        
+        if status:
+            stmt = stmt.where(NewsItem.status == status)
+            
+        result = await db.execute(stmt)
+        news = result.scalars().all()
     
     return [
         {

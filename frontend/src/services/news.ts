@@ -16,10 +16,10 @@ export interface NewsItem {
 }
 
 export const NewsService = {
-    async getNews(page: number = 1, limit: number = 20, status?: string): Promise<NewsItem[]> {
+    async getNews(page: number = 1, limit: number = 20, feedType: 'all' | 'foryou' = 'all', status?: string): Promise<NewsItem[]> {
         const token = Cookies.get("token");
         const offset = (page - 1) * limit;
-        let url = `${API_URL}/news/?limit=${limit}&offset=${offset}`;
+        let url = `${API_URL}/news/?limit=${limit}&offset=${offset}&type=${feedType}`;
         if (status) {
             url += `&status=${status}`;
         }

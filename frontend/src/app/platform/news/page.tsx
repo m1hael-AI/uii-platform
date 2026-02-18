@@ -32,11 +32,11 @@ export default function NewsPage() {
     }, [activeTab, router, searchParams]);
 
     // Fetch all news from database
-    const fetchNews = useCallback(async (pageNum: number, isInitial = false) => {
+    const fetchNews = useCallback(async (pageNum: number, isInitial = false, tabType: 'all' | 'foryou' = 'all') => {
         if (isInitial) setLoading(true);
 
         try {
-            const newItems = await NewsService.getNews(pageNum, 50);
+            const newItems = await NewsService.getNews(pageNum, 50, tabType);
 
             if (isInitial) {
                 setAllNews(newItems);
@@ -56,17 +56,20 @@ export default function NewsPage() {
         }
     }, []);
 
-    // Initial load
+    // Initial load & Tab Change
     useEffect(() => {
-        fetchNews(1, true);
-    }, [fetchNews]);
+        setPage(1);
+        setHasMore(true);
+        setAllNews([]); // Clear current list on tab switch
+        fetchNews(1, true, activeTab);
+    }, [activeTab, fetchNews]);
 
     // Fetch more on page change
     useEffect(() => {
         if (page > 1) {
-            fetchNews(page, false);
+            fetchNews(page, false, activeTab);
         }
-    }, [page, fetchNews]);
+    }, [page, fetchNews, activeTab]);
 
     // Infinite Scroll Observer
     useEffect(() => {

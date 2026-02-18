@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, text
 from models import NewsItem, NewsStatus
 from services.openai_service import generate_embedding
+
 from services.news.perplexity import NewsItemSchema, PerplexityClient, WriterResponse
+from models import NewsItem, NewsStatus, User, UserMemory
 from config import settings
 
 
@@ -204,3 +206,85 @@ class NewsManager:
         stmt = select(NewsItem).order_by(desc(NewsItem.published_at)).offset(offset).limit(limit)
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+    async def get_personalized_news(
+        self,
+        user_id: int,
+        limit: int = 20
+    ) -> List[NewsItem]:
+        """
+        Персонализированная лента новостей ("Для Вас").
+        Алгоритм:
+        1. Собираем профиль пользователя (Квиз + Память).
+        2. Делаем эмбеддинг профиля.
+        3. Ищем новости за последние 3 дня, близкие по вектору.
+        4. Если профиль пуст — возвращаем обычную ленту.
+        """
+        # 1. Сбор профиля
+        user_stmt = select(User).where(User.id == user_id)
+        user_res = await self.db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if not user:
+            return await self.get_news_feed(limit=limit)
+            
+        memory_stmt = select(UserMemory).where(UserMemory.user_id == user_id)
+        memory_res = await self.db.execute(memory_stmt)
+        memory = memory_res.scalar_one_or_none()
+        
+        profile_text = ""
+        # Добавляем ответы на квиз (если есть)
+        if user.quiz_answers:
+            # quiz_answers is list of strings
+            profile_text += "Interests: " + ", ".join(map(str, user.quiz_answers)) + ". "
+            
+        # Добавляем нарративную память
+        if memory and memory.narrative_summary:
+            profile_text += f"Context: {memory.narrative_summary}"
+            
+        if not profile_text.strip():
+            # Нет данных для персонализации -> обычная лента
+            return await self.get_news_feed(limit=limit)
+            
+        try:
+            # 2. Эмбеддинг интересов
+            user_embedding = await generate_embedding(profile_text)
+            
+            # 3. Поиск (Hybrid: Time + Vector)
+            # Берем только свежие новости (3 дня)
+            since_date = datetime.utcnow() - timedelta(days=3)
+            
+            distance_col = NewsItem.embedding.cosine_distance(user_embedding)
+            
+            stmt = (
+                select(NewsItem)
+                .where(NewsItem.published_at >= since_date)
+                .order_by(distance_col) # Самые близкие по смыслу
+                .limit(limit)
+            )
+            
+            result = await self.db.execute(stmt)
+            items = result.scalars().all()
+            
+            # Если новостей мало (например, векторный поиск ничего не нашел или база пустая),
+            # доливаем обычными свежими новостями
+            if len(items) < limit:
+                needed = limit - len(items)
+                existing_ids = [n.id for n in items]
+                
+                fallback_stmt = (
+                    select(NewsItem)
+                    .where(NewsItem.published_at >= since_date)
+                    .where(NewsItem.id.notin_(existing_ids))
+                    .order_by(desc(NewsItem.published_at))
+                    .limit(needed)
+                )
+                fallback_res = await self.db.execute(fallback_stmt)
+                items.extend(fallback_res.scalars().all())
+                
+            return items
+            
+        except Exception as e:
+            logger.error(f"Personalization failed for user {user_id}: {e}")
+            # Fallback to standard feed
+            return await self.get_news_feed(limit=limit)
