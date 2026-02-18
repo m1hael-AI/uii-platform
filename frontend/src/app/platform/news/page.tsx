@@ -17,8 +17,19 @@ export default function NewsPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
-    const [activeTab, setActiveTab] = useState<'all' | 'foryou'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'foryou'>((searchParams.get("tab") as 'all' | 'foryou') || 'all');
     const observerTarget = useRef(null);
+
+    // Sync activeTab to URL
+    useEffect(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (activeTab === 'all') {
+            params.delete("tab");
+        } else {
+            params.set("tab", activeTab);
+        }
+        router.replace(`/platform/news?${params.toString()}`, { scroll: false });
+    }, [activeTab, router, searchParams]);
 
     // Fetch all news from database
     const fetchNews = useCallback(async (pageNum: number, isInitial = false) => {

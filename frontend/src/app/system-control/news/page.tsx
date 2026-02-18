@@ -6,7 +6,7 @@ import Cookies from 'js-cookie';
 
 interface NewsConfig {
     prompts: {
-        harvester: string;
+
         harvester_nightly_prompt: string;
         harvester_search_prompt: string;
         writer: string;
@@ -219,23 +219,7 @@ export default function NewsAdminPage() {
             {/* Prompts Tab */}
             {activeTab === 'prompts' && (
                 <div className="space-y-6">
-                    {/* Harvester Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для Harvester</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для поиска новостей через Perplexity API
-                        </p>
-                        <textarea
-                            value={config.prompts.harvester}
-                            onChange={(e) => setConfig({
-                                ...config,
-                                prompts: { ...config.prompts, harvester: e.target.value }
-                            })}
-                            rows={6}
-                            placeholder="You are a news aggregator AI..."
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                        />
-                    </div>
+
 
                     {/* Harvester Nightly Prompt */}
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

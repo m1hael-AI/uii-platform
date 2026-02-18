@@ -773,10 +773,7 @@ class NewsSettings(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     
     # === Prompts ===
-    harvester_prompt: str = Field(
-        default="You are a news aggregator AI. Find the most important and recent AI/ML news.",
-        description="Промпт для поиска новостей через Perplexity (общий)"
-    )
+
     harvester_nightly_prompt: str = Field(
         default="Find top AI news for the last 24 hours. Focus on major releases, research, and industry shifts.",
         description="Промпт для ночного сбора новостей (без запроса)"
