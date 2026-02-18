@@ -249,7 +249,7 @@ agents:
       Привет! Модель готова, пора в продакшн? Давай обсудим Docker и деплой.
     avatar_url: "/avatars/mlops_expert.png"
 
-proactivity_settings:
+  proactivity_settings:
   agent_memory_prompt: |
     Проанализируй фрагмент диалога (новые сообщения) и извлеки важную информацию о пользователе.
     === НОВЫЕ СООБЩЕНИЯ (Фрагмент) ===
