@@ -47,7 +47,7 @@ async def get_news_config(
         # Create default settings if not exist
         settings = NewsSettings(
             id=1,
-            id=1,
+
             harvester_prompt="You are a news aggregator AI. Find the most important and recent AI/ML news.",
             harvester_nightly_prompt="Find top AI news for the last 24 hours. Focus on major releases, research, and industry shifts.",
             harvester_search_prompt="Find fresh news detailed below. Focus on accuracy and recency.",
@@ -56,7 +56,7 @@ async def get_news_config(
             harvester_cron="0 2 * * *",
             generator_enabled=True,
             generator_cron="*/15 * * * *",
-            generator_cron="*/15 * * * *",
+
             allowed_tags="AI, LLM, Robotics, Hardware, Startups, Policy, Science, Business, Generative AI, Computer Vision, NLP, MLOps, Data Science",
             dedup_threshold=0.84,
             generator_batch_size=5,
