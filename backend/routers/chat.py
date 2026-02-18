@@ -117,6 +117,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage] 
     agent_id: Optional[str] = "mentor"
     webinar_id: Optional[int] = None
+    news_id: Optional[int] = None # New field for News Chat
     save_user_message: bool = True # Control duplication
     
     # Context Awareness
@@ -334,6 +335,7 @@ async def get_user_sessions(
 @router.get("/history", response_model=HistoryResponse)
 async def get_chat_history(
     webinar_id: Optional[int] = None,
+    news_id: Optional[int] = None,
     agent_id: Optional[str] = "mentor",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -346,9 +348,11 @@ async def get_chat_history(
     if webinar_id is not None:
         # Check both tables as ID might refer to either (assuming ID collision risk is handled or acceptable for now)
         q = q.where(or_(ChatSession.library_id == webinar_id, ChatSession.schedule_id == webinar_id))
+    elif news_id is not None:
+         q = q.where(ChatSession.news_id == news_id)
     else:
         # If no webinar, stick to agent slug AND ensure it's not a webinar session
-        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.schedule_id == None, ChatSession.library_id == None)
+        q = q.where(ChatSession.agent_slug == agent_id).where(ChatSession.schedule_id == None, ChatSession.library_id == None, ChatSession.news_id == None)
         
     result = await db.execute(q)
     sessions = result.scalars().all()
@@ -368,7 +372,8 @@ async def get_chat_history(
             db=db,
             user_id=current_user.id,
             agent_slug=agent_id,
-            webinar_id=webinar_id
+            webinar_id=webinar_id,
+            news_id=news_id
         )
         
         
@@ -533,17 +538,33 @@ async def chat_completions(
                 else:
                     # Fallback (rare): try Schedule
                     if not w_meta:
-                        res_sch = await db.execute(select(WebinarSchedule).where(WebinarSchedule.id == request.webinar_id))
-                        w_sch = res_sch.scalar_one_or_none()
                         if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
                              webinar_chunks_str = w_sch.transcript_context
+
+    # 1.1 Get News Context (If news_id present)
+    news_content_str = ""
+    if request.news_id:
+        from models import NewsItem, NewsSettings
+        
+        # Fetch News
+        news_res = await db.execute(select(NewsItem).where(NewsItem.id == request.news_id))
+        news_item = news_res.scalar_one_or_none()
+        
+        if news_item:
+            # Construct content for injection
+            # We can use just content, or combine title + content
+            news_content_str = f"Заголовок: {news_item.title}\n\nТекст новости:\n{news_item.content}"
+            logger.info(f"📰 News Context Loaded: {len(news_content_str)} chars for News ID {request.news_id}")
+        else:
+             logger.warning(f"⚠️ News ID {request.news_id} not found!")
 
     # 2. Get or Create Session
     chat_session = await get_or_create_chat_session(
         db=db,
         user_id=current_user.id,
         agent_slug=request.agent_id or "ai_tutor",
-        webinar_id=request.webinar_id
+        webinar_id=request.webinar_id,
+        news_id=request.news_id
     )
         
         # No delayed greeting here. Greeting is handled by get_chat_history or created synchronously if needed.
@@ -630,6 +651,16 @@ async def chat_completions(
         system_prompt = agent_obj.system_prompt
     else:
         system_prompt = "You are a helpful AI Assistant." # Fallback
+
+    # Override for News Analyst if Admin Prompt is set
+    if request.news_id and agent_slug == "news_analyst":
+         from models import NewsSettings
+         # Fetch settings
+         ns_res = await db.execute(select(NewsSettings))
+         ns = ns_res.scalar_one_or_none()
+         if ns and ns.news_chat_prompt:
+             # If admin defined a custom prompt, use it
+             system_prompt = ns.news_chat_prompt
 
     # D. INJECTION
     
@@ -759,8 +790,15 @@ async def chat_completions(
             if "=== ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ" not in formatted_r_chunks and "(Нет релевантных" not in formatted_r_chunks and "=== КОНТЕКСТ" not in formatted_r_chunks:
                  formatted_r_chunks = f"=== КОНТЕКСТ (ТРАНСКРИПЦИЯ) ===\n{safe_context}\n"
     
-            system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
+             system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
             
+        # 3. News Context Injection
+        if "{article_content}" in system_prompt:
+             if news_content_str:
+                 system_prompt = system_prompt.replace("{article_content}", news_content_str)
+             else:
+                 system_prompt = system_prompt.replace("{article_content}", "(Текст новости не найден)")
+
         # Legacy fallback (if prompt file wasn't updated)
         if "{webinar_context}" in system_prompt:
              # Combine them back for old prompts

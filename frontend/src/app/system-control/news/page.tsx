@@ -10,6 +10,7 @@ interface NewsConfig {
         harvester_nightly_prompt: string;
         harvester_search_prompt: string;
         writer: string;
+        news_chat_prompt: string;
         allowed_tags: string;
     };
     schedule: {
@@ -33,6 +34,29 @@ interface NewsConfig {
     };
     updated_at: string | null;
 }
+
+interface PromptFieldProps {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    rows?: number;
+    tooltip?: string;
+}
+
+const PromptField: React.FC<PromptFieldProps> = ({ label, value, onChange, placeholder, rows = 6, tooltip }) => (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-xl font-semibold mb-2">{label}</h2>
+        {tooltip && <p className="text-sm text-gray-600 mb-4">{tooltip}</p>}
+        <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={rows}
+            placeholder={placeholder}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+        />
+    </div>
+);
 
 export default function NewsAdminPage() {
     const router = useRouter();
@@ -78,6 +102,19 @@ export default function NewsAdminPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const updateConfig = (category: keyof NewsConfig, field: string, value: any) => {
+        setConfig(prevConfig => {
+            if (!prevConfig) return null;
+            return {
+                ...prevConfig,
+                [category]: {
+                    ...prevConfig[category],
+                    [field]: value
+                }
+            };
+        });
     };
 
     const handleSave = async () => {
@@ -219,74 +256,44 @@ export default function NewsAdminPage() {
             {/* Prompts Tab */}
             {activeTab === 'prompts' && (
                 <div className="space-y-6">
+                    <PromptField
+                        label="Промпт для Harvester (Ночной сбор)"
+                        value={config.prompts.harvester_nightly_prompt}
+                        onChange={(val) => updateConfig('prompts', 'harvester_nightly_prompt', val)}
+                        tooltip="Используется для автоматического сбора новостей каждую ночь"
+                    />
 
+                    <PromptField
+                        label="Промпт для Harvester (Поиск / Context-Aware)"
+                        value={config.prompts.harvester_search_prompt}
+                        onChange={(val) => updateConfig('prompts', 'harvester_search_prompt', val)}
+                        tooltip="Используется для поиска по запросу. Должен содержать placeholder {context} и {query}."
+                    />
 
-                    {/* Harvester Nightly Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для Harvester (Ночной сбор)</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для автоматического сбора новостей каждую ночь
-                        </p>
-                        <textarea
-                            value={config.prompts.harvester_nightly_prompt}
-                            onChange={(e) => setConfig({
-                                ...config,
-                                prompts: { ...config.prompts, harvester_nightly_prompt: e.target.value }
-                            })}
-                            rows={6}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                        />
-                    </div>
+                    <PromptField
+                        label="Разрешенные теги"
+                        value={config.prompts.allowed_tags}
+                        onChange={(val) => updateConfig('prompts', 'allowed_tags', val)}
+                        rows={3}
+                        tooltip="Список тегов через запятую. Harvester будет выбирать только из них."
+                    />
 
-                    {/* Harvester Search Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для Harvester (Поиск / Context-Aware)</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для поиска по запросу. Должен содержать placeholder <code>{'{context}'}</code> и <code>{'{query}'}</code>.
-                        </p>
-                        <textarea
-                            value={config.prompts.harvester_search_prompt}
-                            onChange={(e) => setConfig({
-                                ...config,
-                                prompts: { ...config.prompts, harvester_search_prompt: e.target.value }
-                            })}
-                            rows={6}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                        />
-                    </div>
+                    <PromptField
+                        label="Промпт для Writer"
+                        value={config.prompts.writer}
+                        onChange={(val) => updateConfig('prompts', 'writer', val)}
+                        rows={10}
+                        placeholder="You are a professional tech writer..."
+                        tooltip="Используется для генерации полных статей"
+                    />
 
-                    {/* Allowed Tags */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Разрешенные теги</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Список тегов через запятую. Harvester будет выбирать только из них.
-                        </p>
-                        <textarea
-                            value={config.prompts.allowed_tags}
-                            onChange={(e) => setConfig({
-                                ...config,
-                                prompts: { ...config.prompts, allowed_tags: e.target.value }
-                            })}
-                            rows={3}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
-                        />
-                    </div>
-
-                    {/* Writer Prompt */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <h2 className="text-xl font-semibold mb-2">Промпт для Writer</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Используется для генерации полных статей
-                        </p>
-                        <textarea
-                            value={config.prompts.writer}
-                            onChange={(e) => setConfig({
-                                ...config,
-                                prompts: { ...config.prompts, writer: e.target.value }
-                            })}
-                            rows={10}
-                            placeholder="You are a professional tech writer..."
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                    <div className="pt-4 border-t border-gray-100">
+                        <PromptField
+                            label="Промпт для чата (AI Analyst)"
+                            value={config.prompts.news_chat_prompt}
+                            onChange={(val) => updateConfig('prompts', 'news_chat_prompt', val)}
+                            placeholder="Оставьте пустым для использования системного промпта ai_tutor..."
+                            tooltip="Этот промпт используется, когда пользователь нажимает 'Обсудить с AI'. Используйте {article_content} для вставки текста новости."
                         />
                     </div>
                 </div>

@@ -89,6 +89,7 @@ async def get_news_config(
             "harvester_nightly_prompt": settings.harvester_nightly_prompt,
             "harvester_search_prompt": settings.harvester_search_prompt,
             "writer": settings.writer_prompt,
+            "news_chat_prompt": settings.news_chat_prompt,
             "allowed_tags": settings.allowed_tags
         },
         "schedule": {
@@ -142,6 +143,8 @@ async def update_news_config(
             settings.harvester_search_prompt = config["prompts"]["harvester_search_prompt"]
         if "writer" in config["prompts"]:
             settings.writer_prompt = config["prompts"]["writer"]
+        if "news_chat_prompt" in config["prompts"]:
+            settings.news_chat_prompt = config["prompts"]["news_chat_prompt"]
         if "allowed_tags" in config["prompts"]:
             settings.allowed_tags = config["prompts"]["allowed_tags"]
     

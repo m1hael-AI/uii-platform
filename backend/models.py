@@ -547,6 +547,7 @@ class ChatSession(SQLModel, table=True):
     # Опциональная привязка к расписанию или библиотеке (для RAG)
     schedule_id: Optional[int] = Field(default=None, foreign_key="webinar_schedules.id", index=True)
     library_id: Optional[int] = Field(default=None, foreign_key="webinar_libraries.id", index=True)
+    news_id: Optional[int] = Field(default=None, foreign_key="news_items.id", index=True)
     
     # Активна ли сессия
     is_active: bool = Field(default=True)
@@ -569,6 +570,7 @@ class ChatSession(SQLModel, table=True):
     agent: Optional[Agent] = Relationship(back_populates="chat_sessions")
     schedule: Optional[WebinarSchedule] = Relationship(back_populates="chat_sessions")
     library: Optional[WebinarLibrary] = Relationship(back_populates="chat_sessions")
+    news_item: Optional["NewsItem"] = Relationship(back_populates="chat_sessions")
     messages: List["Message"] = Relationship(back_populates="session")
 
 
@@ -760,6 +762,8 @@ class NewsItem(SQLModel, table=True):
     # --- Управление Состоянием ---
     status: NewsStatus = Field(default=NewsStatus.PENDING, description="Статус генерации контента")
     retry_count: int = Field(default=0, description="Счетчик неудачных попыток генерации")
+    
+    chat_sessions: List["ChatSession"] = Relationship(back_populates="news_item")
 
 
 class NewsSettings(SQLModel, table=True):
@@ -785,6 +789,10 @@ class NewsSettings(SQLModel, table=True):
     writer_prompt: str = Field(
         default="You are a professional tech writer. Create a comprehensive article about the given news.",
         description="Промпт для генерации статей"
+    )
+    news_chat_prompt: str = Field(
+        default="",
+        description="Промпт для чата по новости (AI Analyst). Если пустой, используется System Prompt агента."
     )
     
     # === Schedule Settings ===

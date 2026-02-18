@@ -11,6 +11,7 @@ async def get_or_create_chat_session(
     user_id: int,
     agent_slug: str,
     webinar_id: Optional[int] = None,
+    news_id: Optional[int] = None,
     is_active: bool = True
 ) -> ChatSession:
     """
@@ -18,7 +19,7 @@ async def get_or_create_chat_session(
     Гарантирует отсутствие дубликатов при параллельных запросах.
     """
     
-    # 1. Определяем контекст (Webinar vs General)
+    # 1. Определяем контекст (Webinar vs General vs News)
     schedule_id = None
     library_id = None
     
@@ -39,7 +40,8 @@ async def get_or_create_chat_session(
         ChatSession.user_id == user_id,
         ChatSession.agent_slug == agent_slug,
         ChatSession.schedule_id == schedule_id,
-        ChatSession.library_id == library_id
+        ChatSession.library_id == library_id,
+        ChatSession.news_id == news_id
     )
     
     # 3. Попытка получить существующую сессию
@@ -56,6 +58,7 @@ async def get_or_create_chat_session(
             agent_slug=agent_slug,
             schedule_id=schedule_id,
             library_id=library_id,
+            news_id=news_id,
             is_active=is_active,
             last_message_at=datetime.utcnow()
         )
