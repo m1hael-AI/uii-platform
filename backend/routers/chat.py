@@ -535,11 +535,6 @@ async def chat_completions(
                 if w_meta and getattr(w_meta, 'transcript_context', None):
                      webinar_chunks_str = w_meta.transcript_context
                      logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_chunks_str)} chars)")
-                else:
-                    # Fallback (rare): try Schedule
-                    if not w_meta:
-                        if w_sch and hasattr(w_sch, 'transcript_context') and w_sch.transcript_context:
-                             webinar_chunks_str = w_sch.transcript_context
 
     # 1.1 Get News Context (If news_id present)
     news_content_str = ""
@@ -790,7 +785,7 @@ async def chat_completions(
             if "=== ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ" not in formatted_r_chunks and "(Нет релевантных" not in formatted_r_chunks and "=== КОНТЕКСТ" not in formatted_r_chunks:
                  formatted_r_chunks = f"=== КОНТЕКСТ (ТРАНСКРИПЦИЯ) ===\n{safe_context}\n"
     
-             system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
+            system_prompt = system_prompt.replace("{webinar_chunks}", formatted_r_chunks)
             
         # 3. News Context Injection
         if "{article_content}" in system_prompt:
@@ -867,23 +862,24 @@ async def chat_completions(
                      # Create a new local saving logic because 'db' might be closed or detached
                      # Actually asyncpg connection might be closed by FastAPI.
                      # We reuse 'db' and try. If it fails, we ignore log.
-                     ai_msg = Message(
-                         session_id=chat_session.id,
-                         role=MessageRole.ASSISTANT,
-                         content=full_response
-                     )
-                     db.add(ai_msg)
-                     
-                     # ⏰ Update last_message_at for proactivity timer
-                     # Use explicit UPDATE to avoid detached instance issues after previous commits
-                     now_utc = datetime.utcnow()
-                     await db.execute(
-                         update(ChatSession)
-                         .where(ChatSession.id == chat_session.id)
-                         .values(last_message_at=now_utc)
-                     )
-                     
-                     await db.commit()
+                     async with AsyncSessionLocal() as session:
+                        ai_msg = Message(
+                             session_id=chat_session.id,
+                             role=MessageRole.ASSISTANT,
+                             content=full_response
+                        )
+                        session.add(ai_msg)
+                        
+                        # ⏰ Update last_message_at for proactivity timer
+                        # Use explicit UPDATE to avoid detached instance issues after previous commits
+                        now_utc = datetime.utcnow()
+                        await session.execute(
+                             update(ChatSession)
+                             .where(ChatSession.id == chat_session.id)
+                             .values(last_message_at=now_utc)
+                        )
+                        
+                        await session.commit()
                      print(f"👉 [BACKEND] MSG_SAVED. Session={chat_session.id}, Agent={agent_slug}, MsgTime={now_utc}")
                      
                      # 🔔 Notify User (AI Response Finished)
