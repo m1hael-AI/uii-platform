@@ -3,6 +3,7 @@ import sys
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+import asyncio
 
 from config import settings
 from bot.router import router as main_router

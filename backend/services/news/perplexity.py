@@ -50,7 +50,6 @@ class PerplexityClient:
             "X-Title": "AI University",
             "Content-Type": "application/json"
         }
-        }
 
     async def _get_settings(self) -> NewsSettings:
         """Fetch current settings from DB"""
