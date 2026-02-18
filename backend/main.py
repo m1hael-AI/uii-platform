@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     # Запускаем планировщик проактивности
     try:
         from services.scheduler import start_scheduler
-        start_scheduler()
+        await start_scheduler()
         logger.info("Планировщик проактивности запущен")
     except Exception as e:
         logger.error(f"Ошибка запуска планировщика: {e}")
