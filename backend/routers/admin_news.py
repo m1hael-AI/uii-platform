@@ -56,6 +56,8 @@ async def get_news_config(
             harvester_cron="0 2 * * *",
             generator_enabled=True,
             generator_cron="*/15 * * * *",
+            generator_cron="*/15 * * * *",
+            allowed_tags="AI, LLM, Robotics, Hardware, Startups, Policy, Science, Business, Generative AI, Computer Vision, NLP, MLOps, Data Science",
             dedup_threshold=0.84,
             generator_batch_size=5,
             generator_delay=2
@@ -96,6 +98,7 @@ async def get_news_config(
             "generator_enabled": settings.generator_enabled
         },
         "settings": {
+            "allowed_tags": settings.allowed_tags,
             "dedup_threshold": settings.dedup_threshold,
             "generator_batch_size": settings.generator_batch_size,
             "generator_delay": settings.generator_delay
@@ -156,6 +159,8 @@ async def update_news_config(
     
     # Update settings
     if "settings" in config:
+        if "allowed_tags" in config["settings"]:
+            settings.allowed_tags = config["settings"]["allowed_tags"]
         if "dedup_threshold" in config["settings"]:
             settings.dedup_threshold = config["settings"]["dedup_threshold"]
         if "generator_batch_size" in config["settings"]:

@@ -798,6 +798,10 @@ class NewsSettings(SQLModel, table=True):
     generator_cron: str = Field(default="*/15 * * * *", description="Cron выражение для generator (по умолчанию: каждые 15 минут)")
     
     # === Parameters ===
+    allowed_tags: str = Field(
+        default="AI, LLM, Robotics, Hardware, Startups, Policy, Science, Business, Generative AI, Computer Vision, NLP, MLOps, Data Science",
+        description="Список разрешенных тегов (через запятую). AI должен выбирать ТОЛЬКО из этого списка."
+    )
     dedup_threshold: float = Field(default=0.84, description="Порог для дедупликации по векторам (Cosine Similarity)")
     generator_batch_size: int = Field(default=5, description="Максимум новостей для генерации за один запуск")
     generator_delay: int = Field(default=2, description="Задержка между генерациями в секундах")

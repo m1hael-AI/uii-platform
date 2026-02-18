@@ -166,6 +166,10 @@ class PerplexityClient:
             system_prompt = settings_db.harvester_nightly_prompt
             user_content = "Find top AI news for the last 24 hours."
 
+        # Inject Tag Instructions
+        tag_instruction = f"\n\n=== TAGS INSTRUCTION ===\nAssign 1-3 tags to each news item.\nChoose ONLY from this allowed list: {settings_db.allowed_tags}.\nDO NOT invent new tags. If nothing fits, use 'General AI'."
+        system_prompt += tag_instruction
+
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
