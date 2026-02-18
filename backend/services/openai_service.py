@@ -9,6 +9,11 @@ from openai import AsyncOpenAI
 from config import settings
 from services.audit_service import fire_and_forget_audit
 import time
+import json
+import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Инициализация асинхронного клиента OpenAI
@@ -230,11 +235,28 @@ async def summarize_conversation(
             duration_ms=duration
         )
     
-    # Парсим ответ (в реальности нужен более надёжный парсинг)
+    # Парсим ответ
     content = response.choices[0].message.content or "{}"
+    
+    parsed_data = {}
+    try:
+        # Попытка найти JSON объект в ответе (обработка markdown блоков ```json ... ```)
+        json_match = re.search(r"\{.*\}", content, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            parsed_data = json.loads(json_str)
+        else:
+            logger.warning(f"Could not find JSON in response for user {user_id}")
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse JSON for user {user_id}: {e}. Content: {content[:100]}...")
+    
+    # Извлекаем данные с фоллбэком на старые значения
+    updated_summary = parsed_data.get("updated_summary", existing_summary)
+    potential_topics = parsed_data.get("potential_topics", [])
     
     return {
         "raw_response": content,
-        "updated_summary": existing_summary,  # TODO: Парсить JSON
-        "potential_topics": [],
+        "updated_summary": updated_summary,
+        "potential_topics": potential_topics,
     }
