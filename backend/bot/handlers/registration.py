@@ -1,5 +1,5 @@
 
-import logging
+from loguru import logger
 import re
 from typing import Optional
 
@@ -20,7 +20,7 @@ from services.auth import create_magic_link
 from services.user_service import sync_user_avatar_from_telegram
 from config import settings
 
-logger = logging.getLogger(__name__)
+
 
 router = Router()
 

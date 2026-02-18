@@ -2,7 +2,7 @@
 Admin router for AI News management.
 Provides endpoints for managing prompts, schedule, and settings.
 """
-import logging
+from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ from database import get_async_session
 from models import User, NewsSettings, NewsItem, NewsStatus, UserRole
 from dependencies import get_current_user, get_db
 
-logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/admin/news", tags=["admin-news"])
 

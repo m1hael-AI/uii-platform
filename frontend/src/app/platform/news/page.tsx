@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { NewsService, NewsItem } from "@/services/news";
@@ -16,6 +16,7 @@ export default function NewsPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const observerTarget = useRef(null);
 
     // Fetch all news from database
     const fetchNews = useCallback(async (pageNum: number, isInitial = false) => {
@@ -46,6 +47,35 @@ export default function NewsPage() {
     useEffect(() => {
         fetchNews(1, true);
     }, [fetchNews]);
+
+    // Fetch more on page change
+    useEffect(() => {
+        if (page > 1) {
+            fetchNews(page, false);
+        }
+    }, [page, fetchNews]);
+
+    // Infinite Scroll Observer
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            entries => {
+                if (entries[0].isIntersecting && hasMore && !loading) {
+                    setPage(prev => prev + 1);
+                }
+            },
+            { threshold: 1.0 }
+        );
+
+        if (observerTarget.current) {
+            observer.observe(observerTarget.current);
+        }
+
+        return () => {
+            if (observerTarget.current) {
+                observer.unobserve(observerTarget.current);
+            }
+        };
+    }, [hasMore, loading]);
 
     // Client-side filtering
     useEffect(() => {
@@ -225,6 +255,13 @@ export default function NewsPage() {
                             </div>
                         </Link>
                     ))}
+
+                    {/* Sentinel for Infinite Scroll */}
+                    <div ref={observerTarget} className="h-10 w-full flex items-center justify-center">
+                        {loading && hasMore && !isSearching && (
+                            <div className="w-6 h-6 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

@@ -2,14 +2,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-import logging
+from loguru import logger
 
 from database import get_async_session
 from models import User, NewsItem, NewsStatus
 from dependencies import get_current_user
 from services.news.manager import NewsManager
 
-logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/news", tags=["News"])
 

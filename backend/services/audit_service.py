@@ -1,4 +1,5 @@
 import json
+from loguru import logger
 from datetime import datetime, timedelta
 from sqlalchemy import update
 from database import async_session_factory
@@ -13,6 +14,10 @@ PRICES = {
     # Fallbacks / Legacy
     "gpt-3.5-turbo": {"input": 0.50, "cached_input": 0.50,  "output": 1.50},
     "gpt-4o-2024-05-13": {"input": 5.00, "cached_input": 5.00, "output": 15.00},
+    # Perplexity (OpenRouter)
+    "perplexity/sonar-reasoning-pro": {"input": 2.00, "cached_input": 2.00, "output": 8.00},
+    "perplexity/sonar-pro": {"input": 3.00, "cached_input": 3.00, "output": 15.00},
+    "perplexity/sonar": {"input": 1.00, "cached_input": 1.00, "output": 1.00},
 }
 
 async def log_llm_interaction(
@@ -67,7 +72,7 @@ async def log_llm_interaction(
             await session.commit()
             
     except Exception as e:
-        print(f"❌ Failed to write Audit Log: {e}")
+        logger.error(f"❌ Failed to write Audit Log: {e}")
 
 def fire_and_forget_audit(*args, **kwargs):
     """
@@ -96,6 +101,6 @@ async def cleanup_old_logs(days: int = 7):
             )
             await session.execute(stmt)
             await session.commit()
-            # print(f"🧹 Cleaned up LLM logs older than {days} days")
+            # logger.info(f"🧹 Cleaned up LLM logs older than {days} days")
     except Exception as e:
-        print(f"Error cleaning logs: {e}")
+        logger.error(f"Error cleaning logs: {e}")

@@ -1,5 +1,5 @@
 from typing import Annotated
-import logging
+from loguru import logger
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
@@ -12,7 +12,7 @@ from services.auth import decode_access_token
 from config import settings
 from utils.redis_client import get_redis
 
-logger = logging.getLogger(__name__)
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

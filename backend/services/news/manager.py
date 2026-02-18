@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 import asyncio
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -9,7 +9,7 @@ from services.openai_service import generate_embedding
 from services.news.perplexity import NewsItemSchema, PerplexityClient, WriterResponse
 from config import settings
 
-logger = logging.getLogger(__name__)
+
 
 class NewsManager:
     """

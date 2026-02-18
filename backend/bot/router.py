@@ -2,9 +2,9 @@ from aiogram import Router
 from bot.handlers.registration import router as registration_router
 from aiogram.types import Message
 from aiogram.filters import Command
-import logging
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+
 
 router = Router(name="main")
 router.include_router(registration_router)

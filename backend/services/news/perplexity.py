@@ -1,14 +1,16 @@
 import os
 import yaml
 import json
-import logging
+from loguru import logger
 import asyncio
+import time
 import httpx
+from services.audit_service import fire_and_forget_audit
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ValidationError
 from config import settings
 
-logger = logging.getLogger(__name__)
+
 
 # --- Response Schemas ---
 
@@ -74,6 +76,7 @@ class PerplexityClient:
         """
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(retries):
+                start_time = time.time()
                 try:
                     schema = response_model.model_json_schema()
                     
@@ -111,6 +114,26 @@ class PerplexityClient:
                     data = response.json()
                     content = data['choices'][0]['message']['content']
                     
+                    # Audit Log
+                    try:
+                        usage = data.get('usage', {})
+                        input_tokens = usage.get('prompt_tokens', 0)
+                        output_tokens = usage.get('completion_tokens', 0)
+                        duration = int((time.time() - start_time) * 1000)
+                        
+                        fire_and_forget_audit(
+                            user_id=0, # System
+                            agent_slug="news_agent",
+                            model=self.model,
+                            messages=messages,
+                            response_content=content,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            duration_ms=duration
+                        )
+                    except Exception as audit_err:
+                        logger.error(f"Audit Log Failed: {audit_err}")
+
                     # Пытаемся распарсить JSON
                     try:
                         json_obj = json.loads(content)

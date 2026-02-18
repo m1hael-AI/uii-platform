@@ -11,9 +11,9 @@ from services.audit_service import fire_and_forget_audit
 import time
 import json
 import re
-import logging
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+
 
 
 # Инициализация асинхронного клиента OpenAI

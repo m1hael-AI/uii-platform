@@ -1,7 +1,6 @@
 import asyncio
 import sys
 import os
-import logging
 from loguru import logger
 
 # Add parent dir to path

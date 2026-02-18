@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 import asyncio
 import json
-import logging
+from loguru import logger
 import yaml
 from pathlib import Path
 
@@ -18,7 +18,6 @@ from services.context_manager import is_context_overflow, compress_context_task
 from dependencies import get_db, get_current_user, rate_limiter
 from models import User, ChatSession, Message, MessageRole, Agent, PendingAction, WebinarLibrary, WebinarSchedule, UserMemory
 from config import settings
-from loguru import logger
 from services.chat_session_service import get_or_create_chat_session
 from utils.platform_context import PLATFORM_CONTEXT
 
