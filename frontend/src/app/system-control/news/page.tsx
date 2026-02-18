@@ -7,7 +7,10 @@ import Cookies from 'js-cookie';
 interface NewsConfig {
     prompts: {
         harvester: string;
+        harvester_nightly_prompt: string;
+        harvester_search_prompt: string;
         writer: string;
+        allowed_tags: string;
     };
     schedule: {
         harvester_cron: string;
@@ -228,8 +231,59 @@ export default function NewsAdminPage() {
                                 ...config,
                                 prompts: { ...config.prompts, harvester: e.target.value }
                             })}
-                            rows={10}
+                            rows={6}
                             placeholder="You are a news aggregator AI..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                        />
+                    </div>
+
+                    {/* Harvester Nightly Prompt */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-semibold mb-2">Промпт для Harvester (Ночной сбор)</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Используется для автоматического сбора новостей каждую ночь
+                        </p>
+                        <textarea
+                            value={config.prompts.harvester_nightly_prompt}
+                            onChange={(e) => setConfig({
+                                ...config,
+                                prompts: { ...config.prompts, harvester_nightly_prompt: e.target.value }
+                            })}
+                            rows={6}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                        />
+                    </div>
+
+                    {/* Harvester Search Prompt */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-semibold mb-2">Промпт для Harvester (Поиск / Context-Aware)</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Используется для поиска по запросу. Должен содержать placeholder <code>{'{context}'}</code> и <code>{'{query}'}</code>.
+                        </p>
+                        <textarea
+                            value={config.prompts.harvester_search_prompt}
+                            onChange={(e) => setConfig({
+                                ...config,
+                                prompts: { ...config.prompts, harvester_search_prompt: e.target.value }
+                            })}
+                            rows={6}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
+                        />
+                    </div>
+
+                    {/* Allowed Tags */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h2 className="text-xl font-semibold mb-2">Разрешенные теги</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Список тегов через запятую. Harvester будет выбирать только из них.
+                        </p>
+                        <textarea
+                            value={config.prompts.allowed_tags}
+                            onChange={(e) => setConfig({
+                                ...config,
+                                prompts: { ...config.prompts, allowed_tags: e.target.value }
+                            })}
+                            rows={3}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent font-mono text-sm"
                         />
                     </div>

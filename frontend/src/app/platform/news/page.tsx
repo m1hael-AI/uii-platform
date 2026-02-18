@@ -17,6 +17,7 @@ export default function NewsPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
+    const [activeTab, setActiveTab] = useState<'all' | 'foryou'>('all');
     const observerTarget = useRef(null);
 
     // Fetch all news from database
@@ -160,6 +161,28 @@ export default function NewsPage() {
                 <div>
                     <h1 className="text-3xl font-light text-[#474648] mb-2">Новости</h1>
                     <p className="text-[#7e95b1]">Актуальные новости из мира AI</p>
+
+                    {/* Tabs */}
+                    <div className="flex gap-4 mt-6">
+                        <button
+                            onClick={() => setActiveTab('all')}
+                            className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'all'
+                                ? 'text-[#FF6B35] border-b-2 border-[#FF6B35]'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Все новости
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('foryou')}
+                            className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'foryou'
+                                ? 'text-[#FF6B35] border-b-2 border-[#FF6B35]'
+                                : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Для Вас
+                        </button>
+                    </div>
                 </div>
 
                 {/* Search Bar */}
@@ -170,6 +193,9 @@ export default function NewsPage() {
                             placeholder="Поиск по темам..."
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleFreshSearch();
+                            }}
                             className="w-full md:w-96 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
                         />
                         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,6 +296,12 @@ export default function NewsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Floating Search Bar */}
+            <FloatingInternetSearch
+                onSearch={handleFloatingSearch}
+                isSearching={isSearching}
+            />
         </div>
     );
 }
