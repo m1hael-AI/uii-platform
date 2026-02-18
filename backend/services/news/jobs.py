@@ -1,4 +1,3 @@
-import logging
 import asyncio
 from sqlalchemy import select
 from loguru import logger
@@ -7,8 +6,6 @@ from database import async_session_factory
 from services.news.manager import NewsManager
 from services.news.perplexity import PerplexityClient
 from models import NewsItem, NewsStatus
-
-logger = logging.getLogger(__name__)
 
 async def harvest_news_nightly():
     """
