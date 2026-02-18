@@ -22,7 +22,7 @@ async def sync_prompts():
     with open(yaml_path, "r", encoding="utf-8") as f:
         prompts = yaml.safe_load(f)
 
-    news_prompts = prompts.get("agents", {}).get("news_agent", {})
+    news_prompts = prompts.get("news_agent", {})
     if not news_prompts:
         print("❌ Error: 'news_agent' prompts not found in YAML.")
         return
@@ -37,7 +37,7 @@ async def sync_prompts():
             settings = NewsSettings(
                 harvester_nightly_prompt=news_prompts.get("harvester_nightly_prompt", ""),
                 harvester_search_prompt=news_prompts.get("harvester_search_prompt", ""),
-                writer_prompt=prompts.get("agents", {}).get("writer", {}).get("system_prompt", ""),
+                writer_prompt=prompts.get("writer", {}).get("system_prompt", ""),
                 allowed_tags=news_prompts.get("allowed_tags", "AI, LLM, Robotics, Hardware, Startups, Policy, Science, Business, Generative AI, Computer Vision, NLP, MLOps, Data Science")
             )
             session.add(settings)
@@ -45,7 +45,7 @@ async def sync_prompts():
             print("🔄 Updating existing NewsSettings...")
             settings.harvester_nightly_prompt = news_prompts.get("harvester_nightly_prompt", settings.harvester_nightly_prompt)
             settings.harvester_search_prompt = news_prompts.get("harvester_search_prompt", settings.harvester_search_prompt)
-            settings.writer_prompt = prompts.get("agents", {}).get("writer", {}).get("system_prompt", settings.writer_prompt)
+            settings.writer_prompt = prompts.get("writer", {}).get("system_prompt", settings.writer_prompt)
             
             # Update tags if available
             if "allowed_tags" in news_prompts:
