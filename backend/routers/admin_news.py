@@ -47,7 +47,10 @@ async def get_news_config(
         # Create default settings if not exist
         settings = NewsSettings(
             id=1,
+            id=1,
             harvester_prompt="You are a news aggregator AI. Find the most important and recent AI/ML news.",
+            harvester_nightly_prompt="Find top AI news for the last 24 hours. Focus on major releases, research, and industry shifts.",
+            harvester_search_prompt="Find fresh news detailed below. Focus on accuracy and recency.",
             writer_prompt="You are a professional tech writer. Create a comprehensive article about the given news.",
             harvester_enabled=True,
             harvester_cron="0 2 * * *",
@@ -82,6 +85,8 @@ async def get_news_config(
     return {
         "prompts": {
             "harvester": settings.harvester_prompt,
+            "harvester_nightly": settings.harvester_nightly_prompt,
+            "harvester_search": settings.harvester_search_prompt,
             "writer": settings.writer_prompt
         },
         "schedule": {
@@ -131,6 +136,10 @@ async def update_news_config(
     if "prompts" in config:
         if "harvester" in config["prompts"]:
             settings.harvester_prompt = config["prompts"]["harvester"]
+        if "harvester_nightly" in config["prompts"]:
+            settings.harvester_nightly_prompt = config["prompts"]["harvester_nightly"]
+        if "harvester_search" in config["prompts"]:
+            settings.harvester_search_prompt = config["prompts"]["harvester_search"]
         if "writer" in config["prompts"]:
             settings.writer_prompt = config["prompts"]["writer"]
     

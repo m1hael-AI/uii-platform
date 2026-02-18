@@ -64,17 +64,7 @@ export default function ArticlePage() {
         );
     }
 
-    if (generating) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center max-w-md">
-                    <div className="w-16 h-16 border-4 border-[#FF6B35] border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-                    <h2 className="text-xl font-semibold text-gray-800 mb-2">📝 Генерирую полную статью...</h2>
-                    <p className="text-gray-600">Это займёт 10-15 секунд. Агент анализирует источники и создаёт подробный материал.</p>
-                </div>
-            </div>
-        );
-    }
+
 
     if (error || !article) {
         return (
@@ -151,8 +141,16 @@ export default function ArticlePage() {
                     </div>
                 )}
 
-                {/* Content */}
-                {article.content ? (
+                {/* Content or Generating State */}
+                {generating ? (
+                    <div className="py-20 text-center">
+                        <div className="w-16 h-16 border-4 border-[#FF6B35] border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                        <h2 className="text-xl font-semibold text-gray-800 mb-2">📝 Генерирую полную статью...</h2>
+                        <p className="text-gray-600 max-w-md mx-auto">
+                            Агент анализирует источники и создаёт подробный материал (10-15 секунд).
+                        </p>
+                    </div>
+                ) : article.content ? (
                     <div className="prose prose-lg max-w-none">
                         <ReactMarkdown>{article.content}</ReactMarkdown>
                     </div>

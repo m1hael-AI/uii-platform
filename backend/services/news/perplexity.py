@@ -5,6 +5,9 @@ from loguru import logger
 import asyncio
 import time
 import httpx
+from sqlalchemy import select
+from database import async_session_factory
+from models import NewsSettings
 from services.audit_service import fire_and_forget_audit
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ValidationError
@@ -47,28 +50,19 @@ class PerplexityClient:
             "X-Title": "AI University",
             "Content-Type": "application/json"
         }
-        self.prompts = self._load_prompts()
+        }
 
-    def _load_prompts(self) -> Dict[str, Any]:
-        """Загружает промпты из YAML файла."""
-        try:
-            # Путь относительно этого файла: ../../resources/default_prompts.yaml
-            current_dir = os.path.dirname(__file__)
-            yaml_path = os.path.join(current_dir, '../../resources/default_prompts.yaml')
-            
-            # Нормализуем путь
-            yaml_path = os.path.abspath(yaml_path)
-            
-            if not os.path.exists(yaml_path):
-                logger.error(f"Prompts file not found at {yaml_path}")
-                return {}
+    async def _get_settings(self) -> NewsSettings:
+        """Fetch current settings from DB"""
+        async with async_session_factory() as db:
+            result = await db.execute(select(NewsSettings).limit(1))
+            settings_db = result.scalar_one_or_none()
+            if not settings_db:
+                # Return default mock if not found (should be seeded)
+                return NewsSettings()
+            return settings_db
 
-            with open(yaml_path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f)
-                return data.get('news_agent', {})
-        except Exception as e:
-            logger.error(f"Failed to load prompts: {e}")
-            return {}
+
 
     async def _request(self, messages: List[Dict], response_model: Any, retries: int = 3) -> Optional[Any]:
         """
@@ -158,17 +152,18 @@ class PerplexityClient:
         Если query задан - ищет по теме (User Search).
         Если query нет - ищет главные новости за сутки (Nightly Worker).
         """
-        prompts = self.prompts.get('harvester', {})
-        system_prompt = prompts.get('system_prompt', "You are a news aggregator.")
+        """
+        settings_db = await self._get_settings()
         
-        user_content = f"Date: {asyncio.get_event_loop().time()}" # Hack: real time needed? Perplexity knows time.
-        # Лучше просто дать инструкцию.
+        user_content = f"Date: {asyncio.get_event_loop().time()}" 
         
         if query:
+            system_prompt = settings_db.harvester_search_prompt
             user_content = f"Topic: {query}. Find fresh news."
             if exclude_titles:
                 user_content += f"\nEXCLUDE these known news: {', '.join(exclude_titles[:5])}..."
         else:
+            system_prompt = settings_db.harvester_nightly_prompt
             user_content = "Find top AI news for the last 24 hours."
 
         messages = [
@@ -191,8 +186,9 @@ class PerplexityClient:
         """
         WRITER: Пишет статью по заголовку и ссылкам.
         """
-        prompts = self.prompts.get('writer', {})
-        system_prompt = prompts.get('system_prompt', "You are a tech journalist.")
+        """
+        settings_db = await self._get_settings()
+        system_prompt = settings_db.writer_prompt
         
         user_content = f"""
         WRITE ARTICLE BASED ON:

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { NewsService, NewsItem } from "@/services/news";
+import FloatingInternetSearch from "@/components/news/FloatingInternetSearch";
 
 export default function NewsPage() {
     const searchParams = useSearchParams();
@@ -102,21 +103,42 @@ export default function NewsPage() {
         }
     };
 
-    // Search for fresh news via API
-    const handleFreshSearch = async () => {
-        if (!searchQuery.trim()) return;
+    // Search for fresh news via API (Hybrid)
+    const handleFreshSearch = async (queryOverride?: string) => {
+        const queryToUse = queryOverride || searchQuery;
+        if (!queryToUse.trim()) return;
 
         setIsSearching(true);
         try {
-            const results = await NewsService.searchNews(searchQuery);
+            const results = await NewsService.searchNews(queryToUse);
             const newResults = results.map((item: NewsItem) => ({ ...item, isNew: true }));
-            setAllNews(prev => [...newResults, ...prev]);
-            setFilteredNews(prev => [...newResults, ...prev]);
+
+            // Add to top of news list (filtering will handle display)
+            setAllNews(prev => {
+                // Filter out duplicates by ID or Title (simple check)
+                const existingIds = new Set(prev.map(n => n.id));
+                const uniqueNew = newResults.filter((n: NewsItem) => !existingIds.has(n.id));
+                return [...uniqueNew, ...prev];
+            });
+
+            // If we are filtering, update filtered list too (though useEffect might handle it, better explicit for immediate feedback)
+            setFilteredNews(prev => {
+                const existingIds = new Set(prev.map(n => n.id));
+                const uniqueNew = newResults.filter((n: NewsItem) => !existingIds.has(n.id));
+                return [...uniqueNew, ...prev];
+            });
+
         } catch (error) {
             console.error("Failed to search news:", error);
         } finally {
             setIsSearching(false);
         }
+    };
+
+    // Handler for Floating Search (Hybrid)
+    const handleFloatingSearch = (query: string) => {
+        handleSearchChange(query); // Update local filter
+        handleFreshSearch(query);  // Trigger web search
     };
 
     // Format date
@@ -131,7 +153,7 @@ export default function NewsPage() {
     };
 
     return (
-        <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6">
+        <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6 pb-32 relative min-h-screen">
 
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
@@ -154,22 +176,6 @@ export default function NewsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                    <button
-                        onClick={handleFreshSearch}
-                        disabled={!searchQuery.trim() || isSearching}
-                        className="px-4 py-2.5 bg-[#FF6B35] text-white rounded-xl hover:bg-[#ff5722] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
-                    >
-                        {isSearching ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Ищу...
-                            </>
-                        ) : (
-                            <>
-                                🔍 Найти свежие
-                            </>
-                        )}
-                    </button>
                 </div>
             </div>
 
