@@ -265,11 +265,11 @@ export default function NewsPage() {
                         </div>
                     )}
 
-                    {filteredNews.length === 0 ? (
+                    {filteredNews.length === 0 && !isSearching ? (
                         <div className="text-center py-20 text-gray-500">
                             {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет или мы их ищем..."}
                         </div>
-                    ) : (
+                    ) : filteredNews.length > 0 ? (
                         <>
                             {filteredNews.map((item: any) => (
                                 <Link
@@ -343,7 +343,7 @@ export default function NewsPage() {
                                 )}
                             </div>
                         </>
-                    )}
+                    ) : null}
                 </div>
             )}
 
