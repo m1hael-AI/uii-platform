@@ -1,9 +1,13 @@
+import sys
+import os
 import asyncio
 import yaml
-from sqlalchemy import select, update
+
+# Add project root to sys.path to allow imports from parent directory
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from database import async_session_factory
 from models import NewsSettings
-import os
 
 async def sync_prompts():
     print("🚀 Starting NewsSettings prompt synchronization...")
