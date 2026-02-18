@@ -151,7 +151,6 @@ class PerplexityClient:
         Если query задан - ищет по теме (User Search).
         Если query нет - ищет главные новости за сутки (Nightly Worker).
         """
-        """
         settings_db = await self._get_settings()
         
         user_content = f"Date: {asyncio.get_event_loop().time()}" 
@@ -199,7 +198,6 @@ class PerplexityClient:
     async def generate_article(self, news_item: NewsItemSchema) -> Optional[WriterResponse]:
         """
         WRITER: Пишет статью по заголовку и ссылкам.
-        """
         """
         settings_db = await self._get_settings()
         system_prompt = settings_db.writer_prompt
