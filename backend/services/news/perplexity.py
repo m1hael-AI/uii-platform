@@ -146,7 +146,7 @@ class PerplexityClient:
                     await asyncio.sleep(2 ** attempt)
         return None
 
-    async def search_news(self, query: str = None, exclude_titles: List[str] = None) -> List[NewsItemSchema]:
+    async def search_news(self, query: str = None, context: str = None, exclude_titles: List[str] = None) -> List[NewsItemSchema]:
         """
         HARVESTER: Ищет новости.
         Если query задан - ищет по теме (User Search).
@@ -158,7 +158,18 @@ class PerplexityClient:
         user_content = f"Date: {asyncio.get_event_loop().time()}" 
         
         if query:
-            system_prompt = settings_db.harvester_search_prompt
+            raw_prompt = settings_db.harvester_search_prompt
+            # Replace placeholders safely
+            system_prompt = raw_prompt.replace("{query}", query)
+            if context:
+                if "{context}" in system_prompt:
+                    system_prompt = system_prompt.replace("{context}", context)
+                else:
+                    # Fallback: Append context if placeholder missing
+                    system_prompt += f"\n\n=== CONTEXT (ALREADY KNOWN) ===\n{context}"
+            else:
+                system_prompt = system_prompt.replace("{context}", "No known news.")
+            
             user_content = f"Topic: {query}. Find fresh news."
             if exclude_titles:
                 user_content += f"\nEXCLUDE these known news: {', '.join(exclude_titles[:5])}..."

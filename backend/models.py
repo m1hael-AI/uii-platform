@@ -782,8 +782,8 @@ class NewsSettings(SQLModel, table=True):
         description="Промпт для ночного сбора новостей (без запроса)"
     )
     harvester_search_prompt: str = Field(
-        default="Find fresh news detailed below. Focus on accuracy and recency.",
-        description="Промпт для поиска по запросу пользователя"
+        default="User is searching for: {query}.\nWe ALREADY KNOW these news:\n{context}\n\nFind NEW information, updates, or missed details. Do NOT repeat what we already know.",
+        description="Промпт для поиска по запросу пользователя. {query} и {context} обязательны."
     )
     writer_prompt: str = Field(
         default="You are a professional tech writer. Create a comprehensive article about the given news.",

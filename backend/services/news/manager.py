@@ -110,6 +110,37 @@ class NewsManager:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none() is not None
 
+    async def find_context_for_query(self, query: str, limit: int = 5) -> str:
+        """
+        Ищет похожие новости в базе по вектору запроса.
+        Возвращает formatted string для промпта.
+        """
+        try:
+            # 1. Embed query
+            embedding = await generate_embedding(query)
+            
+            # 2. Search DB (Cosine Distance)
+            distance_col = NewsItem.embedding.cosine_distance(embedding)
+            
+            # Order by distance ASC (closest first)
+            stmt = select(NewsItem).order_by(distance_col).limit(limit)
+            result = await self.db.execute(stmt)
+            items = result.scalars().all()
+            
+            if not items:
+                return "No existing news found."
+                
+            # 3. Format
+            context = ""
+            for i, item in enumerate(items, 1):
+                context += f"{i}. {item.title} (Published: {item.published_at.date()})\n   Summary: {item.summary}\n"
+                
+            return context
+            
+        except Exception as e:
+            logger.error(f"Failed to find context for query '{query}': {e}")
+            return "Error retrieving context."
+
     async def trigger_generation(self, news_id: int):
         """
         Запускает генерацию статьи для новости.

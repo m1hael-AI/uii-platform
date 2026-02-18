@@ -84,8 +84,11 @@ async def search_fresh_news(
     
     manager = NewsManager(db)
     try:
-        # Search for news using Perplexity
-        news_items = await manager.perplexity.search_news(query=query)
+        # 1. Hybrid Search: Get Context from Vector DB
+        context = await manager.find_context_for_query(query)
+        
+        # 2. Search for news using Perplexity with Context
+        news_items = await manager.perplexity.search_news(query=query, context=context)
         
         if not news_items:
             return {"results": [], "message": "No news found for this query"}
