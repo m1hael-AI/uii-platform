@@ -48,7 +48,7 @@ async def get_news_config(
         settings = NewsSettings(
             id=1,
 
-            harvester_prompt="You are a news aggregator AI. Find the most important and recent AI/ML news.",
+            harvester_prompt="DEPRECATED. Use Nightly or Search prompts instead.",
             harvester_nightly_prompt="Find top AI news for the last 24 hours. Focus on major releases, research, and industry shifts.",
             harvester_search_prompt="Find fresh news detailed below. Focus on accuracy and recency.",
             writer_prompt="You are a professional tech writer. Create a comprehensive article about the given news.",

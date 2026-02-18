@@ -34,7 +34,7 @@ export default function FloatingInternetSearch({ onSearch, isSearching }: Props)
     return (
         <div className="fixed bottom-8 left-0 right-0 z-50 px-4 flex justify-center pointer-events-none">
             {/* Wrapper for pointer events */}
-            <div className="w-full max-w-2xl pointer-events-auto">
+            <div className="w-full max-w-4xl pointer-events-auto">
                 <div className={`relative bg-white/80 backdrop-blur-xl border border-gray-200/50 shadow-2xl rounded-2xl transition-all duration-300 ${isSearching ? 'ring-2 ring-[#FF6B35]/50' : 'hover:ring-2 hover:ring-gray-200'}`}>
                     <textarea
                         ref={textareaRef}
@@ -42,7 +42,7 @@ export default function FloatingInternetSearch({ onSearch, isSearching }: Props)
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={isSearching ? "Searching the web..." : "Search for fresh news..."}
-                        className="w-full bg-transparent border-none focus:ring-0 p-4 pr-14 text-gray-800 placeholder-gray-400 text-lg resize-none max-h-48 overflow-y-auto rounded-2xl"
+                        className="w-full bg-transparent border-none focus:ring-0 focus:outline-none p-4 pr-14 text-gray-800 placeholder-gray-400 text-lg resize-none max-h-48 overflow-y-auto rounded-2xl outline-none shadow-none ring-0"
                         rows={1}
                         disabled={isSearching}
                         style={{ minHeight: '60px' }}
