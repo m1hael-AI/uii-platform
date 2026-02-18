@@ -86,9 +86,10 @@ async def get_news_config(
     
     return {
         "prompts": {
-            "harvester_nightly": settings.harvester_nightly_prompt,
-            "harvester_search": settings.harvester_search_prompt,
-            "writer": settings.writer_prompt
+            "harvester_nightly_prompt": settings.harvester_nightly_prompt,
+            "harvester_search_prompt": settings.harvester_search_prompt,
+            "writer": settings.writer_prompt,
+            "allowed_tags": settings.allowed_tags
         },
         "schedule": {
             "harvester_cron": settings.harvester_cron,
@@ -97,7 +98,6 @@ async def get_news_config(
             "generator_enabled": settings.generator_enabled
         },
         "settings": {
-            "allowed_tags": settings.allowed_tags,
             "dedup_threshold": settings.dedup_threshold,
             "generator_batch_size": settings.generator_batch_size,
             "generator_delay": settings.generator_delay
@@ -136,12 +136,14 @@ async def update_news_config(
     
     # Update prompts
     if "prompts" in config:
-        if "harvester_nightly" in config["prompts"]:
-            settings.harvester_nightly_prompt = config["prompts"]["harvester_nightly"]
-        if "harvester_search" in config["prompts"]:
-            settings.harvester_search_prompt = config["prompts"]["harvester_search"]
+        if "harvester_nightly_prompt" in config["prompts"]:
+            settings.harvester_nightly_prompt = config["prompts"]["harvester_nightly_prompt"]
+        if "harvester_search_prompt" in config["prompts"]:
+            settings.harvester_search_prompt = config["prompts"]["harvester_search_prompt"]
         if "writer" in config["prompts"]:
             settings.writer_prompt = config["prompts"]["writer"]
+        if "allowed_tags" in config["prompts"]:
+            settings.allowed_tags = config["prompts"]["allowed_tags"]
     
     # Update schedule
     if "schedule" in config:
@@ -156,8 +158,6 @@ async def update_news_config(
     
     # Update settings
     if "settings" in config:
-        if "allowed_tags" in config["settings"]:
-            settings.allowed_tags = config["settings"]["allowed_tags"]
         if "dedup_threshold" in config["settings"]:
             settings.dedup_threshold = config["settings"]["dedup_threshold"]
         if "generator_batch_size" in config["settings"]:
