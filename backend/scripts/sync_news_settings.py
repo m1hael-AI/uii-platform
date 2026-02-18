@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database import async_session_factory
 from models import NewsSettings
+from sqlalchemy import select
 
 async def sync_prompts():
     print("🚀 Starting NewsSettings prompt synchronization...")
