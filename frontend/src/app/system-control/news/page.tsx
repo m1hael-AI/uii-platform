@@ -104,7 +104,7 @@ export default function NewsAdminPage() {
         }
     };
 
-    const updateConfig = (category: keyof NewsConfig, field: string, value: any) => {
+    const updateConfig = (category: 'prompts' | 'schedule' | 'settings', field: string, value: any) => {
         setConfig(prevConfig => {
             if (!prevConfig) return null;
             return {
