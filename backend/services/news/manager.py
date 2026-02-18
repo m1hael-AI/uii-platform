@@ -112,10 +112,11 @@ class NewsManager:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def find_context_for_query(self, query: str, limit: int = 5) -> str:
+    async def find_context_for_query(self, query: str, limit: int = 10) -> str:
         """
         Ищет похожие новости в базе по вектору запроса.
         Возвращает formatted string для промпта.
+        Limit по умолчанию 10, чтобы дать LLM контекст и избежать дублей.
         """
         try:
             # 1. Embed query
@@ -142,6 +143,22 @@ class NewsManager:
         except Exception as e:
             logger.error(f"Failed to find context for query '{query}': {e}")
             return "Error retrieving context."
+
+    async def search_local_news(self, query: str, limit: int = 10) -> List[NewsItem]:
+        """
+        Поиск новостей в локальной базе по вектору (смыслу).
+        """
+        try:
+            embedding = await generate_embedding(query)
+            distance_col = NewsItem.embedding.cosine_distance(embedding)
+            
+            # Сортируем по релевантности (distance)
+            stmt = select(NewsItem).order_by(distance_col).limit(limit)
+            result = await self.db.execute(stmt)
+            return result.scalars().all()
+        except Exception as e:
+            logger.error(f"Local vector search failed for '{query}': {e}")
+            return []
 
     async def trigger_generation(self, news_id: int):
         """

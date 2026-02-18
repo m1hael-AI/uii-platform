@@ -389,6 +389,22 @@ news_agent:
       
       ВАЖНО: Если ты не нашел реальный источник — НЕ включай новость в список. Не выдумывай.
 
+    harvester_search_prompt: |
+      User is searching for: {query}.
+      
+      === CONTEXT (ALREADY KNOWN) ===
+      {context}
+      
+      === TASK ===
+      Find SIGNIFICANT newly published information about "{query}".
+      
+      RULES:
+      1. IGNORE information that is already in the CONTEXT.
+      2. If the user's query is already fully covered by the context -> return an EMPTY list.
+      3. Do NOT return minor details, price fluctuations of <5%, or rewrite existing news.
+      4. Only return items if they provide SUBSTANTIAL new value.
+      5. If no new information is found, return {{ "news": [] }}.
+
   writer:
     system_prompt: |
       Ты ведущий аналитик в сфере AI. Твоя задача — написать глубокую, структурированную статью на основе предоставленных заголовков и ссылок.

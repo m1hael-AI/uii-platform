@@ -17,6 +17,7 @@ router = APIRouter(prefix="/news", tags=["News"])
 async def get_news_list(
     status: Optional[NewsStatus] = None,
     type: str = Query("all", regex="^(all|foryou)$"),
+    q: Optional[str] = Query(None, description="Поисковый запрос для векторного поиска"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_async_session),
@@ -25,9 +26,16 @@ async def get_news_list(
     """
     Получить список новостей с пагинацией.
     type: "all" (хронология) или "foryou" (персонализация)
+    q: поисковый запрос (если есть - включается векторный поиск)
     """
-    if type == "foryou":
-        manager = NewsManager(db)
+    manager = NewsManager(db)
+
+    if q:
+        # Vector Search Mode (High Priority)
+        # Ignores type=foryou mostly, as query is explicit intent
+        news = await manager.search_local_news(query=q, limit=limit)
+        
+    elif type == "foryou":
         # Personalized feed (no status filter support yet, usually returns all valid)
         news = await manager.get_personalized_news(user_id=user.id, limit=limit)
         # Offset logic is hard with personalization (re-ranking), 

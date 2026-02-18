@@ -118,25 +118,47 @@ export default function NewsPage() {
         }
     };
 
-    // Search for fresh news via API (Hybrid)
+    // Search for fresh news via API (Hybrid 2-Step)
     const handleFreshSearch = async (queryOverride?: string) => {
         const queryToUse = queryOverride || searchQuery;
         if (!queryToUse.trim()) return;
 
+        // 1. Clear UI & Filter
+        setSearchQuery(""); // Clear top filter
+        setAllNews([]);     // Clear current list
+        setFilteredNews([]); // Clear filtered list
         setIsSearching(true);
+        setLoading(true); // Show loader for initial fetch
+
         try {
+            // 2. Step 1: Instant Context from DB (Vector Search)
+            // We use getNews with q param which triggers vector search on backend
+            const dbResults = await NewsService.getNews(1, 50, 'all', queryToUse);
+            setAllNews(dbResults);
+            setFilteredNews(dbResults);
+
+            // Results found? Good. Continue to step 2.
+            // If no results, list is empty, user sees loader.
+        } catch (error) {
+            console.error("Failed to fetch local context:", error);
+        } finally {
+            setLoading(false); // Stop main loader, but keeps isSearching true for "Searching web..." indicator
+        }
+
+        try {
+            // 3. Step 2: Perplexity Search (Fresh Content)
             const results = await NewsService.searchNews(queryToUse);
             const newResults = results.map((item: NewsItem) => ({ ...item, isNew: true }));
 
-            // Add to top of news list (filtering will handle display)
+            // Add to top of news list
             setAllNews(prev => {
-                // Filter out duplicates by ID or Title (simple check)
+                // Filter out duplicates by ID
                 const existingIds = new Set(prev.map(n => n.id));
                 const uniqueNew = newResults.filter((n: NewsItem) => !existingIds.has(n.id));
                 return [...uniqueNew, ...prev];
             });
 
-            // If we are filtering, update filtered list too (though useEffect might handle it, better explicit for immediate feedback)
+            // Update visible list
             setFilteredNews(prev => {
                 const existingIds = new Set(prev.map(n => n.id));
                 const uniqueNew = newResults.filter((n: NewsItem) => !existingIds.has(n.id));
@@ -144,7 +166,7 @@ export default function NewsPage() {
             });
 
         } catch (error) {
-            console.error("Failed to search news:", error);
+            console.error("Failed to search web news:", error);
         } finally {
             setIsSearching(false);
         }
@@ -152,8 +174,8 @@ export default function NewsPage() {
 
     // Handler for Floating Search (Hybrid)
     const handleFloatingSearch = (query: string) => {
-        handleSearchChange(query); // Update local filter
-        handleFreshSearch(query);  // Trigger web search
+        // Decoupled: Do NOT update setSearchQuery (filter)
+        handleFreshSearch(query);  // Trigger hybrid flow
     };
 
     // Format date
@@ -231,76 +253,87 @@ export default function NewsPage() {
                 <div className="flex items-center justify-center py-20">
                     <div className="w-8 h-8 border-4 border-[#FF6B35] border-t-transparent rounded-full animate-spin"></div>
                 </div>
-            ) : filteredNews.length === 0 ? (
-                <div className="text-center py-20 text-gray-500">
-                    {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет. Загляните позже!"}
-                </div>
             ) : (
                 <div className="space-y-3">
-                    {filteredNews.map((item: any) => (
-                        <Link
-                            key={item.id}
-                            href={`/platform/news/${item.id}?back=${encodeURIComponent(searchQuery)}`}
-                            className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-[#FF6B35] hover:shadow-md transition-all"
-                        >
-                            <div className="flex items-start gap-3">
-                                {/* Status Indicator */}
-                                <div className="flex-shrink-0 mt-1">
-                                    {item.isNew ? (
-                                        <span className="inline-block px-2 py-0.5 text-xs font-semibold text-white bg-green-500 rounded">🆕 Новое</span>
-                                    ) : item.status === 'completed' ? (
-                                        <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                                    ) : (
-                                        <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
-                                    )}
-                                </div>
+                    {/* Top Loader for Web Search */}
+                    {isSearching && (
+                        <div className="flex items-center justify-center py-4 bg-gray-50 rounded-xl border border-gray-100 mb-3 animate-pulse">
+                            <div className="flex items-center gap-3 text-sm text-gray-500">
+                                <div className="w-4 h-4 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin"></div>
+                                <span>Ищем свежие новости в интернете...</span>
+                            </div>
+                        </div>
+                    )}
 
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                    {/* Tags */}
-                                    {item.tags && item.tags.length > 0 && (
-                                        <div className="flex gap-2 mb-2">
-                                            {item.tags.slice(0, 2).map((tag: string) => (
-                                                <span key={tag} className="text-xs px-2 py-0.5 bg-[#FF6B35]/10 text-[#FF6B35] rounded font-medium">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Title */}
-                                    <h3 className="text-base font-medium text-gray-900 mb-1 hover:text-[#FF6B35] transition-colors">
-                                        {item.title}
-                                    </h3>
-
-                                    {/* Summary */}
-                                    {item.summary && (
-                                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                                            {item.summary}
-                                        </p>
-                                    )}
-
-                                    {/* Meta */}
-                                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                                        <span>{formatDate(item.published_at)}</span>
-                                        <span>•</span>
-                                        <span className="capitalize">{item.status === 'completed' ? 'Готово' : 'Генерируется'}</span>
-                                        {item.source_urls && item.source_urls.length > 0 && (
-                                            <>
-                                                <span>•</span>
-                                                <span>{item.source_urls.length} источников</span>
-                                            </>
+                    {filteredNews.length === 0 ? (
+                        <div className="text-center py-20 text-gray-500">
+                            {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет или мы их ищем..."}
+                        </div>
+                    ) : (
+                        filteredNews.map((item: any) => (
+                            <Link
+                                key={item.id}
+                                href={`/platform/news/${item.id}?back=${encodeURIComponent(searchQuery)}`}
+                                className="block bg-white border border-gray-200 rounded-xl p-4 hover:border-[#FF6B35] hover:shadow-md transition-all"
+                            >
+                                <div className="flex items-start gap-3">
+                                    {/* Status Indicator */}
+                                    <div className="flex-shrink-0 mt-1">
+                                        {item.isNew ? (
+                                            <span className="inline-block px-2 py-0.5 text-xs font-semibold text-white bg-green-500 rounded">🆕 Новое</span>
+                                        ) : item.status === 'completed' ? (
+                                            <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+                                        ) : (
+                                            <span className="w-2 h-2 bg-yellow-500 rounded-full inline-block"></span>
                                         )}
                                     </div>
-                                </div>
 
-                                {/* Arrow */}
-                                <div className="flex-shrink-0 text-gray-400">
-                                    →
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        {/* Tags */}
+                                        {item.tags && item.tags.length > 0 && (
+                                            <div className="flex gap-2 mb-2">
+                                                {item.tags.slice(0, 2).map((tag: string) => (
+                                                    <span key={tag} className="text-xs px-2 py-0.5 bg-[#FF6B35]/10 text-[#FF6B35] rounded font-medium">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Title */}
+                                        <h3 className="text-base font-medium text-gray-900 mb-1 hover:text-[#FF6B35] transition-colors">
+                                            {item.title}
+                                        </h3>
+
+                                        {/* Summary */}
+                                        {item.summary && (
+                                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                                {item.summary}
+                                            </p>
+                                        )}
+
+                                        {/* Meta */}
+                                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                                            <span>{formatDate(item.published_at)}</span>
+                                            <span>•</span>
+                                            <span className="capitalize">{item.status === 'completed' ? 'Готово' : 'Генерируется'}</span>
+                                            {item.source_urls && item.source_urls.length > 0 && (
+                                                <>
+                                                    <span>•</span>
+                                                    <span>{item.source_urls.length} источников</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Arrow */}
+                                    <div className="flex-shrink-0 text-gray-400">
+                                        →
+                                    </div>
                                 </div>
-                            </div>
-                        </Link>
-                    ))}
+                            </Link>
+                        ))}
 
                     {/* Sentinel for Infinite Scroll */}
                     <div ref={observerTarget} className="h-10 w-full flex items-center justify-center">
