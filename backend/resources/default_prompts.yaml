@@ -13,7 +13,7 @@ agents:
       {webinar_chunks}
     greeting: |
       Привет! Я AI-тьютор. Готов помочь разобраться с материалами из библиотеки. О чём хочешь узнать?
-    avatar_url: "/avatars/ai_tutor.jpg"
+    avatar_url: "/avatars/ai_tutor.png"
 
   news_analyst:
     name: "AI Новостной Аналитик"
@@ -26,7 +26,7 @@ agents:
       {article_content}
     greeting: |
       Привет! Я прочитал эту новость и готов обсудить детали. Что именно тебя интересует?
-    avatar_url: "/avatars/news_analyst.jpg"
+    avatar_url: "/avatars/news_analyst.png"
 
   main_assistant:
     name: "AI Помощник"
@@ -52,7 +52,7 @@ agents:
       {schedule_context}
     greeting: |
       Привет! Я AI Помощник. Чем могу помочь по платформе?
-    avatar_url: "/avatars/main_assistant.jpg"
+    avatar_url: "/avatars/main_assistant.png"
 
   prompt_engineer:
     name: "Промт-инженер"
@@ -71,7 +71,7 @@ agents:
       Только получив ответы, приступай к генерации промпта.
     greeting: |
       Привет! Я помогу составить идеальный промпт. Для какой модели и задачи будем писать?
-    avatar_url: "/avatars/prompt_engineer.jpg"
+    avatar_url: "/avatars/prompt_engineer.png"
 
   idea_generator:
     name: "Генератор идей AI"
@@ -90,7 +90,7 @@ agents:
       Генерируй идеи только после понимания контекста.
     greeting: |
       Привет! Давай придумаем следующий "единорог" или просто полезный AI-инструмент. Какая сфера тебе интересна?
-    avatar_url: "/avatars/idea_generator.jpg"
+    avatar_url: "/avatars/idea_generator.png"
 
   project_consultant:
     name: "Консультант проекта"
@@ -107,7 +107,7 @@ agents:
       4. Используешь ли уже какие-то технологии?
     greeting: |
       Привет! Готов разобрать твой проект по косточкам. Расскажи, над чем работаешь?
-    avatar_url: "/avatars/project_consultant.jpg"
+    avatar_url: "/avatars/project_consultant.png"
 
   hardware_expert:
     name: "Эксперт по железу"
@@ -124,7 +124,7 @@ agents:
       4. Локальный сервер или облако?
     greeting: |
       Привет! Нужно подобрать видеокарту или собрать кластер? Расскажи про свои задачи.
-    avatar_url: "/avatars/hardware_expert.jpg"
+    avatar_url: "/avatars/hardware_expert.png"
 
   project_manager:
     name: "Project Manager"
@@ -141,7 +141,7 @@ agents:
       4. Какие основные этапы уже намечены?
     greeting: |
       Привет! Давай наведем порядок в задачах. Что нужно спланировать?
-    avatar_url: "/avatars/project_manager.jpg"
+    avatar_url: "/avatars/project_manager.png"
 
   sales_expert:
     name: "Sales Expert"
@@ -158,7 +158,7 @@ agents:
       4. Ситуация: холодный звонок, встреча или КП?
     greeting: |
       Привет! Как продавать AI дорого и эффективно? Рассказывай кейс.
-    avatar_url: "/avatars/sales_expert.jpg"
+    avatar_url: "/avatars/sales_expert.png"
 
   legal_advisor:
     name: "Legal Advisor"
@@ -175,7 +175,7 @@ agents:
       3. Используете ли API сторонних моделей (OpenAI, Anthropic)?
     greeting: |
       Привет! Вопросы по праву в AI? Давай обсудим риски и лицензии.
-    avatar_url: "/avatars/legal_advisor.jpg"
+    avatar_url: "/avatars/legal_advisor.png"
 
   nlp_expert:
     name: "NLP Expert (LLM)"
@@ -192,7 +192,7 @@ agents:
       4. Какой язык текстов?
     greeting: |
       Привет! Давай поговорим про LLM и тексты. Что строим: RAG или ,может, файнтюнинг?
-    avatar_url: "/avatars/nlp_expert.jpg"
+    avatar_url: "/avatars/nlp_expert.png"
 
   cv_expert:
     name: "Computer Vision"
@@ -209,7 +209,7 @@ agents:
       4. Какие есть ограничения по железу?
     greeting: |
       Привет! Распознавание, детекция или генерация? Рассказывай задачу по Computer Vision.
-    avatar_url: "/avatars/cv_expert.jpg"
+    avatar_url: "/avatars/cv_expert.png"
 
   data_expert:
     name: "Data Expert"
@@ -226,7 +226,7 @@ agents:
       4. Какой объем данных?
     greeting: |
       Привет! Прогнозируем продажи или классифицируем клиентов? Показывай данные.
-    avatar_url: "/avatars/data_expert.jpg"
+    avatar_url: "/avatars/data_expert.png"
 
   dataset_expert:
     name: "Dataset Expert"
@@ -243,7 +243,7 @@ agents:
       4. Объем датасета?
     greeting: |
       Привет! "Garbage in, garbage out". Давай сделаем твой датасет идеальным.
-    avatar_url: "/avatars/dataset_expert.jpg"
+    avatar_url: "/avatars/dataset_expert.png"
 
   mlops_expert:
     name: "MLOps Expert"
@@ -260,7 +260,7 @@ agents:
       4. Как сейчас запускается модель (скрипт, ноутбук)?
     greeting: |
       Привет! Модель готова, пора в продакшн? Давай обсудим Docker и деплой.
-    avatar_url: "/avatars/mlops_expert.jpg"
+    avatar_url: "/avatars/mlops_expert.png"
 
 proactivity_settings:
   agent_memory_prompt: |
