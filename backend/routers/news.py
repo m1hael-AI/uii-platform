@@ -6,7 +6,7 @@ from loguru import logger
 
 from database import get_async_session
 from models import User, NewsItem, NewsStatus
-from dependencies import get_current_user
+from dependencies import get_current_user, check_news_rate_limit
 from services.news.manager import NewsManager
 
 
@@ -97,7 +97,8 @@ async def get_news_item(
 async def search_fresh_news(
     request: dict = Body(...),
     db: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    _ = Depends(check_news_rate_limit)
 ):
     """
     Поиск свежих новостей через Perplexity API.
