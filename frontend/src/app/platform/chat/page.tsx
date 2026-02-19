@@ -139,20 +139,22 @@ export default function ChatIndexPage() {
                             }}
                             className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
                         >
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg shrink-0 overflow-hidden ${!session.agent_avatar ? getAgentStyle(session.id) : "bg-gray-100"}`}>
-                                {session.agent_avatar ? (
-                                    <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
-                                ) : (
-                                    session.agent_name[0]
+                            <div className="relative w-14 h-14 shrink-0">
+                                <div className={`w-full h-full rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${!session.agent_avatar ? getAgentStyle(session.id) : "bg-gray-100"}`}>
+                                    {session.agent_avatar ? (
+                                        <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        session.agent_name[0]
+                                    )}
+                                </div>
+                                {session.has_unread && (
+                                    <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white"></span>
                                 )}
                             </div>
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1">
                                     <h3 className="font-semibold text-gray-900">{session.agent_name}</h3>
-                                    {session.has_unread && (
-                                        <span className="w-2.5 h-2.5 bg-red-500 rounded-full shrink-0"></span>
-                                    )}
                                 </div>
                                 <p className={`text-xs line-clamp-1 ${session.has_unread ? "text-gray-900 font-medium" : "text-gray-500"}`}>
                                     {session.last_message || session.agent_greeting || "Начать диалог"}
