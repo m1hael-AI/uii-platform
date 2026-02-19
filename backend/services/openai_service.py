@@ -107,6 +107,37 @@ async def generate_embedding(
     return response.data[0].embedding
 
 
+async def generate_embeddings_batch(
+    texts: List[str],
+    model: str = "text-embedding-3-small"
+) -> List[List[float]]:
+    """
+    Генерирует векторы для СПИСКА текстов (Batch Embedding).
+    Значительно быстрее, чем по одному.
+    
+    Args:
+        texts: Список строк для векторизации
+        model: Модель эмбеддингов
+        
+    Returns:
+        List[List[float]]: Список векторов (в том же порядке)
+    """
+    # Replace newlines
+    clean_texts = [t.replace("\n", " ") for t in texts]
+    
+    # OpenAI позволяет отправлять списки строк
+    response = await client.embeddings.create(
+        input=clean_texts,
+        model=model
+    )
+    
+    # Сортируем по индексу, чтобы гарантировать порядок (хотя OpenAI обычно сохраняет)
+    # data = [{embedding: ..., index: 0}, {embedding: ..., index: 1}]
+    sorted_data = sorted(response.data, key=lambda x: x.index)
+    
+    return [item.embedding for item in sorted_data]
+
+
 async def stream_chat_response(
     messages: List[Dict[str, str]],
     model: Optional[str] = None,

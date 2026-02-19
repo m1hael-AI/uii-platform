@@ -37,7 +37,7 @@ except LookupError:
 # Project imports
 from database import async_engine
 from models import WebinarLibrary, WebinarChunk
-from services.openai_service import generate_embedding
+from services.openai_service import generate_embedding, generate_embeddings_batch
 
 load_dotenv()
 
@@ -49,7 +49,8 @@ logger.add("ingest_rag.log", rotation="10 MB")
 # ═══════════════════════════════════════════════════════
 RAG_INGEST_CONFIG = {
     "chunk_size_chars": 800,   # Целевой размер чанка в символах (~5-6 VTT-блоков, ~1-2 мин)
-    "overlap_blocks":   2,     # Блоков перекрытия между соседними чанками
+    "overlap_blocks":   1,     # Блоков перекрытия (было 2, уменьшили для скорости и снижения дублей)
+    "batch_size":       50,    # Размер батча для эмбеддинга (OpenAI лимит 2048, берем с запасом)
 }
 
 async def get_db_session() -> AsyncSession:
@@ -144,7 +145,7 @@ def chunk_text_nltk(text: str, chunk_size: int = 1000) -> List[str]:
     return chunks
 
 async def ingest_webinars():
-    logger.info("🚀 Starting RAG Ingestion...")
+    logger.info(f"🚀 Starting RAG Ingestion (Batch Size: {RAG_INGEST_CONFIG['batch_size']}, Overlap: {RAG_INGEST_CONFIG['overlap_blocks']})...")
     
     async with await get_db_session() as db:
         # 1. Fetch all webinars with transcripts
@@ -170,32 +171,43 @@ async def ingest_webinars():
             chunks_text = chunk_text_vtt(text)
             logger.info(f"  -> Split into {len(chunks_text)} VTT-chunks.")
             
-            # 4. Embedding & Saving
+            # 4. Embedding & Saving (Batch Mode)
             webinar_chunks = []
-            for i, chunk_content in enumerate(chunks_text):
-                # Generate Embedding
-                # Note: This calls OpenAI API, cost money!
-                try:
-                    vector = await generate_embedding(chunk_content)
-                    
-                    db_chunk = WebinarChunk(
-                        webinar_id=webinar.id,
-                        content=chunk_content,
-                        embedding=vector,
-                        chunk_metadata={
-                            "index": i,
-                            "source": "transcript",
-                            "title": webinar.title
-                        }
-                    )
-                    db.add(db_chunk)
-                    total_chunks_created += 1
-                except Exception as e:
-                    logger.error(f"  ❌ Failed to embed chunk {i}: {e}")
             
+            # Разбиваем на батчи по RAG_INGEST_CONFIG["batch_size"]
+            batch_size = RAG_INGEST_CONFIG["batch_size"]
+            total_chunks = len(chunks_text)
+            
+            for i in range(0, total_chunks, batch_size):
+                batch_texts = chunks_text[i : i + batch_size]
+                current_batch_indices = range(i, i + len(batch_texts))
+                
+                try:
+                    # Генерируем векторы пачкой (1 запрос вместо 50)
+                    vectors = await generate_embeddings_batch(batch_texts)
+                    
+                    for text_content, vector, idx in zip(batch_texts, vectors, current_batch_indices):
+                        db_chunk = WebinarChunk(
+                            webinar_id=webinar.id,
+                            content=text_content,
+                            embedding=vector,
+                            chunk_metadata={
+                                "index": idx,
+                                "source": "transcript",
+                                "title": webinar.title
+                            }
+                        )
+                        db.add(db_chunk)
+                    
+                    total_chunks_created += len(batch_texts)
+                    logger.info(f"    -> Processed batch {i}-{i+len(batch_texts)}/{total_chunks}")
+                    
+                except Exception as e:
+                    logger.error(f"  ❌ Failed to embed batch {i}: {e}")
+
             # Commit per webinar to save progress
             await db.commit()
-            logger.info(f"  ✅ Saved {len(chunks_text)} chunks for '{webinar.title}'")
+            logger.info(f"  ✅ Saved {total_chunks} chunks for '{webinar.title}'")
             
     logger.info(f"🎉 Ingestion Complete! Total chunks: {total_chunks_created}")
 
