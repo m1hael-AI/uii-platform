@@ -15,14 +15,14 @@ const markdownComponents = {
         if (isCitation) {
             return (
                 <a href={href} target="_blank" rel="noopener noreferrer" title={href} className="no-underline">
-                    <sup className="inline-flex items-center justify-center w-[16px] h-[16px] text-[9px] font-semibold text-orange-600 bg-orange-100 rounded-full hover:bg-orange-200 transition-colors ml-0.5 cursor-pointer">
+                    <sup className="inline-flex items-center justify-center w-[16px] h-[16px] text-[9px] font-semibold text-[#ff8a35] bg-[#ff8a35]/10 rounded-full hover:bg-[#ff8a35]/20 transition-colors ml-0.5 cursor-pointer">
                         {num}
                     </sup>
                 </a>
             );
         }
         return (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-600 underline decoration-orange-300 transition-colors">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#ff8a35] hover:text-[#e67a2e] underline decoration-[#ff8a35]/40 transition-colors">
                 {children}
             </a>
         );

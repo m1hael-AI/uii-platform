@@ -13,8 +13,8 @@ from services.openai_service import generate_embedding
 async def search_relevant_chunks(
     db: AsyncSession,
     query: str,
-    limit: int = 5,
-    similarity_threshold: float = 0.65,
+    limit: int = 8,            # Было 5 — слишком мало для длинных вебинаров
+    similarity_threshold: float = 0.75,  # Было 0.65 — слишком строго, нужные чанки отсекались
     webinar_id: int = None
 ) -> List[WebinarChunk]:
     """
