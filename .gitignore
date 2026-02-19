@@ -95,4 +95,4 @@ frontend/.vercel
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 webinars_with_vectors.sql
-backend/resources/avatars
+frontend/public/avatars/*
