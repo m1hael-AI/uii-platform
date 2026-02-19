@@ -19,12 +19,53 @@ export default function ArticlePage() {
     const [generating, setGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Polling ref — to clear interval on unmount or success
+    const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const MAX_POLL_ATTEMPTS = 30; // 30 * 5s = 2.5 min max wait
+    const pollAttemptsRef = useRef(0);
+
     // Resizable logic (Desktop)
     const [chatWidth, setChatWidth] = useState(400); // Default wider for text heavy chat
     const [isDragging, setIsDragging] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+
+    // Polling helper: checks every 5s until article is ready or max attempts exceeded
+    const startPolling = (articleId: number) => {
+        pollAttemptsRef.current = 0;
+        pollingIntervalRef.current = setInterval(async () => {
+            pollAttemptsRef.current += 1;
+
+            if (pollAttemptsRef.current > MAX_POLL_ATTEMPTS) {
+                // Gave up waiting — show a soft error with reload option
+                clearInterval(pollingIntervalRef.current!);
+                pollingIntervalRef.current = null;
+                setGenerating(false);
+                setError("Генерация занимает слишком долго. Пожалуйста, обновите страницу.");
+                return;
+            }
+
+            try {
+                const data = await NewsService.getNewsItem(articleId);
+                if (data.status === "completed") {
+                    clearInterval(pollingIntervalRef.current!);
+                    pollingIntervalRef.current = null;
+                    setArticle(data);
+                    setGenerating(false);
+                } else if (data.status === "failed") {
+                    clearInterval(pollingIntervalRef.current!);
+                    pollingIntervalRef.current = null;
+                    setGenerating(false);
+                    setError("Не удалось сгенерировать статью. Попробуйте позже.");
+                }
+                // If still 'processing' or 'pending' – keep polling silently
+            } catch (pollErr) {
+                console.warn("Polling request failed, will retry:", pollErr);
+                // Network blip — don't stop polling, just skip this attempt
+            }
+        }, 5000);
+    };
 
     // 1. Fetch Article
     useEffect(() => {
@@ -43,10 +84,17 @@ export default function ArticlePage() {
                         setArticle(result.article);
                         setGenerating(false);
                     } catch (genError) {
-                        console.error("Failed to generate article:", genError);
-                        setError("Не удалось сгенерировать статью. Попробуйте позже.");
-                        setGenerating(false);
+                        // Connection timed out or dropped — backend may still be working.
+                        // Switch to polling mode silently instead of showing an error.
+                        console.warn("Generation request ended early, switching to polling:", genError);
+                        startPolling(newsId);
                     }
+                } else if (data.status === "processing") {
+                    // Article is already being generated (opened from another tab / refresh)
+                    setArticle(data);
+                    setLoading(false);
+                    setGenerating(true);
+                    startPolling(newsId);
                 } else {
                     setArticle(data);
                     setLoading(false);
@@ -59,6 +107,14 @@ export default function ArticlePage() {
         };
 
         loadArticle();
+
+        // Cleanup polling on unmount or id change
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+        };
     }, [id]);
 
     // Resize Logic
@@ -265,7 +321,7 @@ export default function ArticlePage() {
 
             {/* Chat Messages Area */}
             <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50/50 custom-scrollbar w-full min-h-0 relative">
-                {article?.status === 'processing' && (
+                {(generating || article?.status === 'processing') && (
                     <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
                         <div className="w-10 h-10 border-4 border-[#FF6B35] border-t-transparent rounded-full animate-spin mb-3"></div>
                         <h4 className="font-semibold text-gray-900">Анализирую новость...</h4>
@@ -313,15 +369,15 @@ export default function ArticlePage() {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && article?.status !== 'processing' && handleSend()}
-                        placeholder={article?.status === 'processing' ? "Генерация новости..." : "Обсудить новость..."}
-                        disabled={isTyping || article?.status === 'processing'}
-                        className={`w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/20 focus:border-[#FF6B35] transition-all text-black ${isTyping || article?.status === 'processing' ? "cursor-not-allowed opacity-70" : ""}`}
+                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && !generating && article?.status !== 'processing' && handleSend()}
+                        placeholder={generating || article?.status === 'processing' ? "Генерация новости..." : "Обсудить новость..."}
+                        disabled={isTyping || generating || article?.status === 'processing'}
+                        className={`w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/20 focus:border-[#FF6B35] transition-all text-black ${isTyping || generating || article?.status === 'processing' ? "cursor-not-allowed opacity-70" : ""}`}
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!input.trim() || isTyping || article?.status === 'processing'}
-                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${input.trim() && !isTyping && article?.status !== 'processing'
+                        disabled={!input.trim() || isTyping || generating || article?.status === 'processing'}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${input.trim() && !isTyping && !generating && article?.status !== 'processing'
                             ? "text-[#ff8a35] hover:bg-orange-50"
                             : "text-gray-300 cursor-default"
                             }`}
