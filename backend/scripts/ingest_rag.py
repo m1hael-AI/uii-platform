@@ -215,12 +215,8 @@ async def ingest_webinars():
             if not webinar.transcript_context.strip():
                 continue
             
-            # Skip already successfully processed webinars (1-39)
-            if webinar.id not in [41, 50, 55]:
-                # logger.info(f"Skipping webinar {webinar.id} (already ingested or not targeted)")
-                continue
-
             logger.info(f"Processing webinar: {webinar.title} (ID: {webinar.id})")
+
             
             # 2. Cleanup old chunks for this webinar (to avoid duplicates on rerun)
             await db.execute(delete(WebinarChunk).where(WebinarChunk.webinar_id == webinar.id))
