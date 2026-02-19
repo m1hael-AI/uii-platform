@@ -94,4 +94,4 @@ frontend/.vercel
 # typescript
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
-backup_webinars_vectors.sql
+webinars_with_vectors.sql
