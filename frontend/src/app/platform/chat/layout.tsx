@@ -166,9 +166,13 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                                     className={`flex items-center gap-3 p-3 mx-2 mt-1 rounded-xl transition-colors ${isActive ? "bg-white shadow-sm border border-gray-100" : "hover:bg-gray-100/50"
                                         }`}
                                 >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${colorClass} relative`}>
-                                        {agent.name[0]}
-                                        {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden relative ${!agent.avatar_url ? colorClass : "bg-gray-100"}`}>
+                                        {agent.avatar_url ? (
+                                            <img src={agent.avatar_url} alt={agent.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            agent.name[0]
+                                        )}
+                                        {hasUnread && !isTyping && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white z-10"></span>}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-center mb-0.5">
