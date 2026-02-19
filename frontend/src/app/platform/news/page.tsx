@@ -225,8 +225,7 @@ export default function NewsPage() {
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:flex-initial">
                         <input
-                            type="text"
-                            placeholder="Поиск по темам..."
+                            placeholder="Поиск по готовым новостям..."
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
                             onKeyDown={(e) => {
