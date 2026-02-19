@@ -127,23 +127,46 @@ def chunk_text_vtt(
         # SAFETY CHECK: Если блок гигантский (> 4000 символов), рубим его принудительно
         # Это защитит от ошибок OpenAI (8192 токена), если таймкоды вдруг редкие или пропущены
         if block_size > 4000:
-            # Просто делим по переносам строк, чтобы не слать монстра целиком
-            sub_parts = block.split('\n')
-            buffer_sub = []
-            buffer_sub_size = 0
+            # SAFETY CHECK: Если блок огромный (>4000), рубим его на части, 
+            # стараясь сохранить границы предложений (точка, ?, ! + пробел)
             
-            for part in sub_parts:
-                part_len = len(part)
-                if buffer_sub_size + part_len > chunk_size and buffer_sub:
-                    chunks.append('\n'.join(buffer_sub))
-                    buffer_sub = []
-                    buffer_sub_size = 0
-                buffer_sub.append(part)
-                buffer_sub_size += part_len
+            # 1. Разбиваем на предложения
+            sentences = re.split(r'(?<=[.!?])\s+', block)
             
-            if buffer_sub:
-                chunks.append('\n'.join(buffer_sub))
-            continue # Блок обработан по частям, идем к следующему
+            sub_chunk = []
+            sub_chunk_size = 0
+            
+            for sentence in sentences:
+                sent_len = len(sentence)
+                
+                # Если само предложение гигантское (> chunk_size * 2), рубим жестко
+                # (защита от "висящих" кусков кода или логов без точек)
+                if sent_len > chunk_size * 2:
+                    # Сначала сбрасываем накопленное
+                    if sub_chunk:
+                        chunks.append(' '.join(sub_chunk))
+                        sub_chunk = []
+                        sub_chunk_size = 0
+                    
+                    # Рубим длинное предложение по chunk_size
+                    for part in range(0, sent_len, chunk_size):
+                        chunks.append(sentence[part : part + chunk_size])
+                    continue
+
+                # Если добавление предложения превысит chunk_size
+                if sub_chunk_size + sent_len > chunk_size and sub_chunk:
+                    chunks.append(' '.join(sub_chunk))
+                    sub_chunk = []
+                    sub_chunk_size = 0
+                
+                sub_chunk.append(sentence)
+                sub_chunk_size += sent_len
+            
+            # Добавляем остаток
+            if sub_chunk:
+                chunks.append(' '.join(sub_chunk))
+            
+            continue # Блок обработан и нарезан по предложениям/кускам
 
         if current_size + block_size > chunk_size and current_blocks:
             chunks.append('\n\n'.join(current_blocks))
@@ -193,8 +216,8 @@ async def ingest_webinars():
                 continue
             
             # Skip already successfully processed webinars (1-39)
-            if webinar.id < 40:
-                logger.info(f"Skipping webinar {webinar.id} (already ingested with VTT correctly)")
+            if webinar.id not in [41, 50, 55]:
+                # logger.info(f"Skipping webinar {webinar.id} (already ingested or not targeted)")
                 continue
 
             logger.info(f"Processing webinar: {webinar.title} (ID: {webinar.id})")
