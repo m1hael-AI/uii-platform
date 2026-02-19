@@ -9,6 +9,28 @@ import remarkGfm from "remark-gfm";
 
 import WebinarAction from "@/components/WebinarAction";
 
+const markdownComponents = {
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+        const text = String(children ?? "");
+        const isCitation = /^\[\d+\]$/.test(text);
+        const num = text.replace(/[\[\]]/g, "");
+        if (isCitation) {
+            return (
+                <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
+                    <sup className="inline-flex items-center justify-center w-[18px] h-[18px] text-[10px] font-bold text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors ml-0.5 cursor-pointer no-underline">
+                        {num}
+                    </sup>
+                </a>
+            );
+        }
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-600 underline decoration-orange-300 transition-colors">
+                {children}
+            </a>
+        );
+    },
+};
+
 interface Webinar {
     id: number;
     title: string;
@@ -321,7 +343,7 @@ export default function WebinarPage() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>

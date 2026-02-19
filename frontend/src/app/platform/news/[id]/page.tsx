@@ -8,6 +8,31 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { NewsService, NewsItem } from "@/services/news";
 
+// Кастомные компоненты для ReactMarkdown
+// [N] цитаты → маленький оранжевый superscript-кружок (стиль Perplexity)
+// Обычные ссылки → оранжевый подчёркнутый текст, новая вкладка
+const markdownComponents = {
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+        const text = String(children ?? "");
+        const isCitation = /^\[\d+\]$/.test(text);
+        const num = text.replace(/[\[\]]/g, "");
+        if (isCitation) {
+            return (
+                <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
+                    <sup className="inline-flex items-center justify-center w-[18px] h-[18px] text-[10px] font-bold text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors ml-0.5 cursor-pointer no-underline">
+                        {num}
+                    </sup>
+                </a>
+            );
+        }
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-600 underline decoration-orange-300 transition-colors">
+                {children}
+            </a>
+        );
+    },
+};
+
 export default function ArticlePage() {
     const { id } = useParams();
     const router = useRouter();
@@ -344,7 +369,7 @@ export default function ArticlePage() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
@@ -448,7 +473,7 @@ export default function ArticlePage() {
                 </div>
             ) : article.content ? (
                 <div className="prose max-w-none pb-20 prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:text-gray-700 prose-p:leading-relaxed">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{article.content}</ReactMarkdown>
                 </div>
             ) : (
                 <p className="text-gray-500 italic">Полный текст статьи пока недоступен.</p>

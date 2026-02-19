@@ -6,6 +6,29 @@ import Cookies from "js-cookie";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+// Кастомный рендерер: [N] → superscript пилюля, обычные ссылки → оранжевые
+const markdownComponents = {
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+        const text = String(children ?? "");
+        const isCitation = /^\[\d+\]$/.test(text);
+        const num = text.replace(/[\[\]]/g, "");
+        if (isCitation) {
+            return (
+                <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
+                    <sup className="inline-flex items-center justify-center w-[18px] h-[18px] text-[10px] font-bold text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors ml-0.5 cursor-pointer no-underline">
+                        {num}
+                    </sup>
+                </a>
+            );
+        }
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:text-orange-600 underline decoration-orange-300 transition-colors">
+                {children}
+            </a>
+        );
+    },
+};
+
 // 🎛️ FEATURE FLAG: Set to false to disable tooltip animation
 const FEATURE_TOOLTIP_ANIMATION = true;
 
@@ -525,7 +548,7 @@ export default function RightSidebar() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
@@ -537,7 +560,7 @@ export default function RightSidebar() {
                         <div className="flex justify-start">
                             <div className="max-w-[85%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm leading-relaxed shadow-sm text-gray-800">
                                 <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold">
-                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingMessage}</ReactMarkdown>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{streamingMessage}</ReactMarkdown>
                                 </div>
                             </div>
                         </div>
