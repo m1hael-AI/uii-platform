@@ -286,7 +286,7 @@ export default function ArticlePage() {
                                 {msg.role === 'user' ? (
                                     msg.text
                                 ) : (
-                                    <div className="prose prose-sm max-w-none text-inherit dark:prose-invert break-words">
+                                    <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
                                         <ReactMarkdown>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
@@ -390,7 +390,7 @@ export default function ArticlePage() {
                     </p>
                 </div>
             ) : article.content ? (
-                <div className="prose prose-lg max-w-none pb-20">
+                <div className="prose max-w-none pb-20 prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:text-gray-700 prose-p:leading-relaxed">
                     <ReactMarkdown>{article.content}</ReactMarkdown>
                 </div>
             ) : (

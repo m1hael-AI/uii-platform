@@ -319,7 +319,7 @@ export default function WebinarPage() {
                                 {msg.role === 'user' ? (
                                     msg.text
                                 ) : (
-                                    <div className="prose prose-sm max-w-none text-inherit dark:prose-invert break-words [&_strong]:text-inherit">
+                                    <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
                                         <ReactMarkdown>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
