@@ -28,27 +28,30 @@ async def log_llm_interaction(
     response_content: str,
     input_tokens: int,
     output_tokens: int,
-    cached_tokens: int = 0, # New arg
+    cached_tokens: int = 0,
     duration_ms: int = 0,
     status: str = "success",
-    error: str = None
+    error: str = None,
+    cost_usd_api: float = None  # Точная стоимость из API (OpenRouter). Если None — считаем локально.
 ):
     """
     Асинхронно записывает лог обращения к LLM с точным расчетом стоимости.
+    Если cost_usd_api передан (из OpenRouter) — используем его напрямую.
+    Иначе — считаем по таблице PRICES (для OpenAI).
     """
     try:
-        # Calculate Cost
-        price = PRICES.get(model, PRICES["gpt-4o-mini"]) # Fallback to mini
-        
-        # Ensure we don't have negative regular tokens if cached > input for some reason (API quirk safety)
-        regular_input_tokens = max(0, input_tokens - cached_tokens)
-        
-        # Cost per 1M formula
-        cost = (
-            (regular_input_tokens / 1_000_000 * price["input"]) +
-            (cached_tokens / 1_000_000 * price["cached_input"]) +
-            (output_tokens / 1_000_000 * price["output"])
-        )
+        if cost_usd_api is not None:
+            # Точная стоимость из ответа API (OpenRouter передаёт usage.cost)
+            cost = cost_usd_api
+        else:
+            # Считаем локально по таблице цен
+            price = PRICES.get(model, PRICES["gpt-4o-mini"])  # Fallback to mini
+            regular_input_tokens = max(0, input_tokens - cached_tokens)
+            cost = (
+                (regular_input_tokens / 1_000_000 * price["input"]) +
+                (cached_tokens / 1_000_000 * price["cached_input"]) +
+                (output_tokens / 1_000_000 * price["output"])
+            )
         
         audit_entry = LLMAudit(
             user_id=user_id,

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from database import async_session_factory
 from models import NewsSettings
 from services.audit_service import fire_and_forget_audit
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel, Field, ValidationError
 from config import settings
 
@@ -113,6 +113,7 @@ class PerplexityClient:
                         input_tokens = usage.get('prompt_tokens', 0)
                         output_tokens = usage.get('completion_tokens', 0)
                         duration = int((time.time() - start_time) * 1000)
+                        cost_usd_api = usage.get('cost')  # OpenRouter возвращает точную цену
                         
                         fire_and_forget_audit(
                             user_id=0, # System
@@ -122,7 +123,8 @@ class PerplexityClient:
                             response_content=content,
                             input_tokens=input_tokens,
                             output_tokens=output_tokens,
-                            duration_ms=duration
+                            duration_ms=duration,
+                            cost_usd_api=cost_usd_api
                         )
                     except Exception as audit_err:
                         logger.error(f"Audit Log Failed: {audit_err}")
@@ -195,9 +197,10 @@ class PerplexityClient:
             return result.news
         return []
 
-    async def generate_article(self, news_item: NewsItemSchema) -> Optional[WriterResponse]:
+    async def generate_article(self, news_item: NewsItemSchema) -> Tuple[Optional[WriterResponse], List[str]]:
         """
         WRITER: Пишет статью по заголовку и ссылкам.
+        Возвращает: (WriterResponse, citations) — citations это список URL из Perplexity.
         """
         settings_db = await self._get_settings()
         system_prompt = settings_db.writer_prompt
@@ -217,4 +220,83 @@ class PerplexityClient:
             {"role": "user", "content": user_content}
         ]
         
-        return await self._request(messages, WriterResponse)
+        # Делаем запрос напрямую (не через _request), чтобы получить citations
+        retries = 3
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            for attempt in range(retries):
+                start_time = time.time()
+                try:
+                    schema = WriterResponse.model_json_schema()
+                    payload = {
+                        "model": self.model,
+                        "messages": messages,
+                        "response_format": {
+                            "type": "json_schema",
+                            "json_schema": {
+                                "name": WriterResponse.__name__,
+                                "strict": True,
+                                "schema": schema
+                            }
+                        },
+                        "temperature": 0.1
+                    }
+                    
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=self.headers,
+                        json=payload
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Writer API Error {response.status_code}: {response.text}")
+                        if response.status_code == 429:
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+                        if 400 <= response.status_code < 500:
+                            return None, []
+                        raise httpx.HTTPStatusError(message="Server Error", request=response.request, response=response)
+
+                    data = response.json()
+                    content = data['choices'][0]['message']['content']
+                    
+                    # Извлекаем citations (список URL от Perplexity)
+                    citations: List[str] = data.get('citations', [])
+                    
+                    # Audit Log
+                    try:
+                        usage = data.get('usage', {})
+                        input_tokens = usage.get('prompt_tokens', 0)
+                        output_tokens = usage.get('completion_tokens', 0)
+                        duration = int((time.time() - start_time) * 1000)
+                        cost_usd_api = usage.get('cost')  # Точная цена из OpenRouter
+                        
+                        fire_and_forget_audit(
+                            user_id=0,
+                            agent_slug="news_writer",
+                            model=self.model,
+                            messages=messages,
+                            response_content=content,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            duration_ms=duration,
+                            cost_usd_api=cost_usd_api
+                        )
+                    except Exception as audit_err:
+                        logger.error(f"Writer Audit Log Failed: {audit_err}")
+                    
+                    # Парсим JSON ответ
+                    try:
+                        json_obj = json.loads(content)
+                        article = WriterResponse.model_validate(json_obj)
+                        return article, citations
+                    except (json.JSONDecodeError, ValidationError) as e:
+                        logger.error(f"Writer JSON Parsing Error: {e}. Content: {content[:100]}...")
+                        continue
+                        
+                except Exception as e:
+                    logger.warning(f"Writer Attempt {attempt + 1}/{retries} failed: {e}")
+                    if attempt == retries - 1:
+                        logger.error("Writer max retries reached")
+                        return None, []
+                    await asyncio.sleep(2 ** attempt)
+        return None, []

@@ -1,5 +1,6 @@
 from loguru import logger
 import asyncio
+import re
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -185,17 +186,29 @@ class NewsManager:
                 tags=news.tags or []
             )
             
-            # Генерация
-            article: WriterResponse = await self.perplexity.generate_article(item_schema)
+            # Генерация — теперь возвращает (article, citations)
+            article, citations = await self.perplexity.generate_article(item_schema)
             
             if article:
-                # Успех
-                news.content = article.content
-                news.title = article.title # Обновляем заголовок на более красивый от автора
-                news.status = NewsStatus.COMPLETED
+                content = article.content
                 
-                # Можно сохранить key_points в теги или отдельное поле, если нужно
-                # news.tags.extend(article.key_points)
+                # Сохраняем citations в source_urls (дополняем существующие)
+                if citations:
+                    existing = news.source_urls or []
+                    merged = existing + [u for u in citations if u not in existing]
+                    news.source_urls = merged
+                    
+                    # Заменяем [N] в тексте на кликабельные markdown-ссылки [[N]](url)
+                    def replace_citation(m):
+                        idx = int(m.group(1)) - 1  # citations 0-indexed, текст 1-indexed
+                        if 0 <= idx < len(citations):
+                            return f"[[{m.group(1)}]]({citations[idx]})"
+                        return m.group(0)  # оставляем как есть если индекс вне диапазона
+                    content = re.sub(r'\[(\d+)\]', replace_citation, content)
+                
+                news.content = content
+                news.title = article.title  # Обновляем заголовок на более красивый от автора
+                news.status = NewsStatus.COMPLETED
                 return article
                 
             else:
