@@ -41,7 +41,7 @@ export default function FloatingInternetSearch({ onSearch, isSearching }: Props)
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={isSearching ? "Ищем в интернете..." : "Спроси что угодно..."}
+                        placeholder={isSearching ? "Ищем в интернете..." : "Найти новости по теме..."}
                         className="w-full bg-transparent border-none focus:ring-0 focus:outline-none p-4 pr-14 text-gray-800 placeholder-gray-400 text-lg resize-none max-h-48 overflow-y-auto rounded-2xl outline-none shadow-none ring-0"
                         rows={1}
                         disabled={isSearching}

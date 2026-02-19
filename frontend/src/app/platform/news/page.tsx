@@ -267,7 +267,7 @@ export default function NewsPage() {
 
                     {filteredNews.length === 0 && !isSearching ? (
                         <div className="text-center py-20 text-gray-500">
-                            {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет или мы их ищем..."}
+                            {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет"}
                         </div>
                     ) : filteredNews.length > 0 ? (
                         <>

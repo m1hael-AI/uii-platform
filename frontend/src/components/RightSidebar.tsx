@@ -535,7 +535,7 @@ export default function RightSidebar() {
                     {isTyping && streamingMessage && (
                         <div className="flex justify-start">
                             <div className="max-w-[85%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm leading-relaxed shadow-sm text-gray-800">
-                                <div className="prose prose-sm max-w-none text-inherit dark:prose-invert">
+                                <div className="prose prose-sm max-w-none text-inherit dark:prose-invert [&_strong]:text-inherit">
                                     <ReactMarkdown>{streamingMessage}</ReactMarkdown>
                                 </div>
                             </div>
