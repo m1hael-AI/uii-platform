@@ -151,6 +151,30 @@ export default function NewsAdminPage() {
         }
     };
 
+    const runManualTask = async (task: 'harvester' | 'generator') => {
+        try {
+            const token = Cookies.get('token');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+            const endpoint = task === 'harvester' ? '/admin/news/run-harvester' : '/admin/news/run-generator';
+
+            const response = await fetch(`${API_URL}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Ошибка запуска задачи');
+            }
+
+            const data = await response.json();
+            alert(`✅ ${task === 'harvester' ? 'Сбор новостей' : 'Генерация статей'} запущен(а) в фоне!`);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Неизвестная ошибка');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -318,6 +342,15 @@ export default function NewsAdminPage() {
                                 />
                                 <span className="font-medium">Включить автоматический сбор новостей</span>
                             </label>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => runManualTask('harvester')}
+                                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                                >
+                                    🚀 Запустить сбор сейчас
+                                </button>
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Cron выражение</label>
                                 <input
@@ -351,6 +384,15 @@ export default function NewsAdminPage() {
                                 />
                                 <span className="font-medium">Включить автоматическую генерацию статей</span>
                             </label>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => runManualTask('generator')}
+                                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                                >
+                                    ⚡ Запустить генерацию сейчас
+                                </button>
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Cron выражение</label>
                                 <input

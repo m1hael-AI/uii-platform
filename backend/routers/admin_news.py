@@ -11,6 +11,8 @@ from datetime import datetime
 from database import get_async_session
 from models import User, NewsSettings, NewsItem, NewsStatus, UserRole
 from dependencies import get_current_user, get_db
+from fastapi import BackgroundTasks
+from services.news.jobs import harvest_news_nightly, generate_articles_periodic
 
 
 
@@ -180,4 +182,42 @@ async def update_news_config(
         "status": "success",
         "message": "Settings updated successfully",
         "updated_at": settings.updated_at.isoformat()
+    }
+
+
+@router.post("/run-harvester")
+async def run_harvester(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Запустить сбор новостей (Harvester) вручную.
+    Задача выполняется в фоне.
+    """
+    verify_admin(current_user)
+    
+    background_tasks.add_task(harvest_news_nightly)
+    
+    return {
+        "status": "success", 
+        "message": "Harvester task started in background"
+    }
+
+
+@router.post("/run-generator")
+async def run_generator(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Запустить генерацию статей вручную.
+    Задача выполняется в фоне.
+    """
+    verify_admin(current_user)
+    
+    background_tasks.add_task(generate_articles_periodic)
+    
+    return {
+        "status": "success", 
+        "message": "Generator task started in background"
     }

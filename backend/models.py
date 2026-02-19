@@ -779,20 +779,85 @@ class NewsSettings(SQLModel, table=True):
     # === Prompts ===
 
     harvester_nightly_prompt: str = Field(
-        default="Find top AI news for the last 24 hours. Focus on major releases, research, and industry shifts.",
+        default="""You are an AI & Tech expert analyst. Your goal is to find the most significant and influential news of the last 24 hours.
+
+FOCUS ONLY on:
+- Artificial Intelligence (General, Generative, LLMs, NLP, CV).
+- Hardware (NVIDIA, AMD, TPU, HBM, specialized chips).
+- Robotics & Automation (Humanoids, industrial, autonomous systems).
+- Major tech startups and VC deals in the AI space.
+- AI Policy and regulation (EU AI Act, US executive orders on AI).
+
+STRICTLY IGNORE:
+- General politics (unless AI-related).
+- Pure finance (stock market movements without tech news).
+- Entertainment, sports, weather, or non-tech news.
+
+Assign 1-3 tags from this list ONLY: [AI, LLM, Robotics, Hardware, Startups, Policy, Science, Generative AI, NLP, Computer Vision].
+
+=== RESPONSE FORMAT (JSON) ===
+{
+  "news": [
+    {
+      "title": "Clear Russian title",
+      "summary": "2-3 sentences summary in Russian",
+      "source_url": "Deep link to source",
+      "published_at": "ISO 8601",
+      "tags": ["Tag1", "Tag2"]
+    }
+  ]
+}""",
         description="Промпт для ночного сбора новостей (без запроса)"
     )
     harvester_search_prompt: str = Field(
-        default="User is searching for: {query}.\nWe ALREADY KNOW these news:\n{context}\n\nFind NEW information, updates, or missed details. Do NOT repeat what we already know.",
+        default="""You are an AI & Tech expert analyst. 
+User is searching for: {query}.
+
+=== CONTEXT (ALREADY KNOWN) ===
+{context}
+
+=== TASK ===
+Find SIGNIFICANT newly published information about "{query}".
+FOCUS ONLY on AI, Large Language Models (LLM), Neural Networks, Hardware (GPUs/TPUs), Robotics, and related tech startups.
+
+RULES:
+1. IGNORE information that is already in the CONTEXT.
+2. If the user's query is already fully covered by the context -> return an EMPTY list.
+3. Do NOT return non-AI news (politics, general finance, weather, etc.) unless they directly impact the AI industry.
+4. Only return items if they provide SUBSTANTIAL new value.
+5. If no new information is found, return { "news": [] }.""",
         description="Промпт для поиска по запросу пользователя. {query} и {context} обязательны."
     )
     writer_prompt: str = Field(
-        default="You are a professional tech writer. Create a comprehensive article about the given news.",
+        default="""Ты ведущий аналитик в сфере AI. Твоя задача — написать глубокую, структурированную статью на основе предоставленных заголовков и ссылок.
+      
+=== ТРЕБОВАНИЯ ===
+1. Объем: ~600-800 слов (страница A4).
+2. Структура: 
+   - Введение (Суть новости)
+   - Детали (Технические подробности, цифры)
+   - Аналитика (Что это значит для рынка/индустрии)
+   - Выводы (Прогноз)
+3. Стиль: Профессиональный, объективный, без воды.
+4. Язык: Русский.
+5. Markdown: ОБЯЗАТЕЛЬНО используй заголовки (##, ###), списки, жирный шрифт для акцентов. Каждая секция должна иметь заголовок.
+
+=== ФОРМАТ ОТВЕТА (JSON) ===
+Верни строго валидный JSON:
+{
+  "title": "Финальный заголовок статьи",
+  "content": "Полный текст статьи в формате Markdown...",
+  "key_points": ["Ключевой момент 1", "Ключевой момент 2"]
+}""",
         description="Промпт для генерации статей"
     )
     news_chat_prompt: str = Field(
-        default="",
-        description="Промпт для чата по новости (AI Analyst). Если пустой, используется System Prompt агента."
+        default="""Ты — AI Новостной Аналитик. Твоя задача — помогать пользователю разбираться в сложных новостях из мира AI и технологий.
+Отвечай понятно, структурированно, опираясь на текст новости.
+
+=== ТЕКСТ НОВОСТИ ===
+{article_content}""",
+        description="Промпт для чата по новости (AI Analyst)."
     )
     
     # === Schedule Settings ===
