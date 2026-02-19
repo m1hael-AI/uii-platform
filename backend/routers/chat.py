@@ -532,9 +532,13 @@ async def chat_completions(
                  webinar_chunks_str = "(Нет релевантных фрагментов для данного запроса)"
             else:
                 # C. Fallback to Full Transcript (Legacy/Short webinars)
-                if w_meta and getattr(w_meta, 'transcript_context', None):
-                     webinar_chunks_str = w_meta.transcript_context
-                     logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_chunks_str)} chars)")
+                # REMOVED per user request
+                # if w_meta and getattr(w_meta, 'transcript_context', None):
+                #      webinar_chunks_str = w_meta.transcript_context
+                #      logger.info(f"📜 RAG empty & Not Indexed, using full transcript ({len(webinar_chunks_str)} chars)")
+                
+                # Default to empty if no chunks and no fallback
+                webinar_chunks_str = ""
 
     # 1.1 Get News Context (If news_id present)
     news_content_str = ""
