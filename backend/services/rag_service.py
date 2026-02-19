@@ -10,11 +10,19 @@ from loguru import logger
 from models import WebinarChunk
 from services.openai_service import generate_embedding
 
+# ═══════════════════════════════════════════════════════
+# RAG SEARCH CONFIG — все параметры поиска здесь
+# ═══════════════════════════════════════════════════════
+RAG_SEARCH_CONFIG = {
+    "limit":                8,     # Топ-N чанков по каждому запросу (было 5)
+    "similarity_threshold": 0.75,  # Cosine distance: 0.0=идентично, 1.0=различно (было 0.65)
+}
+
 async def search_relevant_chunks(
     db: AsyncSession,
     query: str,
-    limit: int = 8,            # Было 5 — слишком мало для длинных вебинаров
-    similarity_threshold: float = 0.75,  # Было 0.65 — слишком строго, нужные чанки отсекались
+    limit: int = RAG_SEARCH_CONFIG["limit"],
+    similarity_threshold: float = RAG_SEARCH_CONFIG["similarity_threshold"],
     webinar_id: int = None
 ) -> List[WebinarChunk]:
     """
