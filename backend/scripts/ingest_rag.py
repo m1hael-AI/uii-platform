@@ -71,11 +71,20 @@ def parse_vtt_blocks(text: str) -> List[str]:
     text = text.replace('\\r\\n', '\n').replace('\\r', '\n').replace('\\n', '\n')
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     
-    ts_pattern = re.compile(
+    # 1. Пробуем стандартный VTT: "00:00:00.000 --> 00:00:00.000"
+    ts_pattern_vtt = re.compile(
         r'(\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3})'
     )
-    positions = [(m.start(), m.end()) for m in ts_pattern.finditer(text)]
+    positions = [(m.start(), m.end()) for m in ts_pattern_vtt.finditer(text)]
     
+    # 2. Если VTT не найден, пробуем формат "[MM:SS-MM:SS]:" или "[HH:MM:SS-HH:MM:SS]:"
+    # Пример: [02:17-02:21]: Текст...
+    if not positions:
+        ts_pattern_brackets = re.compile(
+            r'\[(\d{1,2}:\d{2}(?::\d{2})?)\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?)\]:'
+        )
+        positions = [(m.start(), m.end()) for m in ts_pattern_brackets.finditer(text)]
+
     blocks = []
     for i, (start, end) in enumerate(positions):
         timestamp = text[start:end].strip()
@@ -160,7 +169,12 @@ async def ingest_webinars():
         for webinar in webinars:
             if not webinar.transcript_context.strip():
                 continue
-                
+            
+            # Skip already successfully processed webinars (1-39)
+            if webinar.id < 40:
+                logger.info(f"Skipping webinar {webinar.id} (already ingested with VTT correctly)")
+                continue
+
             logger.info(f"Processing webinar: {webinar.title} (ID: {webinar.id})")
             
             # 2. Cleanup old chunks for this webinar (to avoid duplicates on rerun)
