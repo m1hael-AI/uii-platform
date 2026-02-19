@@ -61,10 +61,15 @@ async def lifespan(app: FastAPI):
     # Auto-Seed Agents on Startup
     try:
         from scripts.seed_agents import seed_agents
+        from scripts.sync_news_settings import sync_prompts
+
         logger.info("🌱 Seeding agents from YAML...")
         await seed_agents()
+        
+        logger.info("🗞️ Syncing News Settings from YAML...")
+        await sync_prompts()
     except Exception as e:
-        logger.error(f"❌ Agent seeding failed: {e}")
+        logger.error(f"❌ Startup seeding/sync failed: {e}")
 
 
 
