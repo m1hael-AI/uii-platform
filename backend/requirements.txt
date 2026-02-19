@@ -53,3 +53,6 @@ PyYAML==6.0.2
 
 # === Image Processing ===
 Pillow==12.1.0
+
+# === NLP ===
+nltk==3.8.1
