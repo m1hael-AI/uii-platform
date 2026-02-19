@@ -50,7 +50,7 @@ logger.add("ingest_rag.log", rotation="10 MB")
 RAG_INGEST_CONFIG = {
     "chunk_size_chars": 800,   # Целевой размер чанка в символах (~5-6 VTT-блоков, ~1-2 мин)
     "overlap_blocks":   1,     # Блоков перекрытия (было 2, уменьшили для скорости и снижения дублей)
-    "batch_size":       10,    # Размер батча для эмбеддинга (уменьшили с 50 до 10 из-за больших блоков в вебинарах 40+)
+    "batch_size":       50,    # Размер батча для эмбеддинга (Вернули 50, так как пофиксили размер чанков)
 }
 
 async def get_db_session() -> AsyncSession:
@@ -77,11 +77,12 @@ def parse_vtt_blocks(text: str) -> List[str]:
     )
     positions = [(m.start(), m.end()) for m in ts_pattern_vtt.finditer(text)]
     
-    # 2. Если VTT не найден, пробуем формат "[MM:SS-MM:SS]:" или "[HH:MM:SS-HH:MM:SS]:"
-    # Пример: [02:17-02:21]: Текст...
+    # 2. Если VTT не найден, пробуем упрощенный формат в скобках [MM:SS...]
+    # Сделали регулярку более "жадной" и гибкой к пробелам
     if not positions:
+        # Ищем паттерн [цифры:цифры ... ]:
         ts_pattern_brackets = re.compile(
-            r'\[(\d{1,2}:\d{2}(?::\d{2})?)\s*-\s*(\d{1,2}:\d{2}(?::\d{2})?)\]:'
+            r'\[(\d{1,2}:\d{2}.*?)\]:'
         )
         positions = [(m.start(), m.end()) for m in ts_pattern_brackets.finditer(text)]
 
@@ -123,6 +124,27 @@ def chunk_text_vtt(
     for block in blocks:
         block_size = len(block)
         
+        # SAFETY CHECK: Если блок гигантский (> 4000 символов), рубим его принудительно
+        # Это защитит от ошибок OpenAI (8192 токена), если таймкоды вдруг редкие или пропущены
+        if block_size > 4000:
+            # Просто делим по переносам строк, чтобы не слать монстра целиком
+            sub_parts = block.split('\n')
+            buffer_sub = []
+            buffer_sub_size = 0
+            
+            for part in sub_parts:
+                part_len = len(part)
+                if buffer_sub_size + part_len > chunk_size and buffer_sub:
+                    chunks.append('\n'.join(buffer_sub))
+                    buffer_sub = []
+                    buffer_sub_size = 0
+                buffer_sub.append(part)
+                buffer_sub_size += part_len
+            
+            if buffer_sub:
+                chunks.append('\n'.join(buffer_sub))
+            continue # Блок обработан по частям, идем к следующему
+
         if current_size + block_size > chunk_size and current_blocks:
             chunks.append('\n\n'.join(current_blocks))
             # Overlap: первые блоки следующего чанка = последние N блоков текущего
