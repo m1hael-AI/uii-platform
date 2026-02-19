@@ -534,7 +534,7 @@ class ChatSession(SQLModel, table=True):
     __tablename__ = "chat_sessions"
     __table_args__ = (
         UniqueConstraint(
-            "user_id", "agent_slug", "schedule_id", "library_id", 
+            "user_id", "agent_slug", "schedule_id", "library_id", "news_id",
             name="uq_chat_session_user_agent_context",
             postgresql_nulls_not_distinct=True
         ),

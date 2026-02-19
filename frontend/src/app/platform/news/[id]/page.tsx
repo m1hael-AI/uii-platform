@@ -164,6 +164,8 @@ export default function ArticlePage() {
     // Load History & Smart Resume
     useEffect(() => {
         if (!id) return;
+        // Only fetch history (which triggers greeting) if article is ready
+        if (article?.status !== 'completed') return;
 
         const fetchHistory = async () => {
             const token = Cookies.get("token");
@@ -201,7 +203,7 @@ export default function ArticlePage() {
         };
 
         fetchHistory();
-    }, [id]);
+    }, [id, article?.status]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -261,7 +263,18 @@ export default function ArticlePage() {
                 </div>
             </div>
 
-            <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50/50 custom-scrollbar w-full min-h-0">
+            {/* Chat Messages Area */}
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gray-50/50 custom-scrollbar w-full min-h-0 relative">
+                {article?.status === 'processing' && (
+                    <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6">
+                        <div className="w-10 h-10 border-4 border-[#FF6B35] border-t-transparent rounded-full animate-spin mb-3"></div>
+                        <h4 className="font-semibold text-gray-900">Анализирую новость...</h4>
+                        <p className="text-sm text-gray-500 mt-1 max-w-xs">
+                            Чат станет доступен после завершения генерации статьи.
+                        </p>
+                    </div>
+                )}
+
                 {messages.map((msg, idx) => {
                     if (msg.role === 'assistant' && !msg.text) return null;
                     return (
@@ -300,15 +313,15 @@ export default function ArticlePage() {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && handleSend()}
-                        placeholder="Обсудить новость..."
-                        disabled={isTyping}
-                        className={`w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/20 focus:border-[#FF6B35] transition-all text-black ${isTyping ? "cursor-not-allowed opacity-70" : ""}`}
+                        onKeyDown={(e) => e.key === 'Enter' && !isTyping && article?.status !== 'processing' && handleSend()}
+                        placeholder={article?.status === 'processing' ? "Генерация новости..." : "Обсудить новость..."}
+                        disabled={isTyping || article?.status === 'processing'}
+                        className={`w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B35]/20 focus:border-[#FF6B35] transition-all text-black ${isTyping || article?.status === 'processing' ? "cursor-not-allowed opacity-70" : ""}`}
                     />
                     <button
                         onClick={handleSend}
-                        disabled={!input.trim() || isTyping}
-                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${input.trim()
+                        disabled={!input.trim() || isTyping || article?.status === 'processing'}
+                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${input.trim() && !isTyping && article?.status !== 'processing'
                             ? "text-[#ff8a35] hover:bg-orange-50"
                             : "text-gray-300 cursor-default"
                             }`}
