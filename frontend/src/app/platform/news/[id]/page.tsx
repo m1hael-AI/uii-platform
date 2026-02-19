@@ -18,8 +18,8 @@ const markdownComponents = {
         const num = text.replace(/[\[\]]/g, "");
         if (isCitation) {
             return (
-                <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
-                    <sup className="inline-flex items-center justify-center w-[18px] h-[18px] text-[10px] font-bold text-white bg-orange-500 rounded-full hover:bg-orange-600 transition-colors ml-0.5 cursor-pointer no-underline">
+                <a href={href} target="_blank" rel="noopener noreferrer" title={href} className="no-underline">
+                    <sup className="inline-flex items-center justify-center w-[16px] h-[16px] text-[9px] font-semibold text-orange-600 bg-orange-100 rounded-full hover:bg-orange-200 transition-colors ml-0.5 cursor-pointer">
                         {num}
                     </sup>
                 </a>
