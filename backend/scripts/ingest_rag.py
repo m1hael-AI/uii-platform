@@ -50,7 +50,7 @@ logger.add("ingest_rag.log", rotation="10 MB")
 RAG_INGEST_CONFIG = {
     "chunk_size_chars": 800,   # Целевой размер чанка в символах (~5-6 VTT-блоков, ~1-2 мин)
     "overlap_blocks":   1,     # Блоков перекрытия (было 2, уменьшили для скорости и снижения дублей)
-    "batch_size":       50,    # Размер батча для эмбеддинга (OpenAI лимит 2048, берем с запасом)
+    "batch_size":       10,    # Размер батча для эмбеддинга (уменьшили с 50 до 10 из-за больших блоков в вебинарах 40+)
 }
 
 async def get_db_session() -> AsyncSession:
