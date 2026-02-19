@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Cookies from "js-cookie";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { NewsService, NewsItem } from "@/services/news";
 
 export default function ArticlePage() {
@@ -343,7 +344,7 @@ export default function ArticlePage() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
-                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
@@ -447,7 +448,7 @@ export default function ArticlePage() {
                 </div>
             ) : article.content ? (
                 <div className="prose max-w-none pb-20 prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-p:text-gray-700 prose-p:leading-relaxed">
-                    <ReactMarkdown>{article.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{article.content}</ReactMarkdown>
                 </div>
             ) : (
                 <p className="text-gray-500 italic">Полный текст статьи пока недоступен.</p>

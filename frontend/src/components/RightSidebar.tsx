@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // 🎛️ FEATURE FLAG: Set to false to disable tooltip animation
 const FEATURE_TOOLTIP_ANIMATION = true;
@@ -524,7 +525,7 @@ export default function RightSidebar() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold">
-                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
@@ -536,7 +537,7 @@ export default function RightSidebar() {
                         <div className="flex justify-start">
                             <div className="max-w-[85%] bg-white border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm leading-relaxed shadow-sm text-gray-800">
                                 <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold">
-                                    <ReactMarkdown>{streamingMessage}</ReactMarkdown>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingMessage}</ReactMarkdown>
                                 </div>
                             </div>
                         </div>

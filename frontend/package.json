@@ -19,6 +19,7 @@
     "react-markdown": "^10.1.0",
     "react-phone-input-2": "^2.15.1",
     "react-resizable-panels": "^4.4.1",
+    "remark-gfm": "^4.0.1",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
   },

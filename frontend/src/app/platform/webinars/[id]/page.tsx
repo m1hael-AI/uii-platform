@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import WebinarAction from "@/components/WebinarAction";
 
@@ -320,7 +321,7 @@ export default function WebinarPage() {
                                     msg.text
                                 ) : (
                                     <div className="prose prose-sm max-w-none text-inherit prose-strong:text-gray-900 prose-strong:font-bold break-words">
-                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </div>
                                 )}
                             </div>
