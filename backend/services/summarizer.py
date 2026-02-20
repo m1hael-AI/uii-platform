@@ -130,8 +130,8 @@ async def process_memory_update(
         # logger.info(f"⏭️ Skipping memory update for {chat_session.id}: no user messages")
         return
 
-    # EXCEPTION: AI Tutor does NOT have long-term memory or proactivity
-    if chat_session.agent_slug == "ai_tutor":
+    # EXCEPTION: AI Tutor and News Analyst do NOT have long-term memory or proactivity
+    if chat_session.agent_slug in ("ai_tutor", "news_analyst"):
         # Just update timestamp to avoid re-checking
         chat_session.summarized_at = datetime.utcnow()
         await db.commit()
