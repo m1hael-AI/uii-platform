@@ -153,6 +153,9 @@ class Agent(SQLModel, table=True):
     # Приветственное сообщение
     greeting_message: Optional[str] = Field(default=None, description="Приветственное сообщение для начала диалога")
     
+    # Вопросы-подсказки (показываются новому пользователю после приветствия)
+    suggested_questions: Optional[List[str]] = Field(default=None, sa_column=Column(JSON), description="3-4 вопроса-подсказки для пустого чата")
+    
     # Описание для UI
     description: Optional[str] = Field(default=None, description="Краткое описание агента для пользователей")
     

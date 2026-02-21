@@ -150,6 +150,7 @@ class AgentDTO(BaseModel):
     description: Optional[str] = None
     avatar_url: Optional[str] = None
     greeting_message: Optional[str] = None
+    suggested_questions: Optional[List[str]] = None
 
 @router.get("/agents", response_model=List[AgentDTO])
 async def get_available_agents(
@@ -176,7 +177,8 @@ async def get_available_agents(
             name=a.name,
             description=a.description,
             avatar_url=a.avatar_url,
-            greeting_message=a.greeting_message
+            greeting_message=a.greeting_message,
+            suggested_questions=a.suggested_questions or []
         ) for a in agents if a.slug not in ["main_assistant", "ai_tutor", "news_analyst"] # Exclude system agents
     ]
 

@@ -66,6 +66,7 @@ async def seed_agents():
                 agent.system_prompt = info['system_prompt']
                 agent.greeting_message = info['greeting']
                 agent.avatar_url = info['avatar_url']
+                agent.suggested_questions = info.get('suggested_questions', [])
                 agent.is_active = True # Ensure active
             else:
                 logger.info(f"✨ Creating new agent: {slug}")
@@ -76,6 +77,7 @@ async def seed_agents():
                     system_prompt=info['system_prompt'],
                     greeting_message=info['greeting'],
                     avatar_url=info['avatar_url'],
+                    suggested_questions=info.get('suggested_questions', []),
                     is_active=True
                 )
                 session.add(agent)

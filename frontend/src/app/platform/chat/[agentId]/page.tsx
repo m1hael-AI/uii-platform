@@ -12,6 +12,7 @@ interface Agent {
   description?: string;
   avatar_url?: string;
   greeting_message?: string;
+  suggested_questions?: string[];
 }
 
 // Fallback colors
@@ -34,6 +35,7 @@ export default function AgentChatPage() {
   const [streamingMessage, setStreamingMessage] = useState("");
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
   const isGeneratingRef = useRef(false);
@@ -210,6 +212,13 @@ export default function AgentChatPage() {
             setMessages([]);
           }
 
+          // Show suggestions if only the greeting exists (user hasn't written anything yet)
+          // Works on first open AND on re-open if user never sent a message
+          const onlyGreeting = loadedMessages.length === 1 && loadedMessages[0].role === 'assistant';
+          if (history.is_new_session || onlyGreeting) {
+            setShowSuggestions(true);
+          }
+
           // Mark as read ONLY if requested (prevents infinite SSE loops)
           if (shouldMarkRead) {
             await fetch(`${API_URL}/chat/read?agent_id=${agentId}`, {
@@ -277,6 +286,7 @@ export default function AgentChatPage() {
       return;
     }
 
+    setShowSuggestions(false);
     const userText = input;
     const newMessages = [...messages, { role: 'user' as const, text: userText }];
 
@@ -284,6 +294,15 @@ export default function AgentChatPage() {
     setInput("");
 
     // Use extracted helper
+    await streamResponse(newMessages);
+  };
+
+  // Handle suggestion button click — send as if user typed it
+  const handleSuggestionClick = async (text: string) => {
+    if (isTyping) return;
+    setShowSuggestions(false);
+    const newMessages = [...messages, { role: 'user' as const, text }];
+    setMessages(newMessages);
     await streamResponse(newMessages);
   };
 
@@ -384,6 +403,22 @@ export default function AgentChatPage() {
 
         <div ref={endRef} />
       </div>
+
+      {/* Suggestion Buttons — shown only on new empty chat, above input */}
+      {showSuggestions && agent?.suggested_questions && agent.suggested_questions.length > 0 && (
+        <div className="px-4 pb-2 bg-white flex flex-wrap gap-2">
+          {agent.suggested_questions.map((q, i) => (
+            <button
+              key={i}
+              onClick={() => handleSuggestionClick(q)}
+              disabled={isTyping}
+              className="text-sm px-3 py-1.5 rounded-full bg-[#FF6B35]/10 text-[#FF6B35] border border-[#FF6B35]/20 hover:bg-[#FF6B35]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Input (Full Width) */}
       <div className="p-4 bg-white border-t border-gray-100">
