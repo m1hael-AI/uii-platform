@@ -136,6 +136,12 @@ class ChatSettingsUpdate(BaseModel):
     user_chat_max_tokens: Optional[int] = None
     rate_limit_per_minute: Optional[int] = None
     
+    # Блок 1.5: AI-тьютор
+    tutor_model: Optional[str] = None
+    tutor_temperature: Optional[float] = None
+    tutor_max_tokens: Optional[int] = None
+    tutor_rate_limit_per_minute: Optional[int] = None
+    
     # Блок 2: Вечный диалог (Сжатие контекста)
     compression_model: Optional[str] = None
     compression_temperature: Optional[float] = None
@@ -155,6 +161,12 @@ class ChatSettingsResponse(BaseModel):
     user_chat_temperature: float
     user_chat_max_tokens: Optional[int]
     rate_limit_per_minute: int
+    
+    # Блок 1.5: AI-тьютор
+    tutor_model: str
+    tutor_temperature: float
+    tutor_max_tokens: Optional[int]
+    tutor_rate_limit_per_minute: int
     
     # Блок 2: Вечный диалог (Сжатие контекста)
     compression_model: str

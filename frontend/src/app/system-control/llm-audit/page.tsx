@@ -73,19 +73,15 @@ export default function LLMAuditPage() {
 
     return (
         <div className="space-y-6">
-            {/* Breadcrumbs */}
-            <div className="flex items-center gap-2 text-sm">
-                <a href="/system-control" className="text-gray-400 hover:text-black transition-colors">
+            {/* Header with Breadcrumbs */}
+            <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <span className="text-gray-400 cursor-pointer hover:text-black" onClick={() => window.location.href = "/system-control"}>
                     System Control
-                </a>
+                </span>
                 <span className="text-gray-300">/</span>
-                <span className="text-black font-medium">LLM Audit</span>
-            </div>
-
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-800">LLM Audit Logs</h2>
-                <div className="text-sm text-gray-500">Total: {totalItems}</div>
-            </div>
+                <span>LLM Audit</span>
+                <span className="ml-auto text-sm font-normal text-gray-500">Total: {totalItems}</span>
+            </h1>
 
             {/* Filters */}
             <div className="flex gap-4 p-4 bg-white rounded-lg shadow-sm border border-gray-100">

@@ -12,6 +12,11 @@ interface ChatSettings {
     user_chat_temperature: number;
     user_chat_max_tokens: number | null;
     rate_limit_per_minute: number;
+    // Блок 1.5: AI-тьютор
+    tutor_model: string;
+    tutor_temperature: number;
+    tutor_max_tokens: number | null;
+    tutor_rate_limit_per_minute: number;
     // Блок 2: Вечный диалог (Сжатие контекста)
     compression_model: string;
     compression_temperature: number;
@@ -274,6 +279,88 @@ export default function ChatSettingsPage() {
                                 max="1000"
                                 value={settings.rate_limit_per_minute || 15}
                                 onChange={(e) => setSettings({ ...settings, rate_limit_per_minute: parseInt(e.target.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Block 1.5: AI-тьютор — отдельные настройки */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 className="text-xl font-semibold mb-1">AI-тьютор</h2>
+                    <p className="text-sm text-gray-500 mb-4">Отдельные настройки модели для агента AI-тьютора (большой контекст RAG)</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                        {/* Tutor Model */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Модель
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={settings.tutor_model}
+                                    onChange={(e) => setSettings({ ...settings, tutor_model: e.target.value })}
+                                    className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-lg appearance-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent bg-white"
+                                >
+                                    {AVAILABLE_MODELS.map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                    {!AVAILABLE_MODELS.includes(settings.tutor_model) && (
+                                        <option value={settings.tutor_model}>{settings.tutor_model} (Custom)</option>
+                                    )}
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" /></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tutor Temperature */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Температура
+                            </label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="2"
+                                value={settings.tutor_temperature}
+                                onChange={(e) => setSettings({ ...settings, tutor_temperature: parseFloat(e.target.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                        </div>
+
+                        {/* Tutor Max Tokens */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Max Tokens (Ответ)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                placeholder="Без лимита"
+                                value={settings.tutor_max_tokens ?? ''}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSettings({ ...settings, tutor_max_tokens: val === '' ? null : parseInt(val) });
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Оставьте пустым для безлимита</p>
+                        </div>
+
+                        {/* Tutor Rate Limit */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Rate Limit (сообщ/мин)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="1000"
+                                value={settings.tutor_rate_limit_per_minute || 10}
+                                onChange={(e) => setSettings({ ...settings, tutor_rate_limit_per_minute: parseInt(e.target.value) })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                             />
                         </div>

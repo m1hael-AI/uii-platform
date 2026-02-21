@@ -413,11 +413,17 @@ class ChatSettings(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     
-    # === Блок 1: Общение с пользователями ===
+    # === Блок 1: Общение с пользователями (обычные агенты) ===
     user_chat_model: str = Field(default="gpt-4o-mini", description="Модель для общения с пользователями")
     user_chat_temperature: float = Field(default=0.2, description="Температура для общения")
     user_chat_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для ответов")
     rate_limit_per_minute: int = Field(default=15, description="Лимит сообщений в минуту от пользователя")
+    
+    # === Блок 1.5: AI-тьютор (отдельные настройки) ===
+    tutor_model: str = Field(default="gpt-4o-mini", description="Модель для AI-тьютора")
+    tutor_temperature: float = Field(default=0.2, description="Температура для AI-тьютора")
+    tutor_max_tokens: Optional[int] = Field(default=2000, description="Max tokens для AI-тьютора")
+    tutor_rate_limit_per_minute: int = Field(default=10, description="Лимит сообщений в минуту для AI-тьютора")
     
     # === Блок 2: Вечный диалог (Сжатие контекста) ===
     compression_model: str = Field(default="gpt-4o-mini", description="Модель для сжатия контекста")

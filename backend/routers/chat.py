@@ -829,7 +829,11 @@ async def chat_completions(
     from services.settings_service import get_chat_settings
     chat_settings = await get_chat_settings(db)
     
-    current_model = chat_settings.user_chat_model # Используем модель для общения с пользователями
+    # Выбираем настройки в зависимости от агента
+    is_tutor = agent_slug == "ai_tutor"
+    current_model = chat_settings.tutor_model if is_tutor else chat_settings.user_chat_model
+    current_temperature = chat_settings.tutor_temperature if is_tutor else chat_settings.user_chat_temperature
+    current_max_tokens = chat_settings.tutor_max_tokens if is_tutor else chat_settings.user_chat_max_tokens
     
     # Проверяем переполнение
     if await is_context_overflow(
@@ -851,9 +855,9 @@ async def chat_completions(
         try:
             async for chunk in stream_chat_response(
                 conversation, 
-                model=chat_settings.user_chat_model,
-                temperature=chat_settings.user_chat_temperature,
-                max_tokens=chat_settings.user_chat_max_tokens,
+                model=current_model,
+                temperature=current_temperature,
+                max_tokens=current_max_tokens,
                 user_id=current_user.id,
                 agent_slug=request.agent_id or "ai_tutor"
             ):
