@@ -744,6 +744,7 @@ class NewsItem(SQLModel, table=True):
     title: str = Field(description="Заголовок на русском языке")
     summary: str = Field(description="Краткое саммари для превью и вектора")
     content: Optional[str] = Field(default=None, sa_column=Column(Text), description="Полный текст статьи (Markdown)")
+    image_url: Optional[str] = Field(default=None, description="URL главной картинки (из Perplexity images)")
     
     # --- Метаданные ---
     published_at: datetime = Field(description="Дата публикации оригинального события")

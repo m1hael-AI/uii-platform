@@ -32,6 +32,12 @@ class WriterResponse(BaseModel):
     content: str
     key_points: List[str] = Field(default_factory=list)
 
+class PerplexityImage(BaseModel):
+    imageUrl: Optional[str] = None
+    originUrl: Optional[str] = None
+    height: Optional[int] = None
+    width: Optional[int] = None
+
 # --- Client ---
 
 class PerplexityClient:
@@ -197,7 +203,7 @@ class PerplexityClient:
             return result.news
         return []
 
-    async def generate_article(self, news_item: NewsItemSchema) -> Tuple[Optional[WriterResponse], List[str]]:
+    async def generate_article(self, news_item: NewsItemSchema) -> Tuple[Optional[WriterResponse], List[str], Optional[str]]:
         """
         WRITER: Пишет статью по заголовку и ссылкам.
         Возвращает: (WriterResponse, citations) — citations это список URL из Perplexity.
@@ -238,7 +244,8 @@ class PerplexityClient:
                                 "schema": schema
                             }
                         },
-                        "temperature": 0.1
+                        "temperature": 0.1,
+                        "return_images": True  # Perplexity vendor param: returns images[] metadata
                     }
                     
                     response = await client.post(
@@ -261,6 +268,14 @@ class PerplexityClient:
                     
                     # Извлекаем citations (список URL от Perplexity)
                     citations: List[str] = data.get('citations', [])
+                    
+                    # Извлекаем первую картинку из блока images (Perplexity vendor feature)
+                    image_url: Optional[str] = None
+                    images_raw = data.get('images', [])
+                    if images_raw and isinstance(images_raw, list):
+                        first = images_raw[0]
+                        if isinstance(first, dict):
+                            image_url = first.get('imageUrl') or first.get('image_url')
                     
                     # Audit Log
                     try:
@@ -288,7 +303,7 @@ class PerplexityClient:
                     try:
                         json_obj = json.loads(content)
                         article = WriterResponse.model_validate(json_obj)
-                        return article, citations
+                        return article, citations, image_url
                     except (json.JSONDecodeError, ValidationError) as e:
                         logger.error(f"Writer JSON Parsing Error: {e}. Content: {content[:100]}...")
                         continue
@@ -297,6 +312,6 @@ class PerplexityClient:
                     logger.warning(f"Writer Attempt {attempt + 1}/{retries} failed: {e}")
                     if attempt == retries - 1:
                         logger.error("Writer max retries reached")
-                        return None, []
+                        return None, [], None
                     await asyncio.sleep(2 ** attempt)
-        return None, []
+        return None, [], None

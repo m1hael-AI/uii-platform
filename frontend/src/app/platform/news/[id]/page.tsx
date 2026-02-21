@@ -420,6 +420,18 @@ export default function ArticlePage() {
     // Article Content
     const articleContent = (
         <article className="bg-white p-8 min-h-full">
+            {/* Hero Image (only if available) — самый верх, над тегами */}
+            {article.image_url && (
+                <div className="mb-6 -mx-8 -mt-8 rounded-t-2xl overflow-hidden">
+                    <img
+                        src={article.image_url}
+                        alt={article.title}
+                        className="w-full max-h-[400px] object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                </div>
+            )}
+
             {/* Tags */}
             {article.tags && article.tags.length > 0 && (
                 <div className="flex gap-2 mb-4">

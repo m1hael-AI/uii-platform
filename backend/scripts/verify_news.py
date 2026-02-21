@@ -50,10 +50,12 @@ async def main():
                 # 5. Test Article Generation (Writer)
                 logger.info("5️⃣ Testing Article Generation (Writer)...")
                 try:
-                    article = await client.generate_article(item)
+                    article, citations, image_url = await client.generate_article(item)
                     if article:
                         logger.info(f"✅ Generated Article: {article.title}")
                         logger.info(f"   Content Length: {len(article.content)} chars")
+                        if image_url:
+                            logger.info(f"   📷 Image URL: {image_url[:80]}")
                     else:
                         logger.warning("⚠️ Writer returned None (check logic/logs).")
                 except Exception as w_e:

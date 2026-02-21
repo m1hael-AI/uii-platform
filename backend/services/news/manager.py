@@ -186,8 +186,8 @@ class NewsManager:
                 tags=news.tags or []
             )
             
-            # Генерация — теперь возвращает (article, citations)
-            article, citations = await self.perplexity.generate_article(item_schema)
+            # Генерация — теперь возвращает (article, citations, image_url)
+            article, citations, image_url = await self.perplexity.generate_article(item_schema)
             
             if article:
                 content = article.content
@@ -208,6 +208,12 @@ class NewsManager:
                 
                 news.content = content
                 news.title = article.title  # Обновляем заголовок на более красивый от автора
+                
+                # Сохраняем картинку (если Perplexity вернул images[])
+                if image_url:
+                    news.image_url = image_url
+                    logger.info(f"📷 Image saved for news {news_id}: {image_url[:80]}")
+                
                 news.status = NewsStatus.COMPLETED
                 return article
                 

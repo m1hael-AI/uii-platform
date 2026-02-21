@@ -8,6 +8,7 @@ export interface NewsItem {
     title: string;
     summary: string;
     content?: string;
+    image_url?: string | null;
     published_at: string;
     status: string;
     tags?: string[];
