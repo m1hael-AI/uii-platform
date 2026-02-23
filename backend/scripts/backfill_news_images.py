@@ -28,7 +28,7 @@ USER_AGENT = "Mozilla/5.0 (compatible; UII-Backfiller/1.0)"
 
 # Паттерны для отсева мусорных картинок
 _BAD_PATTERNS = re.compile(
-    r"(logo|icon|favicon|avatar|pixel|spacer|1x1|badge|banner_small|placeholder|default[-_]img)",
+    r"(logo|icon|favicon|avatar|pixel|spacer|1x1|badge|banner_small|placeholder|default[-_]img|\.gif)",
     re.IGNORECASE,
 )
 

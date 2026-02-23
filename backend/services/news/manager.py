@@ -16,7 +16,7 @@ from config import settings
 
 # ---- Image extraction helper ----
 _BAD_IMG = re.compile(
-    r"(logo|icon|favicon|avatar|pixel|spacer|1x1|badge|banner_small|placeholder|default[-_]img)",
+    r"(logo|icon|favicon|avatar|pixel|spacer|1x1|badge|banner_small|placeholder|default[-_]img|\.gif)",
     re.IGNORECASE,
 )
 _OG_RE = [
