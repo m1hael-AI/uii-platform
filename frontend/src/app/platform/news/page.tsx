@@ -343,6 +343,18 @@ export default function NewsPage() {
                                             </div>
                                         </div>
 
+                                        {/* Thumbnail */}
+                                        {item.image_url && (
+                                            <div className="flex-shrink-0 ml-2">
+                                                <img
+                                                    src={item.image_url}
+                                                    alt={item.title}
+                                                    className="w-20 h-14 object-cover rounded-lg"
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                            </div>
+                                        )}
+
                                         {/* Arrow */}
                                         <div className="flex-shrink-0 text-gray-400">
                                             →

@@ -1,13 +1,18 @@
 from typing import List, Optional
+import json
+import os
+import time as time_module
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from loguru import logger
+from openai import AsyncOpenAI
 
 from database import get_async_session
 from models import User, NewsItem, NewsStatus
 from dependencies import get_current_user, check_news_rate_limit
 from services.news.manager import NewsManager
+from services.audit_service import fire_and_forget_audit
 
 
 
@@ -99,11 +104,7 @@ async def ai_search_news(
     2. LLM Re-ranking через gpt-4.1-mini
     3. Fallback на текстовый поиск (логируется)
     """
-    import json
-    import os
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     manager = NewsManager(db)
 
     # === Шаг 1: Векторный поиск ===
@@ -153,21 +154,38 @@ async def ai_search_news(
             query=q,
             news_json=json.dumps(news_for_llm, ensure_ascii=False, indent=2)
         )
+        messages = [{"role": "user", "content": prompt}]
 
-        response = await client.chat.completions.create(
+        _client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        t0 = time_module.time()
+        response = await _client.chat.completions.create(
             model=_NEWS_SEARCH_RERANK_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=200,
             temperature=0.0,
             response_format={"type": "json_object"}
         )
+        duration_ms = int((time_module.time() - t0) * 1000)
 
         llm_output = json.loads(response.choices[0].message.content)
         relevant_ids = set(llm_output.get("relevant_ids", []))
 
+        # Аудит-лог LLM
+        fire_and_forget_audit(
+            user_id=user.id,
+            agent_slug="news_ai_search",
+            model=_NEWS_SEARCH_RERANK_MODEL,
+            messages=messages,
+            response_content=response.choices[0].message.content,
+            input_tokens=response.usage.prompt_tokens,
+            output_tokens=response.usage.completion_tokens,
+            duration_ms=duration_ms,
+            cost_usd_api=None  # Считаем по таблице PRICES
+        )
+
         logger.info(
             f"🔍 NewsAISearch: query='{q}', candidates={len(candidates)}, "
-            f"relevant_after_rerank={len(relevant_ids)}"
+            f"relevant_after_rerank={len(relevant_ids)}, tokens={response.usage.total_tokens}"
         )
 
         id_to_news = {n.id: n for n in candidates}

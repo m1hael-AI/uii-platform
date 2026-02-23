@@ -11,6 +11,7 @@ import asyncio
 PRICES = {
     "gpt-4o":        {"input": 2.50, "cached_input": 1.25,  "output": 10.00},
     "gpt-4o-mini":   {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+    "gpt-4.1-mini":  {"input": 0.40, "cached_input": 0.10,  "output": 1.60},
     # Fallbacks / Legacy
     "gpt-3.5-turbo": {"input": 0.50, "cached_input": 0.50,  "output": 1.50},
     "gpt-4o-2024-05-13": {"input": 5.00, "cached_input": 5.00, "output": 15.00},
