@@ -235,34 +235,32 @@ export default function WebinarsPage() {
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    {/* Search + Button row */}
-                    <div className="flex items-center gap-2 flex-1 md:flex-initial">
-                        <div className="relative flex-1">
-                            <input
-                                type="text"
-                                placeholder="AI-поиск по темам..."
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    if (!e.target.value.trim()) setSearchResults(null);
-                                }}
-                                onKeyDown={(e) => e.key === "Enter" && runSearch(searchQuery)}
-                                className="w-full md:w-72 pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
-                            />
-                            {isSearching ? (
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#206ecf] border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            )}
-                        </div>
+                    {/* Search row — единое поле с кнопкой-иконкой внутри */}
+                    <div className="relative flex-1 md:flex-initial">
+                        <input
+                            type="text"
+                            placeholder="AI-поиск по темам..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                if (!e.target.value.trim()) setSearchResults(null);
+                            }}
+                            onKeyDown={(e) => e.key === "Enter" && runSearch(searchQuery)}
+                            className="w-full md:w-96 pl-4 pr-12 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
+                        />
+                        {/* Синяя кнопка-иконка внутри поля справа — фиксированный размер, нет дёрганий */}
                         <button
                             onClick={() => runSearch(searchQuery)}
                             disabled={isSearching}
-                            className="px-4 py-2.5 bg-[#206ecf] hover:bg-[#1a5aad] disabled:opacity-60 text-white text-sm font-medium rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-[#206ecf] hover:bg-[#1a5aad] disabled:opacity-70 rounded-lg transition-colors"
                         >
-                            {isSearching ? "Поиск...»" : "Найти"}
+                            {isSearching ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            )}
                         </button>
                     </div>
 
