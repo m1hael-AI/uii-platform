@@ -32,7 +32,7 @@ export default function FloatingInternetSearch({ onSearch, isSearching }: Props)
     }, [query]);
 
     return (
-        <div className="fixed bottom-8 left-0 right-0 z-50 px-4 flex justify-center pointer-events-none">
+        <div className="fixed bottom-20 lg:bottom-8 left-0 right-0 z-50 px-4 flex justify-center pointer-events-none">
             {/* Wrapper for pointer events */}
             <div className="w-full max-w-4xl pointer-events-auto">
                 <div className={`relative bg-white/80 backdrop-blur-xl border border-gray-200/50 shadow-2xl rounded-2xl transition-all duration-300 ${isSearching ? 'ring-2 ring-[#FF6B35]/50' : 'hover:ring-2 hover:ring-gray-200'}`}>
