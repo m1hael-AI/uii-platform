@@ -244,8 +244,7 @@ class PerplexityClient:
                                 "schema": schema
                             }
                         },
-                        "temperature": 0.1,
-                        "return_images": True  # Perplexity vendor param: returns images[] metadata
+                        "temperature": 0.1
                     }
                     
                     response = await client.post(
@@ -260,7 +259,7 @@ class PerplexityClient:
                             await asyncio.sleep(2 ** attempt)
                             continue
                         if 400 <= response.status_code < 500:
-                            return None, []
+                            return None, [], None
                         raise httpx.HTTPStatusError(message="Server Error", request=response.request, response=response)
 
                     data = response.json()
@@ -269,13 +268,16 @@ class PerplexityClient:
                     # Извлекаем citations (список URL от Perplexity)
                     citations: List[str] = data.get('citations', [])
                     
-                    # Извлекаем первую картинку из блока images (Perplexity vendor feature)
+                    # Извлекаем первую картинку из блока images
                     image_url: Optional[str] = None
                     images_raw = data.get('images', [])
+                    logger.info(f"📷 Perplexity images_raw (count={len(images_raw)}): {str(images_raw)[:300]}")
                     if images_raw and isinstance(images_raw, list):
                         first = images_raw[0]
                         if isinstance(first, dict):
                             image_url = first.get('imageUrl') or first.get('image_url')
+                        elif isinstance(first, str):
+                            image_url = first  # на случай если вернули просто URL строкой
                     
                     # Audit Log
                     try:
