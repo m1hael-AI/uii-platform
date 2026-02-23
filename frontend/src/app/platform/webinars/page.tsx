@@ -242,7 +242,7 @@ export default function WebinarsPage() {
                     <div className="relative flex-1 md:flex-initial">
                         <input
                             type="text"
-                            placeholder="AI-поиск по темам..."
+                            placeholder="AI-поиск по вебинарам..."
                             value={searchQuery}
                             onChange={(e) => {
                                 setSearchQuery(e.target.value);
