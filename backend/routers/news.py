@@ -93,7 +93,129 @@ async def get_news_item(
         "updated_at": news.updated_at.isoformat() if news.updated_at else None
     }
 
+
+# === AI Search Config ===
+_NEWS_SEARCH_RERANK_MODEL = "gpt-4.1-mini"
+_NEWS_SEARCH_VECTOR_LIMIT = 20
+
+_NEWS_RERANK_PROMPT = """Ты — помощник, который оценивает релевантность новостей поисковому запросу.
+
+Запрос пользователя: "{query}"
+
+Список новостей (JSON):
+{news_json}
+
+Верни ТОЛЬКО JSON со списком ID новостей, которые реально отвечают на запрос.
+Если новость лишь косвенно связана или вообще не связана — не включай её.
+Формат ответа (строго JSON, без лишнего текста):
+{{"relevant_ids": [1, 3, 7]}}"""
+
+
+@router.get("/ai-search", response_model=List[dict])
+async def ai_search_news(
+    q: str = Query(..., min_length=2, description="Поисковый запрос"),
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_current_user)
+):
+    """
+    AI-поиск по новостям в базе данных.
+    1. Векторный поиск по embedding (title+summary)
+    2. LLM Re-ranking через gpt-4.1-mini
+    3. Fallback на текстовый поиск (логируется)
+    """
+    import json
+    import os
+    from openai import AsyncOpenAI
+
+    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    manager = NewsManager(db)
+
+    # === Шаг 1: Векторный поиск ===
+    candidates = await manager.search_local_news(query=q, limit=_NEWS_SEARCH_VECTOR_LIMIT)
+
+    # === Fallback: Текстовый поиск ===
+    if not candidates:
+        logger.warning(
+            f"⚠️ NewsAISearch: falling back to text search for query: '{q}' "
+            f"(reason: no embeddings or vector search error)"
+        )
+        stmt = select(NewsItem).where(
+            NewsItem.title.ilike(f"%{q}%")
+        ).order_by(desc(NewsItem.published_at)).limit(_NEWS_SEARCH_VECTOR_LIMIT)
+        result = await db.execute(stmt)
+        candidates = result.scalars().all()
+
+        return [
+            {
+                "id": n.id,
+                "title": n.title,
+                "summary": n.summary,
+                "published_at": n.published_at.isoformat() if n.published_at else None,
+                "status": n.status,
+                "tags": n.tags,
+                "source_urls": n.source_urls
+            }
+            for n in candidates
+        ]
+
+    if not candidates:
+        return []
+
+    # === Шаг 2: LLM Re-ranking ===
+    news_for_llm = [
+        {
+            "id": n.id,
+            "title": n.title,
+            "summary": n.summary[:200] if n.summary else "Нет описания"
+        }
+        for n in candidates
+    ]
+
+    try:
+        prompt = _NEWS_RERANK_PROMPT.format(
+            query=q,
+            news_json=json.dumps(news_for_llm, ensure_ascii=False, indent=2)
+        )
+
+        response = await client.chat.completions.create(
+            model=_NEWS_SEARCH_RERANK_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.0,
+            response_format={"type": "json_object"}
+        )
+
+        llm_output = json.loads(response.choices[0].message.content)
+        relevant_ids = set(llm_output.get("relevant_ids", []))
+
+        logger.info(
+            f"🔍 NewsAISearch: query='{q}', candidates={len(candidates)}, "
+            f"relevant_after_rerank={len(relevant_ids)}"
+        )
+
+        id_to_news = {n.id: n for n in candidates}
+        ranked_news = [id_to_news[nid] for nid in relevant_ids if nid in id_to_news]
+
+    except Exception as e:
+        logger.error(f"❌ NewsAISearch: LLM re-ranking failed, returning all candidates: {e}")
+        ranked_news = candidates
+
+    return [
+        {
+            "id": n.id,
+            "title": n.title,
+            "summary": n.summary,
+            "published_at": n.published_at.isoformat() if n.published_at else None,
+            "status": n.status,
+            "tags": n.tags,
+            "source_urls": n.source_urls
+        }
+        for n in ranked_news
+    ]
+
+
 @router.post("/search", response_model=dict)
+
 async def search_fresh_news(
     request: dict = Body(...),
     db: AsyncSession = Depends(get_async_session),

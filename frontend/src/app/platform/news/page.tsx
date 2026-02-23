@@ -18,6 +18,7 @@ export default function NewsPage() {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [activeTab, setActiveTab] = useState<'all' | 'foryou'>((searchParams.get("tab") as 'all' | 'foryou') || 'all');
+    const [searchResults, setSearchResults] = useState<NewsItem[] | null>(null);
     const observerTarget = useRef(null);
 
     // Sync activeTab to URL
@@ -71,8 +72,10 @@ export default function NewsPage() {
         }
     }, [page, fetchNews, activeTab]);
 
-    // Infinite Scroll Observer
+    // Infinite Scroll Observer (отключается во время AI-поиска)
     useEffect(() => {
+        if (searchResults !== null) return;
+
         const observer = new IntersectionObserver(
             entries => {
                 if (entries[0].isIntersecting && hasMore && !loading) {
@@ -91,30 +94,25 @@ export default function NewsPage() {
                 observer.unobserve(observerTarget.current);
             }
         };
-    }, [hasMore, loading]);
+    }, [hasMore, loading, searchResults]);
 
-    // Client-side filtering
-    useEffect(() => {
-        if (!searchQuery.trim()) {
-            setFilteredNews(allNews);
+    // AI-поиск по новостям — запускается по Enter или кнопке
+    const runSearch = async (query: string) => {
+        const q = query.trim();
+        if (!q) {
+            setSearchResults(null);
             return;
         }
-
-        const query = searchQuery.toLowerCase();
-        const filtered = allNews.filter(item =>
-            item.title.toLowerCase().includes(query) ||
-            (item.tags && item.tags.some(tag => tag.toLowerCase().includes(query)))
-        );
-        setFilteredNews(filtered);
-    }, [searchQuery, allNews]);
-
-    // Update URL when search changes
-    const handleSearchChange = (value: string) => {
-        setSearchQuery(value);
-        if (value.trim()) {
-            router.push(`/platform/news?q=${encodeURIComponent(value)}`);
-        } else {
-            router.push("/platform/news");
+        setIsSearching(true);
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+            const newItems = await NewsService.aiSearch(q);
+            setSearchResults(newItems);
+        } catch (e) {
+            console.error("News AI search failed", e);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
         }
     };
 
@@ -189,6 +187,9 @@ export default function NewsPage() {
         });
     };
 
+    // Активный список: результаты AI-поиска или все новости
+    const activeNews = searchResults !== null ? searchResults : allNews;
+
     return (
         <div className="w-full max-w-full md:max-w-7xl mx-auto px-0 md:px-6 pb-32 relative min-h-screen">
 
@@ -221,29 +222,44 @@ export default function NewsPage() {
                     </div>
                 </div>
 
-                {/* Search Bar */}
+                {/* Search Bar — единое поле с кнопкой-иконкой внутри */}
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:flex-initial">
                         <input
-                            placeholder="Поиск по готовым новостям..."
+                            placeholder="AI-поиск по новостям..."
                             value={searchQuery}
-                            onChange={(e) => handleSearchChange(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleFreshSearch();
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                if (!e.target.value.trim()) setSearchResults(null);
                             }}
-                            className="w-full md:w-96 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
+                            onKeyDown={(e) => e.key === "Enter" && runSearch(searchQuery)}
+                            className="w-full md:w-96 pl-4 pr-12 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
                         />
-                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        <button
+                            onClick={() => runSearch(searchQuery)}
+                            disabled={isSearching || !searchQuery.trim()}
+                            className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg transition-colors
+                                ${searchQuery.trim()
+                                    ? "bg-[#206ecf] hover:bg-[#1a5aad] cursor-pointer"
+                                    : "bg-[#206ecf]/30 cursor-not-allowed"
+                                } disabled:opacity-70`}
+                        >
+                            {isSearching ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
 
             {/* Search Results Info */}
-            {searchQuery && (
+            {searchResults !== null && (
                 <div className="mb-4 text-sm text-gray-600">
-                    Найдено {filteredNews.length} новостей по запросу "{searchQuery}"
+                    Найдено {searchResults.length} новостей по запросу "{searchQuery}"
                 </div>
             )}
 
@@ -259,18 +275,18 @@ export default function NewsPage() {
                         <div className="flex items-center justify-center py-4 bg-gray-50 rounded-xl border border-gray-100 mb-3 animate-pulse">
                             <div className="flex items-center gap-3 text-sm text-gray-500">
                                 <div className="w-4 h-4 border-2 border-[#FF6B35] border-t-transparent rounded-full animate-spin"></div>
-                                <span>Ищем свежие новости в интернете...</span>
+                                <span>Выполняем поиск...</span>
                             </div>
                         </div>
                     )}
 
-                    {filteredNews.length === 0 && !isSearching ? (
+                    {activeNews.length === 0 && !isSearching ? (
                         <div className="text-center py-20 text-gray-500">
-                            {searchQuery ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет"}
+                            {searchResults !== null ? "Новости не найдены. Попробуйте другой запрос." : "Новостей пока нет"}
                         </div>
-                    ) : filteredNews.length > 0 ? (
+                    ) : activeNews.length > 0 ? (
                         <>
-                            {filteredNews.map((item: any) => (
+                            {activeNews.map((item: any) => (
                                 <Link
                                     key={item.id}
                                     href={`/platform/news/${item.id}?back=${encodeURIComponent(searchQuery)}`}

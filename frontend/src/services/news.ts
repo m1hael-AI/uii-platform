@@ -65,6 +65,16 @@ export const NewsService = {
         return data.results || [];
     },
 
+    async aiSearch(query: string): Promise<NewsItem[]> {
+        const token = Cookies.get("token");
+        const res = await fetch(
+            `${API_URL}/news/ai-search?q=${encodeURIComponent(query)}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) throw new Error("AI search failed");
+        return res.json();
+    },
+
     async generateArticle(id: number): Promise<{ status: string; article: NewsItem }> {
         const token = Cookies.get("token");
         const res = await fetch(`${API_URL}/news/${id}/generate`, {
