@@ -144,6 +144,8 @@ async def extract_and_upload_best_image(source_urls: List[str]) -> Optional[str]
             # --- 3. Если Goose не справился, используем Regex-fallback ---
             if not image_url_candidate and html_content:
                 image_url_candidate = _extract_fallback_image(html_content)
+                if image_url_candidate:
+                    logger.debug(f"Goose3 missed, used fallback Regex for {article_url[:60]}")
                 
             # --- 4. Если картинка найдена, скачиваем и грузим в S3 ---
             if image_url_candidate:
