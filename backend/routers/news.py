@@ -226,6 +226,7 @@ async def get_news_item(
         "title": news.title,
         "content": news.content,
         "summary": news.summary,
+        "image_url": news.image_url,
         "published_at": news.published_at.isoformat() if news.published_at else None,
         "status": news.status,
         "tags": news.tags,
