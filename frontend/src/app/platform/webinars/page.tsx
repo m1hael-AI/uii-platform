@@ -153,6 +153,9 @@ export default function WebinarsPage() {
 
     // Intersection Observer for infinite scroll
     useEffect(() => {
+        // Бесконечная прокрутка только когда нет активного поиска
+        if (searchResults !== null) return;
+
         const observer = new IntersectionObserver(
             entries => {
                 if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
@@ -171,7 +174,7 @@ export default function WebinarsPage() {
                 observer.unobserve(observerTarget.current);
             }
         };
-    }, [hasMore, isLoadingMore, loading]);
+    }, [hasMore, isLoadingMore, loading, searchResults]);
 
     // Load more when page changes
     useEffect(() => {
@@ -251,8 +254,12 @@ export default function WebinarsPage() {
                         {/* Синяя кнопка-иконка внутри поля справа — фиксированный размер, нет дёрганий */}
                         <button
                             onClick={() => runSearch(searchQuery)}
-                            disabled={isSearching}
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-[#206ecf] hover:bg-[#1a5aad] disabled:opacity-70 rounded-lg transition-colors"
+                            disabled={isSearching || !searchQuery.trim()}
+                            className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg transition-colors
+                                ${searchQuery.trim()
+                                    ? "bg-[#206ecf] hover:bg-[#1a5aad] cursor-pointer"
+                                    : "bg-[#206ecf]/30 cursor-not-allowed"
+                                } disabled:opacity-70`}
                         >
                             {isSearching ? (
                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
