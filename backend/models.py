@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional, List, Any, Dict
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
 from sqlalchemy import JSON, Column, BigInteger, Text
+from pgvector.sqlalchemy import Vector
 from enum import Enum
 
 
@@ -713,7 +714,6 @@ class LLMAudit(SQLModel, table=True):
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-from pgvector.sqlalchemy import Vector
 
 class WebinarChunk(SQLModel, table=True):
     """
