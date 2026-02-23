@@ -1,6 +1,7 @@
 from loguru import logger
 import asyncio
 import re
+import httpx
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,48 @@ from models import NewsItem, NewsStatus, User, UserMemory
 from config import settings
 
 
+# ---- Image extraction helper ----
+_BAD_IMG = re.compile(
+    r"(logo|icon|favicon|avatar|pixel|spacer|1x1|badge|banner_small|placeholder|default[-_]img)",
+    re.IGNORECASE,
+)
+_OG_RE = [
+    re.compile(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\'>\s]+)["\']', re.IGNORECASE),
+    re.compile(r'<meta[^>]+content=["\']([^"\'>\s]+)["\'][^>]+property=["\']og:image["\']', re.IGNORECASE),
+]
+_TW_RE = [
+    re.compile(r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\'>\s]+)["\']', re.IGNORECASE),
+    re.compile(r'<meta[^>]+content=["\']([^"\'>\s]+)["\'][^>]+name=["\']twitter:image["\']', re.IGNORECASE),
+]
+
+
+async def _fetch_best_image(source_urls: List[str]) -> Optional[str]:
+    """Fetches og:image / twitter:image from a list of URLs. Returns the best one."""
+    if not source_urls:
+        return None
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; UII-NewsBot/1.0)"}
+    async with httpx.AsyncClient(headers=headers) as client:
+        for url in source_urls:
+            try:
+                r = await client.get(url, timeout=6.0, follow_redirects=True)
+                if r.status_code != 200:
+                    continue
+                html = r.text
+                candidates = []
+                for patterns in (_OG_RE, _TW_RE):
+                    for p in patterns:
+                        m = p.search(html)
+                        if m:
+                            candidates.append(m.group(1).strip())
+                            break
+                for img_url in candidates:
+                    if img_url.startswith("http") and not _BAD_IMG.search(img_url):
+                        return img_url
+                if candidates:
+                    return candidates[0]  # fallback: берем хоть что-то
+            except Exception as e:
+                logger.warning(f"⚠️ fetch_best_image: {url[:60]} failed: {e}")
+    return None
 
 class NewsManager:
     """
@@ -208,11 +251,15 @@ class NewsManager:
                 
                 news.content = content
                 news.title = article.title  # Обновляем заголовок на более красивый от автора
-                
-                # Сохраняем картинку (если Perplexity вернул images[])
+
+                # Ищем картинку из source_urls (og:image / twitter:image)
+                all_urls = news.source_urls or []
+                image_url = await _fetch_best_image(all_urls)
                 if image_url:
                     news.image_url = image_url
                     logger.info(f"📷 Image saved for news {news_id}: {image_url[:80]}")
+                else:
+                    logger.info(f"📷 No image found for news {news_id}")
                 
                 news.status = NewsStatus.COMPLETED
                 return article
