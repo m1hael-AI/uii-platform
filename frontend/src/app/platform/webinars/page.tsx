@@ -110,50 +110,46 @@ export default function WebinarsPage() {
         fetchWebinars(1, true);
     }, [fetchWebinars]);
 
-    // AI Search Effect (debounced, 600ms)
-    useEffect(() => {
-        if (!searchQuery.trim()) {
-            // Пустой запрос — сбрасываем результаты, показываем все вебинары
+    // AI Search — запускается только понажатию Enter или кнопке «Найти»
+    const runSearch = async (query: string) => {
+        const q = query.trim();
+        if (!q) {
             setSearchResults(null);
             return;
         }
-
-        const timer = setTimeout(async () => {
-            setIsSearching(true);
-            try {
-                const token = Cookies.get("token");
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
-                const res = await fetch(
-                    `${API_URL}/webinars/search?q=${encodeURIComponent(searchQuery.trim())}`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                if (res.ok) {
-                    const data = await res.json();
-                    const enhanced = data.map((w: any) => ({
-                        ...w,
-                        category: w.category || "Общее",
-                        speaker: w.speaker_name || "Не указан",
-                        duration: w.duration || "Не указано",
-                        video_url: w.video_url || "",
-                        date: new Date(w.conducted_at || w.created_at).toLocaleDateString("ru-RU", {
-                            day: 'numeric', month: 'long', year: 'numeric'
-                        })
-                    }));
-                    setSearchResults(enhanced);
-                } else {
-                    console.error("Search API error", res.status);
-                    setSearchResults([]);
-                }
-            } catch (e) {
-                console.error("Search failed", e);
+        setIsSearching(true);
+        try {
+            const token = Cookies.get("token");
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+            const res = await fetch(
+                `${API_URL}/webinars/search?q=${encodeURIComponent(q)}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                const enhanced = data.map((w: any) => ({
+                    ...w,
+                    category: w.category || "Общее",
+                    speaker: w.speaker_name || "Не указан",
+                    duration: w.duration || "Не указано",
+                    video_url: w.video_url || "",
+                    date: new Date(w.conducted_at || w.created_at).toLocaleDateString("ru-RU", {
+                        day: 'numeric', month: 'long', year: 'numeric'
+                    })
+                }));
+                setSearchResults(enhanced);
+            } else {
+                console.error("Search API error", res.status);
                 setSearchResults([]);
-            } finally {
-                setIsSearching(false);
             }
-        }, 600);
+        } catch (e) {
+            console.error("Search failed", e);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
 
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
 
     // Intersection Observer for infinite scroll
     useEffect(() => {
@@ -239,21 +235,35 @@ export default function WebinarsPage() {
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    <div className="relative flex-1 md:flex-initial">
-                        <input
-                            type="text"
-                            placeholder="AI-поиск по темам..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full md:w-80 pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
-                        />
-                        {isSearching ? (
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#206ecf] border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        )}
+                    {/* Search + Button row */}
+                    <div className="flex items-center gap-2 flex-1 md:flex-initial">
+                        <div className="relative flex-1">
+                            <input
+                                type="text"
+                                placeholder="AI-поиск по темам..."
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    if (!e.target.value.trim()) setSearchResults(null);
+                                }}
+                                onKeyDown={(e) => e.key === "Enter" && runSearch(searchQuery)}
+                                className="w-full md:w-72 pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
+                            />
+                            {isSearching ? (
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#206ecf] border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => runSearch(searchQuery)}
+                            disabled={isSearching}
+                            className="px-4 py-2.5 bg-[#206ecf] hover:bg-[#1a5aad] disabled:opacity-60 text-white text-sm font-medium rounded-xl transition-colors whitespace-nowrap flex items-center gap-1.5"
+                        >
+                            {isSearching ? "Поиск...»" : "Найти"}
+                        </button>
                     </div>
 
                     {/* Custom Styled Sort */}
