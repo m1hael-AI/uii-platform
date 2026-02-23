@@ -51,8 +51,9 @@ async def _fetch_best_image(source_urls: List[str]) -> Optional[str]:
                 for img_url in candidates:
                     if img_url.startswith("http") and not _BAD_IMG.search(img_url):
                         return img_url
-                if candidates:
-                    return candidates[0]  # fallback: берем хоть что-то
+                        
+                # Если все картинки на этой странице оказались логотипами/gif - переходим к следующему URL
+                continue
             except Exception as e:
                 logger.warning(f"⚠️ fetch_best_image: {url[:60]} failed: {e}")
     return None

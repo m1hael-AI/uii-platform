@@ -61,8 +61,8 @@ def _extract_best_image(html: str) -> str | None:
         if not _BAD_PATTERNS.search(url):
             return url
 
-    # Fallback: если все кандидаты «плохие» — берём первый
-    return candidates[0] if candidates else None
+    # Если все найденные картинки мусорные (logo, .gif и т.д.) - возвращаем None, чтобы скрипт перешел к следующему URL
+    return None
 
 
 async def fetch_og_image(url: str, client: httpx.AsyncClient) -> str | None:
