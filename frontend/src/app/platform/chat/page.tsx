@@ -124,50 +124,52 @@ export default function ChatIndexPage() {
                 </div>
 
                 <div className="p-4 space-y-3">
-                    {sessions.map(session => (
-                        <Link
-                            key={session.id}
-                            href={`/platform/chat/${session.agent_id}`}
-                            onClick={() => {
-                                // 💨 INSTANT LOCAL UPDATE
-                                setSessions(prev => prev.map(s =>
-                                    s.id === session.id ? { ...s, has_unread: false } : s
-                                ));
-                                // We do NOT dispatch 'chatStatusUpdate' here to avoid race condition 
-                                // (re-fetching before backend marks it read).
-                                // The chat page itself will fetch history and mark read.
-                            }}
-                            className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
-                        >
-                            <div className="relative w-14 h-14 shrink-0">
-                                <div className={`w-full h-full rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${!session.agent_avatar ? getAgentStyle(session.id) : "bg-gray-100"}`}>
-                                    {session.agent_avatar ? (
-                                        <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        session.agent_name[0]
+                    {sessions
+                        .filter(s => !['news_analyst', 'ai_tutor'].includes(s.agent_id))
+                        .map(session => (
+                            <Link
+                                key={session.id}
+                                href={`/platform/chat/${session.agent_id}`}
+                                onClick={() => {
+                                    // 💨 INSTANT LOCAL UPDATE
+                                    setSessions(prev => prev.map(s =>
+                                        s.id === session.id ? { ...s, has_unread: false } : s
+                                    ));
+                                    // We do NOT dispatch 'chatStatusUpdate' here to avoid race condition 
+                                    // (re-fetching before backend marks it read).
+                                    // The chat page itself will fetch history and mark read.
+                                }}
+                                className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all active:scale-98 relative"
+                            >
+                                <div className="relative w-14 h-14 shrink-0">
+                                    <div className={`w-full h-full rounded-full flex items-center justify-center font-bold text-lg overflow-hidden ${!session.agent_avatar ? getAgentStyle(session.id) : "bg-gray-100"}`}>
+                                        {session.agent_avatar ? (
+                                            <img src={session.agent_avatar} alt={session.agent_name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            session.agent_name[0]
+                                        )}
+                                    </div>
+                                    {session.has_unread && (
+                                        <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white"></span>
                                     )}
                                 </div>
-                                {session.has_unread && (
-                                    <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white"></span>
-                                )}
-                            </div>
 
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                    <h3 className="font-semibold text-gray-900">{session.agent_name}</h3>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <h3 className="font-semibold text-gray-900">{session.agent_name}</h3>
+                                    </div>
+                                    <p className={`text-xs line-clamp-1 ${session.has_unread ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+                                        {session.last_message || session.agent_greeting || "Начать диалог"}
+                                    </p>
                                 </div>
-                                <p className={`text-xs line-clamp-1 ${session.has_unread ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-                                    {session.last_message || session.agent_greeting || "Начать диалог"}
-                                </p>
-                            </div>
 
-                            <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        </Link>
-                    ))}
+                                <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </Link>
+                        ))}
 
-                    {sessions.length === 0 && !loading && (
+                    {sessions.filter(s => !['news_analyst', 'ai_tutor'].includes(s.agent_id)).length === 0 && !loading && (
                         <div className="text-center py-8 text-gray-400 text-sm">
                             Диалоги еще не созданы. Подождите немного...
                         </div>
