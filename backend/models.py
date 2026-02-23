@@ -499,6 +499,13 @@ class WebinarLibrary(SQLModel, table=True):
     # RAG
     transcript_context: str = Field(default="", description="Текстовый транскрипт вебинара для RAG")
     
+    # === AI Search ===
+    # Краткое описание для LLM re-ranking (генерируется скриптом prepare_webinar_search.py)
+    # Не показывается пользователям — используется только для ранжирования в поиске
+    short_description: Optional[str] = Field(default=None, sa_column=Column(Text), description="Краткое summary (2-3 предл.) для LLM re-ranker")
+    # Вектор embedding для cosine search (title + description, 1536 dims)
+    search_embedding: Optional[Any] = Field(default=None, sa_column=Column(Vector(1536)), description="Embedding от title+description для поиска")
+    
     # Статус
     is_published: bool = Field(default=True, description="Опубликован ли вебинар")
     

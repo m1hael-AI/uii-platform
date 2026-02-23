@@ -37,6 +37,10 @@ export default function WebinarsPage() {
     const [isSortOpen, setIsSortOpen] = useState(false);
     const sortRef = useRef<HTMLDivElement>(null);
 
+    // AI Search State
+    const [isSearching, setIsSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState<Webinar[] | null>(null);
+
     // Close sort dropdown when clicking outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -106,17 +110,50 @@ export default function WebinarsPage() {
         fetchWebinars(1, true);
     }, [fetchWebinars]);
 
-    // Debounced Search Effect
+    // AI Search Effect (debounced, 600ms)
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setPage(1);
-            // setWebinars([]); // Removed to fixing flashing
-            setHasMore(true);
-            fetchWebinars(1, true);
-        }, 500);
+        if (!searchQuery.trim()) {
+            // Пустой запрос — сбрасываем результаты, показываем все вебинары
+            setSearchResults(null);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const token = Cookies.get("token");
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8010";
+                const res = await fetch(
+                    `${API_URL}/webinars/search?q=${encodeURIComponent(searchQuery.trim())}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    const enhanced = data.map((w: any) => ({
+                        ...w,
+                        category: w.category || "Общее",
+                        speaker: w.speaker_name || "Не указан",
+                        duration: w.duration || "Не указано",
+                        video_url: w.video_url || "",
+                        date: new Date(w.conducted_at || w.created_at).toLocaleDateString("ru-RU", {
+                            day: 'numeric', month: 'long', year: 'numeric'
+                        })
+                    }));
+                    setSearchResults(enhanced);
+                } else {
+                    console.error("Search API error", res.status);
+                    setSearchResults([]);
+                }
+            } catch (e) {
+                console.error("Search failed", e);
+                setSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 600);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, fetchWebinars]);
+    }, [searchQuery]);
 
     // Intersection Observer for infinite scroll
     useEffect(() => {
@@ -150,12 +187,13 @@ export default function WebinarsPage() {
     // Derived State
     const categories = ["Все", ...Array.from(new Set(webinars.map(w => w.category || "General")))];
 
-    const filteredWebinars = webinars.filter((webinar) => {
+    // Активный источник данных: результаты поиска ИЛИ полный список вебинаров
+    const activeWebinars = searchResults !== null ? searchResults : webinars;
+
+    const filteredWebinars = activeWebinars.filter((webinar) => {
         const matchesCategory = selectedCategory === "Все" || webinar.category === selectedCategory;
-        const matchesSearch = webinar.title.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
+        return matchesCategory;
     }).sort((a, b) => {
-        // Use raw timestamps/ISO dates for 100% accuracy (sorting fixed)
         const dateA = new Date(a.conducted_at || a.created_at || 0).getTime();
         const dateB = new Date(b.conducted_at || b.created_at || 0).getTime();
         return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
@@ -204,14 +242,18 @@ export default function WebinarsPage() {
                     <div className="relative flex-1 md:flex-initial">
                         <input
                             type="text"
-                            placeholder="Поиск по темам..."
+                            placeholder="AI-поиск по темам..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full md:w-80 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
+                            className="w-full md:w-80 pl-10 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#206ecf]/20 focus:border-[#206ecf] outline-none transition-all text-[#474648]"
                         />
-                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                        {isSearching ? (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[#206ecf] border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        )}
                     </div>
 
                     {/* Custom Styled Sort */}

@@ -137,6 +137,146 @@ async def get_upcoming_webinar(
         raise HTTPException(status_code=404, detail="Webinar not found")
     return webinar
 
+
+# === AI Search Config ===
+SEARCH_VECTOR_LIMIT = 20      # Кол-во кандидатов от векторного поиска
+SEARCH_RERANK_MODEL = "gpt-4.1-mini"
+
+RERANK_PROMPT = """Ты — помощник, который оценивает релевантность вебинаров поисковому запросу.
+
+Запрос пользователя: "{query}"
+
+Список вебинаров (JSON):
+{webinars_json}
+
+Верни ТОЛЬКО JSON со списком ID вебинаров, которые реально отвечают на запрос.
+Если вебинар лишь косвенно связан или вообще не связан — не включай его.
+Формат ответа (строго JSON, без лишнего текста):
+{{"relevant_ids": [1, 3, 7]}}"""
+
+
+@router.get("/search", response_model=List[dict])
+async def ai_search_webinars(
+    q: str = Query(..., min_length=2, description="Поисковый запрос"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    AI-поиск по библиотеке вебинаров.
+    1. Векторный поиск по title+description (cosine similarity)
+    2. LLM Re-ranking через gpt-4.1-mini
+    3. Fallback на текстовый поиск (логируется)
+    """
+    from services.openai_service import generate_embedding
+    from sqlalchemy import func
+    import json
+    from openai import AsyncOpenAI
+    import os
+    
+    client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    logger_local = __import__("loguru").logger
+    
+    base_query = select(WebinarLibrary)
+    if current_user.role != UserRole.ADMIN:
+        base_query = base_query.where(WebinarLibrary.is_published == True)
+    
+    candidates: list[WebinarLibrary] = []
+    used_fallback = False
+    
+    # === Шаг 1: Векторный поиск ===
+    try:
+        query_embedding = await generate_embedding(q)
+        
+        # Ищем вебинары у которых search_embedding не NULL
+        vector_query = base_query.where(
+            WebinarLibrary.search_embedding != None
+        ).order_by(
+            WebinarLibrary.search_embedding.cosine_distance(query_embedding)
+        ).limit(SEARCH_VECTOR_LIMIT)
+        
+        result = await db.execute(vector_query)
+        candidates = result.scalars().all()
+        
+    except Exception as e:
+        logger_local.error(f"❌ WebinarSearch: vector search failed: {e}")
+        candidates = []
+    
+    # === Fallback: Текстовый поиск ===
+    if not candidates:
+        logger_local.warning(
+            f"⚠️ WebinarSearch: falling back to text search for query: '{q}' "
+            f"(reason: no embeddings or vector search error)"
+        )
+        used_fallback = True
+        
+        text_query = base_query.where(
+            WebinarLibrary.title.ilike(f"%{q}%")
+        ).order_by(WebinarLibrary.conducted_at.desc()).limit(SEARCH_VECTOR_LIMIT)
+        
+        result = await db.execute(text_query)
+        candidates = result.scalars().all()
+        
+        # Конвертируем и возвращаем без LLM (текстовый поиск сам по себе точный)
+        output = []
+        for w in candidates:
+            d = WebinarLibraryResponse.model_validate(w).model_dump()
+            d["is_upcoming"] = False
+            output.append(d)
+        return output
+    
+    if not candidates:
+        return []
+    
+    # === Шаг 2: LLM Re-ranking ===
+    webinars_for_llm = [
+        {
+            "id": w.id,
+            "title": w.title,
+            "short_description": w.short_description or (w.description[:200] if w.description else "Нет описания")
+        }
+        for w in candidates
+    ]
+    
+    try:
+        prompt = RERANK_PROMPT.format(
+            query=q,
+            webinars_json=json.dumps(webinars_for_llm, ensure_ascii=False, indent=2)
+        )
+        
+        response = await client.chat.completions.create(
+            model=SEARCH_RERANK_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,
+            temperature=0.0,
+            response_format={"type": "json_object"}
+        )
+        
+        llm_output = json.loads(response.choices[0].message.content)
+        relevant_ids = set(llm_output.get("relevant_ids", []))
+        
+        logger_local.info(
+            f"🔍 WebinarSearch: query='{q}', candidates={len(candidates)}, "
+            f"relevant_after_rerank={len(relevant_ids)}"
+        )
+        
+        # Фильтруем и сохраняем порядок из LLM (relevant_ids — приоритет)
+        id_to_webinar = {w.id: w for w in candidates}
+        ranked_webinars = [id_to_webinar[wid] for wid in relevant_ids if wid in id_to_webinar]
+        
+    except Exception as e:
+        logger_local.error(f"❌ WebinarSearch: LLM re-ranking failed, returning all candidates: {e}")
+        ranked_webinars = candidates
+    
+    # Собираем ответ
+    output = []
+    for w in ranked_webinars:
+        d = WebinarLibraryResponse.model_validate(w).model_dump()
+        d["is_upcoming"] = False
+        output.append(d)
+    
+    return output
+
+
 @router.get("/library/{webinar_id}", response_model=WebinarLibraryResponse)
 async def get_library_webinar(
     webinar_id: int,
