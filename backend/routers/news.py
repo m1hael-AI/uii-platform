@@ -69,31 +69,6 @@ async def get_news_list(
         for n in news
     ]
 
-@router.get("/{news_id}", response_model=dict)
-async def get_news_item(
-    news_id: int,
-    db: AsyncSession = Depends(get_async_session)
-):
-    """
-    Получить новость по ID.
-    """
-    news = await db.get(NewsItem, news_id)
-    if not news:
-        raise HTTPException(status_code=404, detail="News item not found")
-        
-    return {
-        "id": news.id,
-        "title": news.title,
-        "content": news.content, # Markdown article
-        "summary": news.summary,
-        "published_at": news.published_at.isoformat() if news.published_at else None,
-        "status": news.status,
-        "tags": news.tags,
-        "source_urls": news.source_urls,
-        "updated_at": news.updated_at.isoformat() if news.updated_at else None
-    }
-
-
 # === AI Search Config ===
 _NEWS_SEARCH_RERANK_MODEL = "gpt-4.1-mini"
 _NEWS_SEARCH_VECTOR_LIMIT = 20
@@ -212,6 +187,31 @@ async def ai_search_news(
         }
         for n in ranked_news
     ]
+
+
+@router.get("/{news_id}", response_model=dict)
+async def get_news_item(
+    news_id: int,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """
+    Получить новость по ID.
+    """
+    news = await db.get(NewsItem, news_id)
+    if not news:
+        raise HTTPException(status_code=404, detail="News item not found")
+        
+    return {
+        "id": news.id,
+        "title": news.title,
+        "content": news.content,
+        "summary": news.summary,
+        "published_at": news.published_at.isoformat() if news.published_at else None,
+        "status": news.status,
+        "tags": news.tags,
+        "source_urls": news.source_urls,
+        "updated_at": news.updated_at.isoformat() if news.updated_at else None
+    }
 
 
 @router.post("/search", response_model=dict)
