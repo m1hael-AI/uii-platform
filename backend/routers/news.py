@@ -61,6 +61,7 @@ async def get_news_list(
             "id": n.id,
             "title": n.title,
             "summary": n.summary,
+            "image_url": n.image_url,
             "published_at": n.published_at.isoformat() if n.published_at else None,
             "status": n.status,
             "tags": n.tags,
@@ -125,6 +126,7 @@ async def ai_search_news(
                 "id": n.id,
                 "title": n.title,
                 "summary": n.summary,
+                "image_url": n.image_url,
                 "published_at": n.published_at.isoformat() if n.published_at else None,
                 "status": n.status,
                 "tags": n.tags,
@@ -258,7 +260,8 @@ async def search_fresh_news(
                     "published_at": n.published_at.isoformat() if n.published_at else None,
                     "status": n.status,
                     "tags": n.tags,
-                    "source_urls": n.source_urls
+                    "source_urls": n.source_urls,
+                    "image_url": n.image_url
                 }
                 for n in new_news
             ],
