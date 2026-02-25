@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+import sqlmodel
 
 
 # revision identifiers, used by Alembic.
@@ -43,10 +44,10 @@ def upgrade() -> None:
     op.create_index(op.f('ix_user_viewed_news_news_id'), 'user_viewed_news', ['news_id'], unique=False)
     op.create_index(op.f('ix_user_viewed_news_user_id'), 'user_viewed_news', ['user_id'], unique=False)
     op.create_index(op.f('ix_user_viewed_news_viewed_at'), 'user_viewed_news', ['viewed_at'], unique=False)
-    op.add_column('news_settings', sa.Column('foryou_enabled', sa.Boolean(), nullable=False))
-    op.add_column('news_settings', sa.Column('foryou_days_limit', sa.Integer(), nullable=False))
-    op.add_column('news_settings', sa.Column('foryou_vector_limit', sa.Integer(), nullable=False))
-    op.add_column('news_settings', sa.Column('foryou_rerank_prompt', sqlmodel.sql.sqltypes.AutoString(), nullable=False))
+    op.add_column('news_settings', sa.Column('foryou_enabled', sa.Boolean(), server_default=sa.text('true'), nullable=False))
+    op.add_column('news_settings', sa.Column('foryou_days_limit', sa.Integer(), server_default=sa.text('7'), nullable=False))
+    op.add_column('news_settings', sa.Column('foryou_vector_limit', sa.Integer(), server_default=sa.text('20'), nullable=False))
+    op.add_column('news_settings', sa.Column('foryou_rerank_prompt', sqlmodel.sql.sqltypes.AutoString(), server_default=sa.text("''"), nullable=False))
     op.alter_column('news_settings', 'news_chat_prompt',
                existing_type=sa.VARCHAR(),
                nullable=False)
