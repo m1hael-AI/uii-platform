@@ -12,6 +12,7 @@ interface NewsConfig {
         writer: string;
         news_chat_prompt: string;
         allowed_tags: string;
+        foryou_rerank_prompt: string;
     };
     schedule: {
         harvester_cron: string;
@@ -23,6 +24,9 @@ interface NewsConfig {
         dedup_threshold: number;
         generator_batch_size: number;
         generator_delay: number;
+        foryou_enabled: boolean;
+        foryou_days_limit: number;
+        foryou_vector_limit: number;
     };
     stats: {
         total_news: number;
@@ -320,6 +324,16 @@ export default function NewsAdminPage() {
                             tooltip="Этот промпт используется, когда пользователь нажимает 'Обсудить с AI'. Используйте {article_content} для вставки текста новости."
                         />
                     </div>
+
+                    <div className="pt-4 border-t border-gray-100">
+                        <PromptField
+                            label="Промпт для 'Для вас' (LLM Re-ranking)"
+                            value={config.prompts.foryou_rerank_prompt}
+                            onChange={(val) => updateConfig('prompts', 'foryou_rerank_prompt', val)}
+                            rows={12}
+                            tooltip="Используется для персональной ленты. Доступные параметры (не удалять!): {profile_text}, {news_json_list}, {days_limit}."
+                        />
+                    </div>
                 </div>
             )}
 
@@ -469,6 +483,59 @@ export default function NewsAdminPage() {
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Задержка между генерациями для снижения нагрузки на API. По умолчанию: 2</p>
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-100">
+                                <label className="flex items-center gap-3 cursor-pointer mb-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.settings.foryou_enabled}
+                                        onChange={(e) => setConfig({
+                                            ...config,
+                                            settings: { ...config.settings, foryou_enabled: e.target.checked }
+                                        })}
+                                        className="w-5 h-5 text-[#FF6B35] rounded focus:ring-[#FF6B35]"
+                                    />
+                                    <span className="font-medium">Включить персональную ленту 'Для вас' (LLM Re-ranking)</span>
+                                </label>
+
+                                <div className="space-y-4 pl-8 border-l-2 border-gray-100">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Лимит дней 'Для вас' (foryou_days_limit)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="30"
+                                            value={config.settings.foryou_days_limit}
+                                            onChange={(e) => setConfig({
+                                                ...config,
+                                                settings: { ...config.settings, foryou_days_limit: parseInt(e.target.value) }
+                                            })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">Ограничение свежести кандидатов для ленты в днях. По умолчанию: 7</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Лимит векторов 'Для вас' (foryou_vector_limit)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="5"
+                                            max="100"
+                                            value={config.settings.foryou_vector_limit}
+                                            onChange={(e) => setConfig({
+                                                ...config,
+                                                settings: { ...config.settings, foryou_vector_limit: parseInt(e.target.value) }
+                                            })}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">Максимум новостей, передаваемых LLM для реранкинга (из грубого фильтра). По умолчанию: 20</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

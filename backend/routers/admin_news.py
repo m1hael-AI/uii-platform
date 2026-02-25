@@ -92,7 +92,8 @@ async def get_news_config(
             "harvester_search_prompt": settings.harvester_search_prompt,
             "writer": settings.writer_prompt,
             "news_chat_prompt": settings.news_chat_prompt,
-            "allowed_tags": settings.allowed_tags
+            "allowed_tags": settings.allowed_tags,
+            "foryou_rerank_prompt": settings.foryou_rerank_prompt
         },
         "schedule": {
             "harvester_cron": settings.harvester_cron,
@@ -103,7 +104,10 @@ async def get_news_config(
         "settings": {
             "dedup_threshold": settings.dedup_threshold,
             "generator_batch_size": settings.generator_batch_size,
-            "generator_delay": settings.generator_delay
+            "generator_delay": settings.generator_delay,
+            "foryou_enabled": settings.foryou_enabled,
+            "foryou_days_limit": settings.foryou_days_limit,
+            "foryou_vector_limit": settings.foryou_vector_limit
         },
         "stats": {
             "total_news": total_news,
@@ -149,6 +153,8 @@ async def update_news_config(
             settings.news_chat_prompt = config["prompts"]["news_chat_prompt"]
         if "allowed_tags" in config["prompts"]:
             settings.allowed_tags = config["prompts"]["allowed_tags"]
+        if "foryou_rerank_prompt" in config["prompts"]:
+            settings.foryou_rerank_prompt = config["prompts"]["foryou_rerank_prompt"]
     
     # Update schedule
     if "schedule" in config:
@@ -169,6 +175,12 @@ async def update_news_config(
             settings.generator_batch_size = config["settings"]["generator_batch_size"]
         if "generator_delay" in config["settings"]:
             settings.generator_delay = config["settings"]["generator_delay"]
+        if "foryou_enabled" in config["settings"]:
+            settings.foryou_enabled = config["settings"]["foryou_enabled"]
+        if "foryou_days_limit" in config["settings"]:
+            settings.foryou_days_limit = config["settings"]["foryou_days_limit"]
+        if "foryou_vector_limit" in config["settings"]:
+            settings.foryou_vector_limit = config["settings"]["foryou_vector_limit"]
     
     # Update timestamp
     settings.updated_at = datetime.utcnow()

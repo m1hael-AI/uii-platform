@@ -894,6 +894,63 @@ RULES:
     generator_batch_size: int = Field(default=5, description="Максимум новостей для генерации за один запуск")
     generator_delay: int = Field(default=2, description="Задержка между генерациями в секундах")
     
+    # === For You Feed Settings ===
+    foryou_enabled: bool = Field(default=True, description="Включена ли персональная лента 'Для вас'")
+    foryou_days_limit: int = Field(default=7, description="Срок давности новостей (в днях) для попадания в ленту")
+    foryou_vector_limit: int = Field(default=20, description="Количество новостей, отбираемых векторами для передачи в LLM")
+    foryou_rerank_prompt: str = Field(
+        default="""You are an elite news curator.
+        
+Your task is to select the most relevant news articles for a user based on their profile.
+
+USER PROFILE:
+{profile_text}
+
+CANDIDATE NEWS (Last {days_limit} days):
+{news_json_list}
+
+INSTRUCTIONS:
+1. Carefully read the user profile and understand their specific interests, industry, and goals.
+2. Review the candidate news items.
+3. Select ONLY the news items that are deeply relevant to this specific user. 
+4. DO NOT feel obligated to select a specific amount. If only 3 are good, select 3. If 15 are great, select 15. Do not include irrelevant generalized news.
+5. Sort the selected IDs by relevance (most relevant first).
+
+Return a JSON object with a single key "selected_ids" containing an array of integers.
+Example: {{"selected_ids": [45, 12, 89]}}""",
+        description="Промпт для LLM Re-ranking ленты 'Для вас'. Доступные переменные: {profile_text}, {news_json_list}, {days_limit}"
+    )
+    
     # === Metadata ===
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Когда последний раз обновлялись настройки")
+
+
+class UserViewedNews(SQLModel, table=True):
+    """
+    Таблица для логирования прочитанных юзером новостей.
+    Используется для исключения прочитанного контента из ленты "Для вас".
+    """
+    __tablename__ = "user_viewed_news"
+    __table_args__ = (
+        UniqueConstraint("user_id", "news_id", name="uq_user_viewed_news"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    news_id: int = Field(foreign_key="news_items.id", index=True)
+    viewed_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+class UserNewsFeedCache(SQLModel, table=True):
+    """
+    Кэш персонализированной ленты новостей "Для вас" (LLM Re-ranking).
+    Хранит массив ID новостей, подобранных для юзера сегодня.
+    Сбрасывается/перезаписывается при первом запросе после 05:00 утра.
+    """
+    __tablename__ = "user_news_feed_cache"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", unique=True, index=True)
+    news_ids: List[int] = Field(sa_column=Column(JSON), description="Массив ID новостей из news_items")
+    generated_at: datetime = Field(default_factory=datetime.utcnow, description="Время генерации этой подборки")
 

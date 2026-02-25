@@ -12,6 +12,7 @@ from database import get_async_session
 from models import User, NewsItem, NewsStatus
 from dependencies import get_current_user, check_news_rate_limit
 from services.news.manager import NewsManager
+from services.news.feed_service import FeedService
 from services.audit_service import fire_and_forget_audit
 
 
@@ -41,15 +42,9 @@ async def get_news_list(
         news = await manager.search_local_news(query=q, limit=limit)
         
     elif type == "foryou":
-        # Personalized feed (no status filter support yet, usually returns all valid)
-        news = await manager.get_personalized_news(user_id=user.id, limit=limit)
-        # Offset logic is hard with personalization (re-ranking), 
-        # for now simplistic slice or just ignore offset in manager (manager limit handles top N)
-        # But `get_personalized_news` returns limit items. 
-        # Pagination in personalization is complex. Let's assume infinite scroll just asks for next page?
-        # Actually simplest is: Manager returns top N. If offset > 0, we might miss things or see dupes if re-ranked.
-        # MVP: "For You" ignores offset or we implement detailed pagination later. 
-        # Current manager impl ignores offset.
+        # Personalized feed using LLM Re-ranking + Cache
+        feed_service = FeedService(db)
+        news = await feed_service.get_for_you_feed(user_id=user.id)
         
     else:
         # Standard feed
@@ -212,14 +207,23 @@ async def ai_search_news(
 @router.get("/{news_id}", response_model=dict)
 async def get_news_item(
     news_id: int,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_current_user)
 ):
     """
-    Получить новость по ID.
+    Получить новость по ID и отметить её как прочитанную.
     """
     news = await db.get(NewsItem, news_id)
     if not news:
         raise HTTPException(status_code=404, detail="News item not found")
+        
+    # Отмечаем как прочитанную для ленты "Для вас"
+    try:
+        from services.news.feed_service import FeedService
+        feed_service = FeedService(db)
+        await feed_service.mark_news_as_viewed(user_id=user.id, news_id=news.id)
+    except Exception as e:
+        logger.error(f"Failed to mark news {news_id} as viewed for user {user.id}: {e}")
         
     return {
         "id": news.id,
