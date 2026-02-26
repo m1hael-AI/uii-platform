@@ -48,6 +48,7 @@ async def sync_prompts():
                 harvester_search_prompt = news_agent_config.get("harvester_search_prompt", ""),
                 writer_prompt = news_agent_config.get("writer", {}).get("system_prompt", ""),
                 news_chat_prompt = news_analyst_config.get("system_prompt", ""),
+                foryou_rerank_prompt = news_agent_config.get("foryou_rerank_prompt", ""),
                 allowed_tags = news_agent_config.get("allowed_tags", "AI, LLM, Robotics, Hardware, Startups, Policy, Science, Business, Generative AI, Computer Vision, NLP, MLOps, Data Science"),
                 updated_at = datetime.utcnow()
             )
@@ -69,6 +70,9 @@ async def sync_prompts():
 
             if "allowed_tags" in news_agent_config:
                 settings.allowed_tags = news_agent_config["allowed_tags"]
+
+            if "foryou_rerank_prompt" in news_agent_config:
+                settings.foryou_rerank_prompt = news_agent_config["foryou_rerank_prompt"]
                 
             settings.updated_at = datetime.utcnow()
             session.add(settings)
