@@ -679,6 +679,28 @@ async def chat_completions(
     system_prompt = system_prompt.replace("{user_agent_profile}", local_profile)
     system_prompt = system_prompt.replace("{local_summary}", local_profile) # Legacy support
 
+    # 1.0 Available Agents Injection (Only for main_assistant)
+    if agent_slug == "main_assistant":
+        try:
+            agents_res = await db.execute(
+                select(Agent)
+                .where(Agent.is_active == True)
+                .where(Agent.slug.notin_(["ai_tutor", "news_analyst", "main_assistant"]))
+                .order_by(Agent.name)
+            )
+            available_agents = agents_res.scalars().all()
+            
+            if available_agents:
+                agents_context = "\n\n=== ДОСТУПНЫЕ AI-АГЕНТЫ НА ПЛАТФОРМЕ ===\n"
+                agents_context += "Ниже представлен список доступных специализированных агентов. Если вопрос пользователя выходит за твои компетенции или лучше подходит узкому специалисту, порекомендуй ему обратиться к соответствующему агенту.\n\n"
+                for a in available_agents:
+                    desc = a.description or "Нет описания"
+                    agents_context += f"- Имя: {a.name}\n  Специализация: {desc}\n"
+                
+                system_prompt += agents_context
+        except Exception as e:
+            logger.error(f"⚠️ Failed to inject available agents: {e}")
+
     # 1.1 Platform Context (Static)
     if "{platform_context}" in system_prompt:
         system_prompt = system_prompt.replace("{platform_context}", PLATFORM_CONTEXT)
