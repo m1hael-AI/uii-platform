@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
 interface LLMAuditLog {
@@ -22,6 +23,7 @@ interface LLMAuditLog {
 }
 
 export default function LLMAuditPage() {
+    const router = useRouter();
     const [logs, setLogs] = useState<LLMAuditLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -75,7 +77,7 @@ export default function LLMAuditPage() {
         <div className="space-y-6">
             {/* Header with Breadcrumbs */}
             <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                <span className="text-gray-400 cursor-pointer hover:text-black" onClick={() => window.location.href = "/system-control"}>
+                <span className="text-gray-400 cursor-pointer hover:text-black" onClick={() => router.push("/system-control")}>
                     System Control
                 </span>
                 <span className="text-gray-300">/</span>
