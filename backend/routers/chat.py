@@ -241,8 +241,8 @@ async def ensure_initial_sessions(db: AsyncSession, user_id: int):
                 
                 # Update session timestamps
                 new_session.last_message_at = datetime.utcnow()
-                # Mark as UNREAD by setting last_read_at to old date
-                new_session.last_read_at = datetime(2000, 1, 1) 
+                # Initial greeting should be marked as read to prevent notification spam
+                new_session.last_read_at = new_session.last_message_at
                 
         except Exception as e:
             logger.error(f"Error creating initial session for {slug}: {e}")
@@ -581,8 +581,10 @@ async def chat_completions(
         )
         db.add(user_db_msg)
         
-        # ⏰ Update last_message_at for proactivity timer
-        chat_session.last_message_at = datetime.utcnow()
+        # ⏰ Update last_message_at for proactivity timer and auto-read user's own message
+        now_utc = datetime.utcnow()
+        chat_session.last_message_at = now_utc
+        chat_session.last_read_at = now_utc
         
         # 🔪 Kill Switch: Delete pending proactive tasks for this agent
         # If user initiates conversation, we don't need to send proactive message

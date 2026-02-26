@@ -59,7 +59,6 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                 const sessionMap: Record<string, any> = {};
                 sessionsData.forEach((s: any) => {
                     const isActive = window.location.pathname.includes(`/chat/${s.agent_id}`);
-                    if (isActive) s.has_unread = false;
                     sessionMap[s.agent_id] = s;
                 });
                 setSessions(sessionMap);
