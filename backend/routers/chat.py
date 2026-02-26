@@ -970,7 +970,11 @@ async def get_unread_status(
 
     # 1. Check Agent sessions
     # We need detailed info for the frontend to decide where to route (agent vs assistant)
-    q = select(ChatSession).where(
+    from backend.models import Agent # Local import to avoid circular dependency if any
+    
+    q = select(ChatSession).join(
+        Agent, ChatSession.agent_slug == Agent.slug
+    ).where(
         ChatSession.user_id == current_user.id,
         ChatSession.is_active == True,
         ChatSession.schedule_id == None,
