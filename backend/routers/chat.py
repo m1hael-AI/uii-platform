@@ -978,7 +978,9 @@ async def get_unread_status(
         ChatSession.user_id == current_user.id,
         ChatSession.is_active == True,
         ChatSession.schedule_id == None,
-        ChatSession.library_id == None
+        ChatSession.library_id == None,
+        Agent.is_active == True,
+        Agent.slug.notin_(["ai_tutor", "news_analyst"])
     )
     res = await db.execute(q)
     sessions = res.scalars().all()
