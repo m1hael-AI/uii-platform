@@ -215,7 +215,11 @@ async def send_to_telegram(user: User, agent: Agent, message_text: str) -> None:
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         
         # Deep Link to specific agent chat
-        chat_url = f"{app_settings.frontend_url}/platform/chat?agent={agent.slug}"
+        # main_assistant lives in the right sidebar, not in the main chat area
+        if agent.slug == "main_assistant":
+            chat_url = f"{app_settings.frontend_url}/platform?assistant=open"
+        else:
+            chat_url = f"{app_settings.frontend_url}/platform/chat?agent={agent.slug}"
         
         # Truncate for preview (avoid "wall of text")
         preview_text = message_text
